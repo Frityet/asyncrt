@@ -1,0 +1,8 @@
+build/
+.cache/
+notes/
+AGENTS.md
+compile_commands.json
+xmake-docs.txt
+.xmake/
+
