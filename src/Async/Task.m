@@ -9,7 +9,7 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 - (instancetype)initWithTask: (Task *)task
 {
-    self = [super initWithFuture: task];
+    self = [super initWithPromise: task];
     _task = task;
     return self;
 }
@@ -25,7 +25,7 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 - (instancetype)initWithTask: (Task *)task
 {
-    self = [super initWithFuture: task];
+    self = [super initWithPromise: task];
     _task = task;
     return self;
 }

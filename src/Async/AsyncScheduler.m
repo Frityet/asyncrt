@@ -10,16 +10,16 @@ static size_t const async_default_drain_batch_size = 64;
 static void async_link_support_categories(void)
 {
     async_link_scoped_lock_support();
-    async_link_objfw_future_categories();
+    async_link_objfw_promise_categories();
 }
 
 @interface AsyncOffloadJob : OFObject
 
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
-@property(readonly, nonatomic) FutureResolver<id> *resolver;
+@property(readonly, nonatomic) PromiseResolver<id> *resolver;
 @property(readonly, nonatomic) id (^block)(void);
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (FutureResolver<id> *)resolver block: (id (^)(void))block OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block OF_DESIGNATED_INITIALIZER;
 - (void)perform;
 
 @end
@@ -29,7 +29,7 @@ static void async_link_support_categories(void)
 @property(readonly, nonatomic) size_t maxWorkerCount;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount OF_DESIGNATED_INITIALIZER;
-- (void)enqueueBlock: (id (^)(void))block resolver: (FutureResolver<id> *)resolver;
+- (void)enqueueBlock: (id (^)(void))block resolver: (PromiseResolver<id> *)resolver;
 - (void)shutdown;
 
 @end
@@ -289,7 +289,7 @@ static size_t async_default_worker_count(void)
         [_activeTasks removeObject: task];
         [_queuedTasks removeObject: task];
         _completedTaskCount++;
-        if (task.status == FutureStatus_REJECTED and [task.rejectionException isKindOfClass: TaskCancelledException.class])
+        if (task.status == PromiseStatus_REJECTED and [task.rejectionException isKindOfClass: TaskCancelledException.class])
             _cancelledTaskCount++;
     }];
 }
@@ -399,36 +399,36 @@ static size_t async_default_worker_count(void)
         [self _scheduleDrainTimer];
 }
 
-- (Future *)sleepForTimeInterval: (OFTimeInterval)timeInterval
+- (Promise *)sleepForTimeInterval: (OFTimeInterval)timeInterval
 {
     if (timeInterval <= 0)
-        return [Future resolved: AsyncUnit.unit];
+        return [Promise resolved: AsyncUnit.unit];
 
-    auto resolver = [[FutureResolver alloc] init];
+    auto resolver = [[PromiseResolver alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: timeInterval] interval: 0 target: resolver selector: @selector(resolve:) object: AsyncUnit.unit repeats: false];
     [self.runLoop addTimer: timer forMode: self.mode];
     return resolver.future;
 }
 
-- (Future *)sleepUntilDate: (OFDate *)date
+- (Promise *)sleepUntilDate: (OFDate *)date
 {
     if ([date compare: OFDate.date] != OFOrderedDescending)
-        return [Future resolved: AsyncUnit.unit];
+        return [Promise resolved: AsyncUnit.unit];
 
-    auto resolver = [[FutureResolver alloc] init];
+    auto resolver = [[PromiseResolver alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: date interval: 0 target: resolver selector: @selector(resolve:) object: AsyncUnit.unit repeats: false];
     [self.runLoop addTimer: timer forMode: self.mode];
     return resolver.future;
 }
 
-- (Future<id> *)offload: (id (^)(void))block
+- (Promise<id> *)offload: (id (^)(void))block
 {
     [_lock scopedLock: ^{
         if (_shutdown)
             @throw [OFInvalidArgumentException exception];
     }];
 
-    auto resolver = [[FutureResolver alloc] init];
+    auto resolver = [[PromiseResolver alloc] init];
     [_workerPool enqueueBlock: block resolver: resolver];
     return resolver.future;
 }
@@ -494,7 +494,7 @@ static size_t async_default_worker_count(void)
 
 @implementation AsyncOffloadJob {
     AsyncScheduler *_scheduler;
-    FutureResolver<id> *_resolver;
+    PromiseResolver<id> *_resolver;
     id (^_block)(void);
 }
 
@@ -502,7 +502,7 @@ static size_t async_default_worker_count(void)
 @synthesize resolver = _resolver;
 @synthesize block = _block;
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (FutureResolver<id> *)resolver block: (id (^)(void))block
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block
 {
     self = [super init];
     _scheduler = scheduler;
@@ -526,8 +526,7 @@ static size_t async_default_worker_count(void)
         exception = caughtException;
     }
 
-    auto timer = [[OFTimer alloc] initWithFireDate: OFDate.date interval: 0 repeats: false block: ^(OFTimer *unusedTimer) {
-        (void)unusedTimer;
+    auto timer = [[OFTimer alloc] initWithFireDate: OFDate.date interval: 0 repeats: false block: ^(OFTimer *) {
         if (exception != nilptr)
             [resolver reject: $assert_nonnil(exception)];
         else
@@ -596,7 +595,7 @@ static size_t async_default_worker_count(void)
     [self shutdown];
 }
 
-- (void)enqueueBlock: (id (^)(void))block resolver: (FutureResolver<id> *)resolver
+- (void)enqueueBlock: (id (^)(void))block resolver: (PromiseResolver<id> *)resolver
 {
     auto job = [[AsyncOffloadJob alloc] initWithScheduler: _scheduler resolver: resolver block: block];
 

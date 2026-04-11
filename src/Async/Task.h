@@ -1,6 +1,6 @@
 #pragma once
 
-#import "Async/Future.h"
+#import "Async/Promise.h"
 
 #pragma clang assume_nonnull begin
 
@@ -15,7 +15,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
     AsyncTaskExecutionState_RESOLVED
 };
 
-@interface TaskReturnedNilException : FutureException {
+@interface TaskReturnedNilException : PromiseException {
 @private
     unretained Task *nillable _task;
 }
@@ -23,12 +23,12 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
 @property(readonly, nonatomic) Task *nillable task;
 
 - (instancetype)initWithTask: (Task *)task OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithFuture: (Future *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface TaskCancelledException : FutureException {
+@interface TaskCancelledException : PromiseException {
 @private
     unretained Task *nillable _task;
 }
@@ -36,12 +36,12 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
 @property(readonly, nonatomic) Task *nillable task;
 
 - (instancetype)initWithTask: (Task *)task OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithFuture: (Future *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface Task<__covariant T> : Future<T>
+@interface Task<__covariant T> : Promise<T>
 
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) AsyncScope *nillable scope;

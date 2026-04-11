@@ -42,10 +42,10 @@
 
 @namespace(AsyncRuntimeTestSupport)
 
-+ (Future<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
++ (Promise<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
                                                 seconds: (OFTimeInterval)seconds
                                                   value: (OFString *)value;
-+ (Future<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
++ (Promise<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
                                                 seconds: (OFTimeInterval)seconds
                                               exception: (OFException *)exception;
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot;
@@ -70,7 +70,7 @@
 
 @interface CrossThreadResolverThread : OFThread
 
-- (instancetype)initWithResolver: (FutureResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay OF_DESIGNATED_INITIALIZER;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

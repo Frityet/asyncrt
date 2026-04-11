@@ -1,13 +1,13 @@
 #pragma once
 
 #import "Async/AsyncScheduler.h"
-#import "Async/Future.h"
+#import "Async/Promise.h"
 #import "Async/AsyncUnit.h"
 #import "Utilities/Optional.h"
 
 #pragma clang assume_nonnull begin
 
-@interface FutureObjFWOperationException : FutureException {
+@interface PromiseObjFWOperationException : PromiseException {
 @private
     id _object;
     OFString *_operation;
@@ -16,30 +16,30 @@
 @property(readonly, nonatomic) id object;
 @property(readonly, nonatomic) OFString *operation;
 
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithFuture: (Future *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface FutureObjFWInvalidCompletionException : FutureObjFWOperationException {
+@interface PromiseObjFWInvalidCompletionException : PromiseObjFWOperationException {
 @private
     OFString *_reason;
 }
 
 @property(readonly, nonatomic) OFString *reason;
 
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation reason: (OFString *)reason OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation OF_UNAVAILABLE;
-- (instancetype)initWithFuture: (Future *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation reason: (OFString *)reason OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface FutureObjFWOperationCancelledException : FutureObjFWOperationException
+@interface PromiseObjFWOperationCancelledException : PromiseObjFWOperationException
 
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithFuture: (Future *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -87,15 +87,15 @@
 @end
 #endif
 
-@interface AsyncObjFWFutureBridge : OFObject
+@interface AsyncObjFWPromiseBridge : OFObject
 
 @property(readonly, nonatomic) id object;
 @property(readonly, nonatomic) OFString *operation;
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
-@property(readonly, nonatomic) FutureResolver<id> *resolver;
+@property(readonly, nonatomic) PromiseResolver<id> *resolver;
 @property(readonly, nonatomic, getter=isStarted) bool started;
 
-- (instancetype)initWithObject: (id)object operation: (OFString *)operation scheduler: (AsyncScheduler *)scheduler resolver: (FutureResolver<id> *)resolver startBlock: (void (^)(AsyncObjFWFutureBridge *bridge))startBlock cancelBlock: (void (^ nillable)(AsyncObjFWFutureBridge *bridge))cancelBlock OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithObject: (id)object operation: (OFString *)operation scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver startBlock: (void (^)(AsyncObjFWPromiseBridge *bridge))startBlock cancelBlock: (void (^ nillable)(AsyncObjFWPromiseBridge *bridge))cancelBlock OF_DESIGNATED_INITIALIZER;
 - (instancetype)init OF_UNAVAILABLE;
 - (void)start;
 - (void)cancel;
@@ -108,11 +108,11 @@
 @namespace(AsyncObjFWSupport)
 
 + (void)scheduleOnScheduler: (AsyncScheduler *)scheduler target: (id)target selector: (SEL)selector;
-+ (void)attachCancellationBridgeToFuture: (Future *)future cancelOnTaskCancellation: (bool)cancelOnTaskCancellation bridge: (AsyncObjFWFutureBridge *)bridge;
++ (void)attachCancellationBridgeToPromise: (Promise *)future cancelOnTaskCancellation: (bool)cancelOnTaskCancellation bridge: (AsyncObjFWPromiseBridge *)bridge;
 + (OFData *)copySocketAddressData: (const OFSocketAddress *)socketAddress;
 
 @end
 
-void async_link_objfw_future_categories(void);
+void async_link_objfw_promise_categories(void);
 
 #pragma clang assume_nonnull end

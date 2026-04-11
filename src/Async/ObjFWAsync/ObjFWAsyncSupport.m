@@ -1,20 +1,20 @@
 #import "Async/AsyncRuntimeInternal.h"
 
-void async_link_objfw_ofstream_future_category(void);
-void async_link_objfw_ofstreamsocket_future_category(void);
-void async_link_objfw_ofdatagramsocket_future_category(void);
-void async_link_objfw_ofsequencedpacketsocket_future_category(void);
-void async_link_objfw_oftcpsocket_future_category(void);
-void async_link_objfw_oftlsstream_future_category(void);
-void async_link_objfw_ofdnsresolver_future_category(void);
-void async_link_objfw_ofirihandler_future_category(void);
-void async_link_objfw_ofhttpclient_future_category(void);
+void async_link_objfw_ofstream_promise_category(void);
+void async_link_objfw_ofstreamsocket_promise_category(void);
+void async_link_objfw_ofdatagramsocket_promise_category(void);
+void async_link_objfw_ofsequencedpacketsocket_promise_category(void);
+void async_link_objfw_oftcpsocket_promise_category(void);
+void async_link_objfw_oftlsstream_promise_category(void);
+void async_link_objfw_ofdnsresolver_promise_category(void);
+void async_link_objfw_ofirihandler_promise_category(void);
+void async_link_objfw_ofhttpclient_promise_category(void);
 #ifdef OF_HAVE_SCTP
-void async_link_objfw_ofsctpsocket_future_category(void);
+void async_link_objfw_ofsctpsocket_promise_category(void);
 #endif
 #ifdef OF_HAVE_IPX
-void async_link_objfw_ofspxsocket_future_category(void);
-void async_link_objfw_ofspxstreamsocket_future_category(void);
+void async_link_objfw_ofspxsocket_promise_category(void);
+void async_link_objfw_ofspxstreamsocket_promise_category(void);
 #endif
 
 #pragma clang assume_nonnull begin
@@ -27,11 +27,11 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 
 @end
 
-@implementation FutureObjFWOperationException
+@implementation PromiseObjFWOperationException
 
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation
 {
-    self = [super initWithFuture: future];
+    self = [super initWithPromise: future];
     _object = object;
     _operation = [operation copy];
     return self;
@@ -39,37 +39,37 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"FutureObjFWOperationException: %@ %@ on %@", DescribeFuture(self.future), self.operation, self.object];
+    return [OFString stringWithFormat: @"PromiseObjFWOperationException: %@ %@ on %@", DescribePromise(self.future), self.operation, self.object];
 }
 
 @end
 
-@implementation FutureObjFWInvalidCompletionException
+@implementation PromiseObjFWInvalidCompletionException
 
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation reason: (OFString *)reason
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation reason: (OFString *)reason
 {
-    self = [super initWithFuture: future object: object operation: operation];
+    self = [super initWithPromise: future object: object operation: operation];
     _reason = [reason copy];
     return self;
 }
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"FutureObjFWInvalidCompletionException: %@ %@ on %@ completed invalidly: %@", DescribeFuture(self.future), self.operation, self.object, self.reason];
+    return [OFString stringWithFormat: @"PromiseObjFWInvalidCompletionException: %@ %@ on %@ completed invalidly: %@", DescribePromise(self.future), self.operation, self.object, self.reason];
 }
 
 @end
 
-@implementation FutureObjFWOperationCancelledException
+@implementation PromiseObjFWOperationCancelledException
 
-- (instancetype)initWithFuture: (Future *)future object: (id)object operation: (OFString *)operation
+- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation
 {
-    return [super initWithFuture: future object: object operation: operation];
+    return [super initWithPromise: future object: object operation: operation];
 }
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"FutureObjFWOperationCancelledException: %@ cancelled %@ on %@", DescribeFuture(self.future), self.operation, self.object];
+    return [OFString stringWithFormat: @"PromiseObjFWOperationCancelledException: %@ cancelled %@ on %@", DescribePromise(self.future), self.operation, self.object];
 }
 
 @end
@@ -122,10 +122,10 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 @end
 #endif
 
-@implementation AsyncObjFWFutureBridge {
+@implementation AsyncObjFWPromiseBridge {
     OFMutex *_lock;
-    void (^_startBlock)(AsyncObjFWFutureBridge *bridge);
-    void (^nillable _cancelBlock)(AsyncObjFWFutureBridge *bridge);
+    void (^_startBlock)(AsyncObjFWPromiseBridge *bridge);
+    void (^nillable _cancelBlock)(AsyncObjFWPromiseBridge *bridge);
     bool _started;
     bool _completed;
 }
@@ -136,7 +136,7 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 @synthesize resolver = _resolver;
 @synthesize started = _started;
 
-- (instancetype)initWithObject: (id)object operation: (OFString *)operation scheduler: (AsyncScheduler *)scheduler resolver: (FutureResolver<id> *)resolver startBlock: (void (^)(AsyncObjFWFutureBridge *bridge))startBlock cancelBlock: (void (^ nillable)(AsyncObjFWFutureBridge *bridge))cancelBlock
+- (instancetype)initWithObject: (id)object operation: (OFString *)operation scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver startBlock: (void (^)(AsyncObjFWPromiseBridge *bridge))startBlock cancelBlock: (void (^ nillable)(AsyncObjFWPromiseBridge *bridge))cancelBlock
 {
     self = [super init];
     _object = object;
@@ -154,7 +154,7 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 - (void)start
 {
     block_reference bool shouldStart = false;
-    block_reference void (^startBlock)(AsyncObjFWFutureBridge *bridge) = nilptr;
+    block_reference void (^startBlock)(AsyncObjFWPromiseBridge *bridge) = nilptr;
 
     [_lock scopedLock: ^{
         if (not _completed and not _started) {
@@ -179,7 +179,7 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 {
     block_reference bool shouldCancel = false;
     block_reference bool started = false;
-    block_reference void (^nillable cancelBlock)(AsyncObjFWFutureBridge *bridge) = nilptr;
+    block_reference void (^nillable cancelBlock)(AsyncObjFWPromiseBridge *bridge) = nilptr;
 
     [_lock scopedLock: ^{
         if (not _completed) {
@@ -195,7 +195,7 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
     if (not shouldCancel)
         return;
 
-    [_resolver reject: [[FutureObjFWOperationCancelledException alloc] initWithFuture: _resolver.future object: _object operation: _operation]];
+    [_resolver reject: [[PromiseObjFWOperationCancelledException alloc] initWithPromise: _resolver.future object: _object operation: _operation]];
 
     if (started and cancelBlock != nilptr)
         cancelBlock(self);
@@ -237,7 +237,7 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 
 - (void)rejectInvalidCompletionWithReason: (OFString *)reason
 {
-    [self reject: [[FutureObjFWInvalidCompletionException alloc] initWithFuture: self.resolver.future object: self.object operation: self.operation reason: reason]];
+    [self reject: [[PromiseObjFWInvalidCompletionException alloc] initWithPromise: self.resolver.future object: self.object operation: self.operation reason: reason]];
 }
 
 @end
@@ -264,23 +264,23 @@ void async_link_objfw_ofspxstreamsocket_future_category(void);
 
 @end
 
-void async_link_objfw_future_categories(void)
+void async_link_objfw_promise_categories(void)
 {
-    async_link_objfw_ofstream_future_category();
-    async_link_objfw_ofstreamsocket_future_category();
-    async_link_objfw_ofdatagramsocket_future_category();
-    async_link_objfw_ofsequencedpacketsocket_future_category();
-    async_link_objfw_oftcpsocket_future_category();
-    async_link_objfw_oftlsstream_future_category();
-    async_link_objfw_ofdnsresolver_future_category();
-    async_link_objfw_ofirihandler_future_category();
-    async_link_objfw_ofhttpclient_future_category();
+    async_link_objfw_ofstream_promise_category();
+    async_link_objfw_ofstreamsocket_promise_category();
+    async_link_objfw_ofdatagramsocket_promise_category();
+    async_link_objfw_ofsequencedpacketsocket_promise_category();
+    async_link_objfw_oftcpsocket_promise_category();
+    async_link_objfw_oftlsstream_promise_category();
+    async_link_objfw_ofdnsresolver_promise_category();
+    async_link_objfw_ofirihandler_promise_category();
+    async_link_objfw_ofhttpclient_promise_category();
 #ifdef OF_HAVE_SCTP
-    async_link_objfw_ofsctpsocket_future_category();
+    async_link_objfw_ofsctpsocket_promise_category();
 #endif
 #ifdef OF_HAVE_IPX
-    async_link_objfw_ofspxsocket_future_category();
-    async_link_objfw_ofspxstreamsocket_future_category();
+    async_link_objfw_ofspxsocket_promise_category();
+    async_link_objfw_ofspxstreamsocket_promise_category();
 #endif
 }
 
@@ -288,12 +288,12 @@ void async_link_objfw_future_categories(void)
 
 + (void)scheduleOnScheduler: (AsyncScheduler *)scheduler target: (id)target selector: (SEL)selector
 {
-    OFDate *fireDate = [[OFDate alloc] initWithTimeIntervalSinceNow: 0];
-    OFTimer *timer = [[OFTimer alloc] initWithFireDate: fireDate interval: 0 target: target selector: selector repeats: false];
+    auto fireDate = [[OFDate alloc] initWithTimeIntervalSinceNow: 0];
+    auto timer = [[OFTimer alloc] initWithFireDate: fireDate interval: 0 target: target selector: selector repeats: false];
     [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
 }
 
-+ (void)attachCancellationBridgeToFuture: (Future *)future cancelOnTaskCancellation: (bool)cancelOnTaskCancellation bridge: (AsyncObjFWFutureBridge *)bridge
++ (void)attachCancellationBridgeToPromise: (Promise *)future cancelOnTaskCancellation: (bool)cancelOnTaskCancellation bridge: (AsyncObjFWPromiseBridge *)bridge
 {
     if (cancelOnTaskCancellation)
         [future _setPendingCancellationCallback: ^{ [bridge cancel]; }];

@@ -4,11 +4,11 @@
 
 @namespace_implementation(AsyncRuntimeTestSupport)
 
-+ (Future<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
++ (Promise<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
                                                 seconds: (OFTimeInterval)seconds
                                                   value: (OFString *)value
 {
-    auto resolver = [[FutureResolver<OFString *> alloc] init];
+    auto resolver = [[PromiseResolver<OFString *> alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: seconds]
                                           interval: 0
                                             target: resolver
@@ -19,11 +19,11 @@
     return resolver.future;
 }
 
-+ (Future<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
++ (Promise<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
                                                 seconds: (OFTimeInterval)seconds
                                               exception: (OFException *)exception
 {
-    auto resolver = [[FutureResolver<OFString *> alloc] init];
+    auto resolver = [[PromiseResolver<OFString *> alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: seconds]
                                           interval: 0
                                             target: resolver
@@ -80,12 +80,12 @@
 @implementation TestRejectionException @end
 
 @implementation CrossThreadResolverThread {
-    FutureResolver<OFString *> *_resolver;
+    PromiseResolver<OFString *> *_resolver;
     OFString *_value;
     OFTimeInterval _delay;
 }
 
-- (instancetype)initWithResolver: (FutureResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay
+- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay
 {
     self = [super init];
     _resolver = resolver;
@@ -195,8 +195,7 @@
         wakeSocket = [[OFTCPSocket alloc] init];
         [wakeSocket connectToHost: @"127.0.0.1" port: self.port];
         [wakeSocket close];
-    } @catch (OFException *unusedException) {
-        (void)unusedException;
+    } @catch (OFException *) {
     }
 
     if (_acceptThread != nilptr)
@@ -204,8 +203,7 @@
 
     @try {
         [_listener close];
-    } @catch (OFException *unusedException) {
-        (void)unusedException;
+    } @catch (OFException *) {
     }
 
     for (OFThread *thread in handlerThreads)
@@ -245,8 +243,7 @@
             if (_stopping) {
                 @try {
                     [acceptedSocket close];
-                } @catch (OFException *unusedException) {
-                    (void)unusedException;
+                } @catch (OFException *) {
                 }
 
                 return;
@@ -299,13 +296,11 @@
         bodyUTF8String = body.UTF8String;
         response = [OFString stringWithFormat: @"HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n%@", strlen(bodyUTF8String), body];
         [acceptedSocket writeString: response];
-    } @catch (OFException *unusedException) {
-        (void)unusedException;
+    } @catch (OFException *) {
     } @finally {
         @try {
             [acceptedSocket close];
-        } @catch (OFException *unusedException) {
-            (void)unusedException;
+        } @catch (OFException *) {
         }
     }
 }

@@ -291,23 +291,6 @@
     }
 }
 
-+ (Class nillable)_classFromGetterEncoding: (const char *nillable)typeEncoding
-{
-    if (typeEncoding == nullptr or *typeEncoding == '\0')
-        return nullptr;
-
-    const char *methodTypes = typeEncoding;
-    auto signature = [OFMethodSignature signatureWithObjCTypes: methodTypes];
-    const char *returnType = signature.methodReturnType;
-
-    while (*returnType == 'r' or *returnType == 'n' or *returnType == 'N' or
-           *returnType == 'o' or *returnType == 'O' or *returnType == 'R' or
-           *returnType == 'V')
-        returnType++;
-
-    return [self _classFromQuotedObjectEncoding: returnType];
-}
-
 + (Class nillable)_classFromIvarsOnClass: (Class)class_
                             propertyName: (OFString *)propertyName
 {
@@ -342,7 +325,7 @@
     Class propertyClass = nullptr;
 
     @try {
-        propertyClass = [self _classFromGetterEncoding: typeEncoding];
+        propertyClass = [self _classFromQuotedObjectEncoding: typeEncoding];
     } @finally {
         free(typeEncoding);
     }

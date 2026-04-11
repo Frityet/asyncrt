@@ -9,8 +9,8 @@ extern thread_local unretained Task *nillable async_current_task;
 extern thread_local unretained AsyncScheduler *nillable async_current_scheduler;
 extern thread_local unretained AsyncScope *nillable async_current_scope;
 
-OFString *FutureStatusToString(enum FutureStatus status);
-OFString *DescribeFuture(Future *nillable future);
+OFString *PromiseStatusToString(enum PromiseStatus status);
+OFString *DescribePromise(Promise *nillable future);
 OFString *DescribeScheduler(AsyncScheduler *nillable scheduler);
 OFString *TaskExecutionStateToString(enum AsyncTaskExecutionState state);
 void AsyncRetainForTSAN(id nillable object);
@@ -31,7 +31,7 @@ void AsyncRetainForTSAN(id nillable object);
 @end
 
 @class AsyncTaskWaitRegistration;
-@class AsyncFutureWaitRegistration;
+@class AsyncPromiseWaitRegistration;
 
 @interface AsyncTaskWaitRegistration : OFObject {
 @protected
@@ -70,13 +70,13 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-@interface Future ()
+@interface Promise ()
 
 - (instancetype)_initInternal;
 - (void)_resolveWithValue: (id)value;
 - (void)_rejectWithException: (OFException *)exception;
-- (void)_addWaitRegistration: (AsyncFutureWaitRegistration *)registration;
-- (void)_removeWaitRegistration: (AsyncFutureWaitRegistration *)registration;
+- (void)_addWaitRegistration: (AsyncPromiseWaitRegistration *)registration;
+- (void)_removeWaitRegistration: (AsyncPromiseWaitRegistration *)registration;
 - (void)_setPendingCancellationCallback: (void (^)(void))cancellationCallback;
 
 @end

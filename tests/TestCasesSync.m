@@ -8,7 +8,7 @@ static void default_scheduler_lifecycle(void)
     AsyncScheduler *sameScheduler = AsyncScheduler.defaultScheduler;
     block_reference AsyncScheduler *otherThreadScheduler = nilptr;
 
-    OFThread *thread = [[OFThread alloc] initWithBlock: ^id {
+    auto thread = [[OFThread alloc] initWithBlock: ^id {
         otherThreadScheduler = AsyncScheduler.defaultScheduler;
         [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
         return nilptr;
@@ -32,7 +32,7 @@ static void default_scheduler_lifecycle(void)
 
 static void coroutine_roundtrip_states(void)
 {
-    Coroutine<OFString *> *roundtripCoroutine = [[Coroutine alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
+    auto roundtripCoroutine = [[Coroutine<OFString *> alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
         [co yield: @"yield-1"];
         [co yield: @"yield-2"];
         return @"done";
@@ -54,7 +54,7 @@ static void coroutine_roundtrip_states(void)
 static void coroutine_return_short_circuits(void)
 {
     block_reference bool reachedAfterEarlyReturn = false;
-    Coroutine<OFString *> *earlyReturnCoroutine = [[Coroutine alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
+    auto earlyReturnCoroutine = [[Coroutine<OFString *> alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
         [co yield: @"before-return"];
         [co return: @"returned-early"];
         reachedAfterEarlyReturn = true;
@@ -69,7 +69,7 @@ static void coroutine_return_short_circuits(void)
 
 static void coroutine_exception_propagation(void)
 {
-    Coroutine<id> *throwingCoroutine = [[Coroutine alloc] initWithBlock: ^id(Coroutine<id> *co) {
+    auto throwingCoroutine = [[Coroutine alloc] initWithBlock: ^id(Coroutine<id> *co) {
         [co yield: @"before-throw"];
         @throw [[TestRejectionException alloc] init];
     }];
@@ -79,8 +79,7 @@ static void coroutine_exception_propagation(void)
 
     @try {
         (void)[throwingCoroutine resume];
-    } @catch (TestRejectionException *unusedException) {
-        (void)unusedException;
+    } @catch (TestRejectionException *) {
         caughtCoroutineException = true;
     }
 
@@ -91,7 +90,7 @@ static void coroutine_exception_propagation(void)
 
 static void coroutine_fast_enumeration(void)
 {
-    Coroutine<OFString *> *coroutine = [[Coroutine alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
+    auto coroutine = [[Coroutine<OFString *> alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
         [co yield: @"one"];
         [co yield: @"two"];
         [co yield: @"three"];
@@ -118,8 +117,7 @@ static void coroutine_default_stack_size(void)
 
     @try {
         Task.defaultStackSize = 0;
-    } @catch (OFInvalidArgumentException *unusedException) {
-        (void)unusedException;
+    } @catch (OFInvalidArgumentException *) {
         caughtZeroStackSize = true;
     }
 
@@ -130,8 +128,7 @@ static void coroutine_default_stack_size(void)
         [AsyncRuntimeTestSupport assertCondition: (Task.defaultStackSize == configuredStackSize) message: (@"Task.defaultStackSize should proxy to Coroutine.defaultStackSize")];
         [AsyncRuntimeTestSupport assertCondition: (Coroutine.defaultStackSize == configuredStackSize) message: (@"Task.defaultStackSize should update the coroutine default stack size")];
 
-        Coroutine<OFString *> *coroutine = [[Coroutine alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *co) {
-            (void)co;
+        auto coroutine = [[Coroutine<OFString *> alloc] initWithBlock: ^OFString *(Coroutine<OFString *> *) {
             return @"done";
         }];
 
@@ -143,26 +140,26 @@ static void coroutine_default_stack_size(void)
 
 static void future_await_outside_task(void)
 {
-    FutureResolver<OFString *> *resolver = [[FutureResolver alloc] init];
+    auto resolver = [[PromiseResolver<OFString *> alloc] init];
     bool caughtAwaitMisuse = false;
 
     [AsyncRuntimeTestSupport assertCondition: (Task.currentTask == nilptr) message: (@"Task.currentTask should be nilptr outside the runtime")];
     [AsyncRuntimeTestSupport assertCondition: (AsyncScope.currentScope == nilptr) message: (@"AsyncScope.currentScope should be nilptr outside the runtime")];
-    [AsyncRuntimeTestSupport assertCondition: ([Future conformsToProtocol: @protocol(Awaitable)]) message: (@"Future should conform to Awaitable")];
+    [AsyncRuntimeTestSupport assertCondition: ([Promise conformsToProtocol: @protocol(Awaitable)]) message: (@"Promise should conform to Awaitable")];
 
     @try {
         (void)resolver.future.await;
-    } @catch (FutureAwaitOutsideTaskException *exception) {
+    } @catch (PromiseAwaitOutsideTaskException *exception) {
         caughtAwaitMisuse = (exception.future == resolver.future);
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtAwaitMisuse) message: (@"future.await outside a Task should throw FutureAwaitOutsideTaskException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtAwaitMisuse) message: (@"future.await outside a Task should throw PromiseAwaitOutsideTaskException")];
 }
 
 static void future_resolution_guards(void)
 {
-    FutureResolver<OFString *> *doubleResolveResolver = [[FutureResolver alloc] init];
-    FutureResolver<OFString *> *doubleRejectResolver = [[FutureResolver alloc] init];
+    auto doubleResolveResolver = [[PromiseResolver<OFString *> alloc] init];
+    auto doubleRejectResolver = [[PromiseResolver<OFString *> alloc] init];
     bool caughtDoubleResolve = false;
     bool caughtRejectAfterResolve = false;
     bool caughtDoubleReject = false;
@@ -172,41 +169,41 @@ static void future_resolution_guards(void)
 
     @try {
         [doubleResolveResolver resolve: @"second"];
-    } @catch (FutureAlreadyResolvedException *exception) {
-        caughtDoubleResolve = (exception.future == doubleResolveResolver.future and exception.currentStatus == FutureStatus_FULFILLED and exception.attemptedStatus == FutureStatus_FULFILLED);
+    } @catch (PromiseAlreadyResolvedException *exception) {
+        caughtDoubleResolve = (exception.future == doubleResolveResolver.future and exception.currentStatus == PromiseStatus_FULFILLED and exception.attemptedStatus == PromiseStatus_FULFILLED);
     }
 
     @try {
         [doubleResolveResolver reject: [[TestRejectionException alloc] init]];
-    } @catch (FutureAlreadyResolvedException *exception) {
-        caughtRejectAfterResolve = (exception.future == doubleResolveResolver.future and exception.currentStatus == FutureStatus_FULFILLED and exception.attemptedStatus == FutureStatus_REJECTED);
+    } @catch (PromiseAlreadyResolvedException *exception) {
+        caughtRejectAfterResolve = (exception.future == doubleResolveResolver.future and exception.currentStatus == PromiseStatus_FULFILLED and exception.attemptedStatus == PromiseStatus_REJECTED);
     }
 
     [doubleRejectResolver reject: [[TestRejectionException alloc] init]];
 
     @try {
         [doubleRejectResolver reject: [[TestRejectionException alloc] init]];
-    } @catch (FutureAlreadyResolvedException *exception) {
-        caughtDoubleReject = (exception.future == doubleRejectResolver.future and exception.currentStatus == FutureStatus_REJECTED and exception.attemptedStatus == FutureStatus_REJECTED);
+    } @catch (PromiseAlreadyResolvedException *exception) {
+        caughtDoubleReject = (exception.future == doubleRejectResolver.future and exception.currentStatus == PromiseStatus_REJECTED and exception.attemptedStatus == PromiseStatus_REJECTED);
     }
 
     @try {
         [doubleRejectResolver resolve: @"nope"];
-    } @catch (FutureAlreadyResolvedException *exception) {
-        caughtResolveAfterReject = (exception.future == doubleRejectResolver.future and exception.currentStatus == FutureStatus_REJECTED and exception.attemptedStatus == FutureStatus_FULFILLED);
+    } @catch (PromiseAlreadyResolvedException *exception) {
+        caughtResolveAfterReject = (exception.future == doubleRejectResolver.future and exception.currentStatus == PromiseStatus_REJECTED and exception.attemptedStatus == PromiseStatus_FULFILLED);
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtDoubleResolve) message: (@"resolving an already fulfilled future should throw FutureAlreadyResolvedException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtRejectAfterResolve) message: (@"rejecting an already fulfilled future should throw FutureAlreadyResolvedException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtDoubleReject) message: (@"rejecting an already rejected future should throw FutureAlreadyResolvedException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtResolveAfterReject) message: (@"resolving an already rejected future should throw FutureAlreadyResolvedException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtDoubleResolve) message: (@"resolving an already fulfilled future should throw PromiseAlreadyResolvedException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtRejectAfterResolve) message: (@"rejecting an already fulfilled future should throw PromiseAlreadyResolvedException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtDoubleReject) message: (@"rejecting an already rejected future should throw PromiseAlreadyResolvedException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtResolveAfterReject) message: (@"resolving an already rejected future should throw PromiseAlreadyResolvedException")];
 }
 
 static void future_state_access_guards(void)
 {
-    FutureResolver<OFString *> *pendingResolver = [[FutureResolver alloc] init];
-    FutureResolver<OFString *> *fulfilledResolver = [[FutureResolver alloc] init];
-    FutureResolver<OFString *> *rejectedResolver = [[FutureResolver alloc] init];
+    auto pendingResolver = [[PromiseResolver<OFString *> alloc] init];
+    auto fulfilledResolver = [[PromiseResolver<OFString *> alloc] init];
+    auto rejectedResolver = [[PromiseResolver<OFString *> alloc] init];
     bool caughtPendingValueAccess = false;
     bool caughtPendingRejectionAccess = false;
     bool caughtFulfilledRejectionAccess = false;
@@ -214,14 +211,14 @@ static void future_state_access_guards(void)
 
     @try {
         (void)pendingResolver.future.value;
-    } @catch (FutureInvalidStateAccessException *exception) {
-        caughtPendingValueAccess = (exception.future == pendingResolver.future and exception.status == FutureStatus_PENDING);
+    } @catch (PromiseInvalidStateAccessException *exception) {
+        caughtPendingValueAccess = (exception.future == pendingResolver.future and exception.status == PromiseStatus_PENDING);
     }
 
     @try {
         (void)pendingResolver.future.rejectionException;
-    } @catch (FutureInvalidStateAccessException *exception) {
-        caughtPendingRejectionAccess = (exception.future == pendingResolver.future and exception.status == FutureStatus_PENDING);
+    } @catch (PromiseInvalidStateAccessException *exception) {
+        caughtPendingRejectionAccess = (exception.future == pendingResolver.future and exception.status == PromiseStatus_PENDING);
     }
 
     [fulfilledResolver resolve: @"state-ok"];
@@ -229,8 +226,8 @@ static void future_state_access_guards(void)
 
     @try {
         (void)fulfilledResolver.future.rejectionException;
-    } @catch (FutureInvalidStateAccessException *exception) {
-        caughtFulfilledRejectionAccess = (exception.future == fulfilledResolver.future and exception.status == FutureStatus_FULFILLED);
+    } @catch (PromiseInvalidStateAccessException *exception) {
+        caughtFulfilledRejectionAccess = (exception.future == fulfilledResolver.future and exception.status == PromiseStatus_FULFILLED);
     }
 
     [rejectedResolver reject: [[TestRejectionException alloc] init]];
@@ -238,20 +235,20 @@ static void future_state_access_guards(void)
 
     @try {
         (void)rejectedResolver.future.value;
-    } @catch (FutureInvalidStateAccessException *exception) {
-        caughtRejectedValueAccess = (exception.future == rejectedResolver.future and exception.status == FutureStatus_REJECTED);
+    } @catch (PromiseInvalidStateAccessException *exception) {
+        caughtRejectedValueAccess = (exception.future == rejectedResolver.future and exception.status == PromiseStatus_REJECTED);
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtPendingValueAccess) message: (@"reading value on a pending future should throw FutureInvalidStateAccessException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtPendingRejectionAccess) message: (@"reading rejectionException on a pending future should throw FutureInvalidStateAccessException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtFulfilledRejectionAccess) message: (@"reading rejectionException on a fulfilled future should throw FutureInvalidStateAccessException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtRejectedValueAccess) message: (@"reading value on a rejected future should throw FutureInvalidStateAccessException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtPendingValueAccess) message: (@"reading value on a pending future should throw PromiseInvalidStateAccessException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtPendingRejectionAccess) message: (@"reading rejectionException on a pending future should throw PromiseInvalidStateAccessException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtFulfilledRejectionAccess) message: (@"reading rejectionException on a fulfilled future should throw PromiseInvalidStateAccessException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtRejectedValueAccess) message: (@"reading value on a rejected future should throw PromiseInvalidStateAccessException")];
 }
 
 static void future_nil_resolution_and_rejection(void)
 {
-    FutureResolver<OFString *> *resolutionResolver = [[FutureResolver alloc] init];
-    FutureResolver<OFString *> *rejectionResolver = [[FutureResolver alloc] init];
+    auto resolutionResolver = [[PromiseResolver<OFString *> alloc] init];
+    auto rejectionResolver = [[PromiseResolver<OFString *> alloc] init];
     bool caughtNilResolution = false;
     bool caughtNilRejection = false;
     bool caughtClassNilResolution = false;
@@ -259,34 +256,32 @@ static void future_nil_resolution_and_rejection(void)
 
     @try {
         [resolutionResolver resolve: (id)0];
-    } @catch (FutureNilResolutionValueException *exception) {
+    } @catch (PromiseNilResolutionValueException *exception) {
         caughtNilResolution = (exception.future == resolutionResolver.future);
     }
 
     @try {
         [rejectionResolver reject: (OFException *)0];
-    } @catch (FutureNilRejectionException *exception) {
+    } @catch (PromiseNilRejectionException *exception) {
         caughtNilRejection = (exception.future == rejectionResolver.future);
     }
 
     @try {
-        (void)[Future resolved: (id)0];
-    } @catch (FutureNilResolutionValueException *unusedException) {
-        (void)unusedException;
+        (void)[Promise resolved: (id)0];
+    } @catch (PromiseNilResolutionValueException *) {
         caughtClassNilResolution = true;
     }
 
     @try {
-        (void)[Future rejected: (OFException *)0];
-    } @catch (FutureNilRejectionException *unusedException) {
-        (void)unusedException;
+        (void)[Promise rejected: (OFException *)0];
+    } @catch (PromiseNilRejectionException *) {
         caughtClassNilRejection = true;
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtNilResolution) message: (@"resolving a future with nilptr should throw FutureNilResolutionValueException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtNilRejection) message: (@"rejecting a future with nilptr should throw FutureNilRejectionException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtClassNilResolution) message: (@"Future.resolved(nilptr) should throw FutureNilResolutionValueException")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtClassNilRejection) message: (@"Future.rejected(nilptr) should throw FutureNilRejectionException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtNilResolution) message: (@"resolving a future with nilptr should throw PromiseNilResolutionValueException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtNilRejection) message: (@"rejecting a future with nilptr should throw PromiseNilRejectionException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtClassNilResolution) message: (@"Promise.resolved(nilptr) should throw PromiseNilResolutionValueException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtClassNilRejection) message: (@"Promise.rejected(nilptr) should throw PromiseNilRejectionException")];
 }
 
 static void async_unit_singleton(void)

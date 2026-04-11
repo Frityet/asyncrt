@@ -3,12 +3,12 @@
 
 #pragma clang assume_nonnull begin
 
-@class AsyncHTTPClientFutureBridge;
+@class AsyncHTTPClientPromiseBridge;
 
 static unsigned int const asyncHTTPDefaultRedirects = 10;
 static OFOnceControl asyncHTTPBridgeOnce = OFOnceControlInitValue;
 static OFMutex *nillable asyncHTTPBridgeLock;
-static OFMutableSet<AsyncHTTPClientFutureBridge *> *nillable asyncHTTPInflightBridges;
+static OFMutableSet<AsyncHTTPClientPromiseBridge *> *nillable asyncHTTPInflightBridges;
 
 [[gnu::constructor]]
 static void AsyncEnsureObjFWBindingsLoaded(void)
@@ -29,7 +29,7 @@ static void InitaliseAsyncHTTPBridgeState(void)
 }
 
 
-static void RetainAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
+static void RetainAsyncHTTPBridge(AsyncHTTPClientPromiseBridge *bridge)
 {
     OFOnce(&asyncHTTPBridgeOnce, InitaliseAsyncHTTPBridgeState);
 
@@ -41,7 +41,7 @@ static void RetainAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
     }
 }
 
-static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
+static void ReleaseAsyncHTTPBridge(AsyncHTTPClientPromiseBridge *bridge)
 {
     OFOnce(&asyncHTTPBridgeOnce, InitaliseAsyncHTTPBridgeState);
 
@@ -53,26 +53,26 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
     }
 }
 
-@interface AsyncHTTPClientFutureBridge : OFObject<OFHTTPClientDelegate>
+@interface AsyncHTTPClientPromiseBridge : OFObject<OFHTTPClientDelegate>
 
 @property(readonly, nonatomic) OFHTTPClient *client;
 @property(readonly, nonatomic) OFObject<OFHTTPClientDelegate> *nillable forwardDelegate;
 @property(readonly, nonatomic) OFHTTPRequest *request;
 @property(readonly, nonatomic) unsigned int redirects;
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
-@property(readonly, nonatomic) FutureResolver<OFHTTPResponse *> *resolver;
+@property(readonly, nonatomic) PromiseResolver<OFHTTPResponse *> *resolver;
 
-- (instancetype)initWithClient: (OFHTTPClient *)client forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate request: (OFHTTPRequest *)request redirects: (unsigned int)redirects scheduler: (AsyncScheduler *)scheduler resolver: (FutureResolver<OFHTTPResponse *> *)resolver OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithClient: (OFHTTPClient *)client forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate request: (OFHTTPRequest *)request redirects: (unsigned int)redirects scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<OFHTTPResponse *> *)resolver OF_DESIGNATED_INITIALIZER;
 - (void)start;
 - (void)cancel;
 
 @end
 
-@implementation FutureHTTPClientInvalidCompletionException
+@implementation PromiseHTTPClientInvalidCompletionException
 
-- (instancetype)initWithFuture: (Future *)future client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason
+- (instancetype)initWithPromise: (Promise *)future client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason
 {
-    self = [super initWithFuture: future];
+    self = [super initWithPromise: future];
     _client = client;
     _request = request;
     _reason = [reason copy];
@@ -81,35 +81,35 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"FutureHTTPClientInvalidCompletionException: %@ received an invalid completion for request %@ on %@: %@", DescribeFuture(self.future), self.request, self.client, self.reason];
+    return [OFString stringWithFormat: @"PromiseHTTPClientInvalidCompletionException: %@ received an invalid completion for request %@ on %@: %@", DescribePromise(self.future), self.request, self.client, self.reason];
 }
 
 @end
 
-@implementation FutureHTTPClientCancelledException
+@implementation PromiseHTTPClientCancelledException
 
 @synthesize request = _request;
 
-- (instancetype)initWithFuture: (Future *)future request: (OFHTTPRequest *)request
+- (instancetype)initWithPromise: (Promise *)future request: (OFHTTPRequest *)request
 {
-    self = [super initWithFuture: future];
+    self = [super initWithPromise: future];
     _request = request;
     return self;
 }
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"FutureHTTPClientCancelledException: %@ cancelled request %@", DescribeFuture(self.future), self.request];
+    return [OFString stringWithFormat: @"PromiseHTTPClientCancelledException: %@ cancelled request %@", DescribePromise(self.future), self.request];
 }
 
 @end
 
-@implementation AsyncHTTPClientFutureBridge {
+@implementation AsyncHTTPClientPromiseBridge {
     OFMutex *_lock;
     bool _completed, _started, _cleanedUp;
 }
 
-- (instancetype)initWithClient: (OFHTTPClient *)client forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate request: (OFHTTPRequest *)request redirects: (unsigned int)redirects scheduler: (AsyncScheduler *)scheduler resolver: (FutureResolver<OFHTTPResponse *> *)resolver
+- (instancetype)initWithClient: (OFHTTPClient *)client forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate request: (OFHTTPRequest *)request redirects: (unsigned int)redirects scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<OFHTTPResponse *> *)resolver
 {
     self = [super init];
     _client = client;
@@ -159,8 +159,7 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
     @try {
         [_client close];
-    } @catch (OFException *unusedException) {
-        (void)unusedException;
+    } @catch (OFException *) {
     }
 
     ReleaseAsyncHTTPBridge(self);
@@ -168,7 +167,7 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
 - (void)_finishWithResponse: (OFHTTPResponse *nillable)response exception: (OFException *nillable)exception
 {
-    [[clang::objc_precise_lifetime]] AsyncHTTPClientFutureBridge *retainedSelf = self;
+    [[clang::objc_precise_lifetime]] AsyncHTTPClientPromiseBridge *retainedSelf = self;
     (void)retainedSelf;
 
     @try {
@@ -178,7 +177,7 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
             } else if (exception != nilptr) {
                 [_resolver reject: $assert_nonnil(exception)];
             } else {
-                [_resolver reject: [[FutureHTTPClientInvalidCompletionException alloc] initWithFuture: _resolver.future client: _client request: _request reason: @"ObjFW completed the request without a response or exception"]];
+                [_resolver reject: [[PromiseHTTPClientInvalidCompletionException alloc] initWithPromise: _resolver.future client: _client request: _request reason: @"ObjFW completed the request without a response or exception"]];
             }
 
             if (_forwardDelegate != nilptr)
@@ -191,7 +190,7 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
 - (void)start
 {
-    [[clang::objc_precise_lifetime]] AsyncHTTPClientFutureBridge *retainedSelf = self;
+    [[clang::objc_precise_lifetime]] AsyncHTTPClientPromiseBridge *retainedSelf = self;
     (void)retainedSelf;
     block_reference bool shouldStart = false;
 
@@ -217,7 +216,7 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
 - (void)cancel
 {
-    [[clang::objc_precise_lifetime]] AsyncHTTPClientFutureBridge *retainedSelf = self;
+    [[clang::objc_precise_lifetime]] AsyncHTTPClientPromiseBridge *retainedSelf = self;
     (void)retainedSelf;
     block_reference bool shouldReject = false;
     block_reference bool started = false;
@@ -233,7 +232,7 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
     if (not shouldReject)
         return;
 
-    [_resolver reject: [[FutureHTTPClientCancelledException alloc] initWithFuture: _resolver.future request: _request]];
+    [_resolver reject: [[PromiseHTTPClientCancelledException alloc] initWithPromise: _resolver.future request: _request]];
 
     if (not started)
         [self _cleanup];
@@ -299,30 +298,27 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
 @end
 
-@implementation OFHTTPClient (FutureAdditions)
+@implementation OFHTTPClient (PromiseAdditions)
 
-- (Future<OFHTTPResponse *> *)futurePerformRequest: (OFHTTPRequest *)request onScheduler: (AsyncScheduler *)scheduler
+- (Promise<OFHTTPResponse *> *)promiseToPerformRequest: (OFHTTPRequest *)request onScheduler: (AsyncScheduler *)scheduler
 {
-    return [self futurePerformRequest: request redirects: asyncHTTPDefaultRedirects onScheduler: scheduler cancelOnTaskCancellation: true];
+    return [self promiseToPerformRequest: request redirects: asyncHTTPDefaultRedirects onScheduler: scheduler cancelOnTaskCancellation: true];
 }
 
-- (Future<OFHTTPResponse *> *)futurePerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects onScheduler: (AsyncScheduler *)scheduler
+- (Promise<OFHTTPResponse *> *)promiseToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects onScheduler: (AsyncScheduler *)scheduler
 {
-    return [self futurePerformRequest: request redirects: redirects onScheduler: scheduler cancelOnTaskCancellation: true];
+    return [self promiseToPerformRequest: request redirects: redirects onScheduler: scheduler cancelOnTaskCancellation: true];
 }
 
-- (Future<OFHTTPResponse *> *)futurePerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
+- (Promise<OFHTTPResponse *> *)promiseToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    if ((OFHTTPRequest *nillable)request == nilptr or (AsyncScheduler *nillable)scheduler == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    FutureResolver<OFHTTPResponse *> *resolver = [[FutureResolver alloc] init];
-    OFHTTPClient *client = [[OFHTTPClient alloc] init];
+    auto resolver = [[PromiseResolver<OFHTTPResponse *> alloc] init];
+    auto client = [[OFHTTPClient alloc] init];
     client.allowsInsecureRedirects = self.allowsInsecureRedirects;
 
-    AsyncHTTPClientFutureBridge *bridge = [[AsyncHTTPClientFutureBridge alloc] initWithClient: client forwardDelegate: self.delegate request: request redirects: redirects scheduler: scheduler resolver: resolver];
-    OFDate *fireDate = [[OFDate alloc] initWithTimeIntervalSinceNow: 0];
-    OFTimer *timer = [[OFTimer alloc] initWithFireDate: fireDate interval: 0 target: bridge selector: @selector(start) repeats: false];
+    auto bridge = [[AsyncHTTPClientPromiseBridge alloc] initWithClient: client forwardDelegate: self.delegate request: request redirects: redirects scheduler: scheduler resolver: resolver];
+    auto fireDate = [[OFDate alloc] initWithTimeIntervalSinceNow: 0];
+    auto timer = [[OFTimer alloc] initWithFireDate: fireDate interval: 0 target: bridge selector: @selector(start) repeats: false];
 
     RetainAsyncHTTPBridge(bridge);
 
@@ -335,6 +331,6 @@ static void ReleaseAsyncHTTPBridge(AsyncHTTPClientFutureBridge *bridge)
 
 @end
 
-void async_link_objfw_ofhttpclient_future_category(void) {}
+void async_link_objfw_ofhttpclient_promise_category(void) {}
 
 #pragma clang assume_nonnull end

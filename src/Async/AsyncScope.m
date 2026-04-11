@@ -59,7 +59,7 @@
     OFMutex *_lock;
     OFMutableSet<Task *> *_liveTasks;
     OFMutableArray<OFException *> *_failures;
-    FutureResolver<AsyncUnit *> *_completionResolver;
+    PromiseResolver<AsyncUnit *> *_completionResolver;
     OFTimer *nillable _deadlineTimer;
     bool _bodyFinished;
     bool _cancellationRequested;
@@ -87,7 +87,7 @@
     _lock = [OFMutex mutex];
     _liveTasks = [OFMutableSet set];
     _failures = [OFMutableArray array];
-    _completionResolver = [[FutureResolver alloc] init];
+    _completionResolver = [[PromiseResolver alloc] init];
     _bodyFinished = false;
     _cancellationRequested = false;
     return self;
@@ -130,8 +130,7 @@
 
     @try {
         [self->_completionResolver resolve: AsyncUnit.unit];
-    } @catch (FutureAlreadyResolvedException *unusedException) {
-        (void)unusedException;
+    } @catch (PromiseAlreadyResolvedException *) {
     }
 }
 
@@ -234,8 +233,7 @@
     }
 
     unretained AsyncScope *unsafeSelf = self;
-    _deadlineTimer = [[OFTimer alloc] initWithFireDate: deadline interval: 0 repeats: false block: ^(OFTimer *unusedTimer) {
-        (void)unusedTimer;
+    _deadlineTimer = [[OFTimer alloc] initWithFireDate: deadline interval: 0 repeats: false block: ^(OFTimer *) {
         [unsafeSelf _cancelFromTimeoutWithDeadline: deadline];
     }];
     [self.scheduler.runLoop addTimer: $assert_nonnil(_deadlineTimer) forMode: self.scheduler.mode];
@@ -300,7 +298,7 @@
 
 - (id)withTimeout: (OFTimeInterval)timeout block: (id (^)(AsyncScope *scope))block
 {
-    OFDate *deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: timeout];
+    auto deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: timeout];
     return [self withDeadline: deadline block: block];
 }
 

@@ -1,18 +1,18 @@
-#import "Async/ObjFWAsync/OFTLSStream+Future.h"
+#import "Async/ObjFWAsync/OFTLSStream+Promise.h"
 
 #pragma clang assume_nonnull begin
 
-@interface AsyncTLSStreamFutureDelegate : OFObject<OFTLSStreamDelegate>
+@interface AsyncTLSStreamPromiseDelegate : OFObject<OFTLSStreamDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWFutureBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake OF_DESIGNATED_INITIALIZER;
 - (instancetype)init OF_UNAVAILABLE;
 - (void)start;
 - (void)cancel;
 
 @end
 
-@implementation AsyncTLSStreamFutureDelegate {
-    AsyncObjFWFutureBridge *_bridge;
+@implementation AsyncTLSStreamPromiseDelegate {
+    AsyncObjFWPromiseBridge *_bridge;
     OFTLSStream *_stream;
     id<OFTLSStreamDelegate> nillable _forwardDelegate;
     OFString *nillable _host;
@@ -21,7 +21,7 @@
     bool _cleanedUp;
 }
 
-- (instancetype)initWithBridge: (AsyncObjFWFutureBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake
 {
     self = [super init];
     _bridge = bridge;
@@ -143,51 +143,50 @@
 
 @end
 
-static Future<OFTLSStream *> *FutureTLSHandshake(OFTLSStream *stream, OFString *nillable host, bool clientHandshake, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
+static Promise<OFTLSStream *> *PromiseTLSHandshake(OFTLSStream *stream, OFString *nillable host, bool clientHandshake, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
 {
-    if ((OFTLSStream *nillable)stream == nilptr or (AsyncScheduler *nillable)scheduler == nilptr or (clientHandshake and (OFString *nillable)host == nilptr))
+    if (clientHandshake and host == nilptr)
         @throw [OFInvalidArgumentException exception];
 
     id<OFTLSStreamDelegate> forwardDelegate = stream.delegate;
-    FutureResolver<OFTLSStream *> *resolver = [[FutureResolver alloc] init];
-    block_reference AsyncTLSStreamFutureDelegate *delegate = nilptr;
-    AsyncObjFWFutureBridge *bridge = [[AsyncObjFWFutureBridge alloc] initWithObject: stream operation: (clientHandshake ? @"asyncPerformClientHandshakeWithHost:" : @"asyncPerformServerHandshake") scheduler: scheduler resolver: (FutureResolver<id> *)resolver startBlock: ^(AsyncObjFWFutureBridge *bridge) {
-        delegate = [[AsyncTLSStreamFutureDelegate alloc] initWithBridge: bridge stream: stream forwardDelegate: forwardDelegate host: host performsClientHandshake: clientHandshake];
+    auto resolver = [[PromiseResolver<OFTLSStream *> alloc] init];
+    block_reference AsyncTLSStreamPromiseDelegate *delegate = nilptr;
+    auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: (clientHandshake ? @"asyncPerformClientHandshakeWithHost:" : @"asyncPerformServerHandshake") scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
+        delegate = [[AsyncTLSStreamPromiseDelegate alloc] initWithBridge: bridge stream: stream forwardDelegate: forwardDelegate host: host performsClientHandshake: clientHandshake];
         [delegate start];
-    } cancelBlock: ^(AsyncObjFWFutureBridge *unusedBridge) {
-        (void)unusedBridge;
+    } cancelBlock: ^(AsyncObjFWPromiseBridge *) {
         [delegate cancel];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToFuture: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
     return resolver.future;
 }
 
-@implementation OFTLSStream (FutureAdditions)
+@implementation OFTLSStream (PromiseAdditions)
 
-- (Future<OFTLSStream *> *)futurePerformClientHandshakeWithHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler
+- (Promise<OFTLSStream *> *)promiseToPerformClientHandshakeWithHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler
 {
-    return [self futurePerformClientHandshakeWithHost: host onScheduler: scheduler cancelOnTaskCancellation: false];
+    return [self promiseToPerformClientHandshakeWithHost: host onScheduler: scheduler cancelOnTaskCancellation: false];
 }
 
-- (Future<OFTLSStream *> *)futurePerformClientHandshakeWithHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
+- (Promise<OFTLSStream *> *)promiseToPerformClientHandshakeWithHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return FutureTLSHandshake(self, host, true, scheduler, cancelOnTaskCancellation);
+    return PromiseTLSHandshake(self, host, true, scheduler, cancelOnTaskCancellation);
 }
 
-- (Future<OFTLSStream *> *)futurePerformServerHandshakeOnScheduler: (AsyncScheduler *)scheduler
+- (Promise<OFTLSStream *> *)promiseToPerformServerHandshakeOnScheduler: (AsyncScheduler *)scheduler
 {
-    return [self futurePerformServerHandshakeOnScheduler: scheduler cancelOnTaskCancellation: false];
+    return [self promiseToPerformServerHandshakeOnScheduler: scheduler cancelOnTaskCancellation: false];
 }
 
-- (Future<OFTLSStream *> *)futurePerformServerHandshakeOnScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
+- (Promise<OFTLSStream *> *)promiseToPerformServerHandshakeOnScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return FutureTLSHandshake(self, nilptr, false, scheduler, cancelOnTaskCancellation);
+    return PromiseTLSHandshake(self, nilptr, false, scheduler, cancelOnTaskCancellation);
 }
 
 @end
 
-void async_link_objfw_oftlsstream_future_category(void) {}
+void async_link_objfw_oftlsstream_promise_category(void) {}
 
 #pragma clang assume_nonnull end

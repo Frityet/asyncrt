@@ -1,54 +1,33 @@
-#include <stdio.h>
-#include <stdlib.h>
 #import "Async/AsyncRuntime.h"
 
 #pragma clang assume_nonnull begin
 
-@interface OFApplication(AppTerm)
-
-+ (void)scheduleApplicationTerminationWithStatus: (int)status;
-
-@end
-
-@implementation OFApplication(AppTerm)
-
-+ (void)scheduleApplicationTerminationWithStatus: (int)status
-{
-    auto timer = [[OFTimer alloc] initWithFireDate: OFDate.date interval: 0 repeats: false block: ^(OFTimer *unusedTimer) {
-        (void)unusedTimer;
-
-        if (status == 0)
-            [self terminate];
-        else
-            [self terminateWithStatus: status];
-    }];
-
-    [OFRunLoop.currentRunLoop addTimer: timer forMode: OFDefaultRunLoopMode];
-}
-
-@end
-
-
-
-@interface App : OFObject<OFApplicationDelegate> @end
+@interface App : AsyncApplication @end
 
 @implementation App
 
-- (void)applicationDidFinishLaunching:_
+- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification scope: (AsyncScope *)rootScope
 {
-    OFLog(@"Hello, World!");
+    auto client = [OFHTTPClient client];
+    auto req = [OFHTTPRequest requestWithIRI: [OFIRI IRIWithString: @"https://httpbin.org/get"]];
+    req.method = OFHTTPRequestMethodGet;
+    [rootScope withChildScope:^(AsyncScope *scope){
+        OFArray<Promise<OFHTTPResponse *> *> *tasks = @[
+            [client promiseToPerformRequest: req onScheduler: scope.scheduler],
+            [client promiseToPerformRequest: req onScheduler: scope.scheduler],
+            [client promiseToPerformRequest: req onScheduler: scope.scheduler],
+            [client promiseToPerformRequest: req onScheduler: scope.scheduler],
+            [client promiseToPerformRequest: req onScheduler: scope.scheduler],
+        ];
+        
+        return AsyncUnit.unit;
+    }];
 
-    [OFApplication scheduleApplicationTerminationWithStatus: 0];
-}
-
-- (void)applicationWillTerminate:_
-{
-    OFLog(@"Shutting off default scheduler for current thread...");
-    [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
+    return AsyncUnit.unit;
 }
 
 @end
 
 #pragma clang assume_nonnull end
 
-OF_APPLICATION_DELEGATE(App);
+ASYNC_APPLICATION_DELEGATE(App);

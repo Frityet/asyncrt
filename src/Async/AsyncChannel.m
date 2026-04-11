@@ -126,7 +126,7 @@
     if (didSendImmediately)
         return;
 
-    AsyncChannelSendWaitRegistration *registration = [[AsyncChannelSendWaitRegistration alloc] initWithChannel: self value: value scheduler: currentTask.scheduler task: currentTask];
+    auto registration = [[AsyncChannelSendWaitRegistration alloc] initWithChannel: self value: value scheduler: currentTask.scheduler task: currentTask];
     [currentTask _yieldWithRegistration: registration waitReason: @"channel send"];
     [Task checkCancellation];
 
@@ -177,7 +177,7 @@
     if (didReceiveImmediately)
         return $assert_nonnil(receivedValue);
 
-    AsyncChannelReceiveWaitRegistration *registration = [[AsyncChannelReceiveWaitRegistration alloc] initWithChannel: self scheduler: currentTask.scheduler task: currentTask];
+    auto registration = [[AsyncChannelReceiveWaitRegistration alloc] initWithChannel: self scheduler: currentTask.scheduler task: currentTask];
     [currentTask _yieldWithRegistration: registration waitReason: @"channel receive"];
     [Task checkCancellation];
 

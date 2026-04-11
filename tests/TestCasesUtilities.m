@@ -82,8 +82,7 @@ static void mutex_scoped_lock_unlocks_on_exception(void)
         [lock scopedLock: ^{
             @throw [[TestRejectionException alloc] init];
         }];
-    } @catch (TestRejectionException *unusedException) {
-        (void)unusedException;
+    } @catch (TestRejectionException *) {
         caughtException = true;
     }
 
@@ -119,8 +118,7 @@ static void pointer_basic_data_view(void)
 
     @try {
         (void)[pointer itemAtIndex: 1];
-    } @catch (OFOutOfRangeException *unusedException) {
-        (void)unusedException;
+    } @catch (OFOutOfRangeException *) {
         caughtOutOfRange = true;
     }
 
@@ -206,7 +204,7 @@ static void optional_from_nillable_nil_is_none(void)
 {
     Optional<OFString *> *none = [Optional none];
     Optional<OFString *> *from_nil = [Optional fromNillable: nilptr];
-    OFString *fallback = [[OFString alloc] initWithUTF8String: "fallback"];
+    auto fallback = [[OFString alloc] initWithUTF8String: "fallback"];
     bool caughtMissingValue = false;
 
 #if !defined(__APPLE__)
@@ -223,8 +221,7 @@ static void optional_from_nillable_nil_is_none(void)
 
     @try {
         (void)from_nil.value;
-    } @catch (OFOutOfRangeException *unusedException) {
-        (void)unusedException;
+    } @catch (OFOutOfRangeException *) {
         caughtMissingValue = true;
     }
 
@@ -280,8 +277,7 @@ static void optional_some_accepts_tagged_payloads(void)
 #endif
     @try {
         (void)[Optional some: nilptr];
-    } @catch (OFInvalidArgumentException *unusedException) {
-        (void)unusedException;
+    } @catch (OFInvalidArgumentException *) {
         caughtNilArgument = true;
     }
 

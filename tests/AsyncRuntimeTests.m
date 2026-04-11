@@ -29,7 +29,7 @@
         [scheduler.runLoop runMode: scheduler.mode beforeDate: deadline];
     }
 
-    if (task.status == FutureStatus_REJECTED)
+    if (task.status == PromiseStatus_REJECTED)
         @throw task.rejectionException;
 }
 

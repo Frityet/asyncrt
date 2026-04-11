@@ -1,6 +1,6 @@
 #pragma once
 
-#import "Async/Future.h"
+#import "Async/Promise.h"
 #import "Async/Task.h"
 #include "Utilities/common.h"
 
@@ -106,9 +106,9 @@
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode maxWorkerCount: (size_t)maxWorkerCount maxDrainBatchSize: (size_t)maxDrainBatchSize OF_DESIGNATED_INITIALIZER;
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode;
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop;
-- (Future<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
-- (Future<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
-- (Future<id> *)offload: (id (^)(void))block;
+- (Promise<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
+- (Promise<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
+- (Promise<id> *)offload: (id (^)(void))block;
 - (AsyncSchedulerSnapshot *)snapshot;
 - (void)shutdown;
 - (instancetype)init OF_UNAVAILABLE;

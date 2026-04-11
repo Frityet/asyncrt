@@ -6,27 +6,44 @@
 #else
 #import <objc/objc.h>
 #endif
-#import <string.h>
 #import <iso646.h>
 
-//static int tagged_pointer_data_class = -1;
-//static thread_local uintptr_t tagged_pointer_item_buffer;
+#if !defined(__APPLE__)
+static int tagged_pointer_data_class = -1;
+static thread_local uintptr_t tagged_pointer_item_buffer;
+#endif
 
-@implementation Pointer
+@implementation Pointer {
+#if defined(__APPLE__)
+    uintptr_t _pointerValue;
+#endif
+}
 
 #if defined(__APPLE__)
 
+- (instancetype)initWithPointer: (const void *nillable)pointer
+{
+    self = [super init];
+    _pointerValue = (uintptr_t)pointer;
+    return self;
+}
+
 + (instancetype)pointer: (const void *nillable)pointer
 {
-     return [super dataWithItems: &pointer count: 1 itemSize: sizeof(void *)];
+    return [[self alloc] initWithPointer: pointer];
 }
 
 - (const void *nillable)pointer
-{ return (const void *)*(const void **)self.items; }
+{
+    return (const void *)_pointerValue;
+}
+
+- (const void *nillable)items
+{
+    return &_pointerValue;
+}
 
 #else
-static int tagged_pointer_data_class = -1;
-static thread_local uintptr_t tagged_pointer_item_buffer;
 
 + (void)initialize
 {
@@ -49,6 +66,13 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 - (const void *nillable)pointer
 { return (const void *)(object_getTaggedPointerValue(self) ^ 1); }
 
+- (const void *nillable)items
+{
+    tagged_pointer_item_buffer = (uintptr_t)self.pointer;
+    return &tagged_pointer_item_buffer;
+}
+#endif
+
 - (size_t)itemSize
 {
     return sizeof(void *);
@@ -59,22 +83,14 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
     return 1;
 }
 
-- (const void *)items
+- (const void *nillable)firstItem
 {
-    tagged_pointer_item_buffer = (uintptr_t)self.pointer;
-    return &tagged_pointer_item_buffer;
+    return self.items;
 }
 
-- (const void *)firstItem
+- (const void *nillable)lastItem
 {
-    const void *items = self.items;
-    return items != nullptr ? items : nullptr;
-}
-
-- (const void *)lastItem
-{
-    const void *items = self.items;
-    return items != nullptr ? items : nullptr;
+    return self.items;
 }
 
 - (OFString *)stringRepresentation
@@ -84,27 +100,7 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 
 - (OFString *)stringByBase64Encoding
 {
-    char buffer[sizeof(void *) * 4 / 3 + 4] = {0};
-    {
-        auto pointer_bytes = (const uint8_t *)&(const uint8_t *){self.pointer};
-        size_t idx = 0;
-        for (size_t i = 0; i < sizeof(void *); i += 3) {
-            uint32_t chunk = 0;
-            size_t chunk_size = 0;
-            for (size_t j = 0; j < 3 and i + j < sizeof(void *); j++) {
-                chunk |= ((uint32_t)pointer_bytes[i + j]) << (16 - j * 8);
-                chunk_size++;
-            }
-            for (size_t k = 0; k < (chunk_size + 1); k++) {
-                uint8_t index = (chunk >> (18 - k * 6)) & 0x3F;
-                buffer[idx++] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[index];
-            }
-        }
-        while (idx % 4 != 0) {
-            buffer[idx++] = '=';
-        }
-    }
-    return [OFString stringWithUTF8String: buffer];
+    return ((OFData *)self.mutableCopy).stringByBase64Encoding;
 }
 
 - (OFComparisonResult)compare: (OFData *)data
@@ -128,11 +124,7 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
     if (index != 0)
         @throw [[OFOutOfRangeException alloc] init];
 
-    const void *items = self.items;
-    if (items == nullptr)
-        @throw [[OFOutOfRangeException alloc] init];
-
-    return items;
+    return $assert_nonnil(self.items);
 }
 
 - (id)copy
@@ -167,6 +159,5 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 {
     return [OFString stringWithFormat: @"<%@: %p; pointer = %p>", self.className, self, self.pointer];
 }
-#endif
 
 @end

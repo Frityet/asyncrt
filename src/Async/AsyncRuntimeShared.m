@@ -22,21 +22,21 @@ static pthread_mutex_t async_tsan_keepalive_lock = PTHREAD_MUTEX_INITIALIZER;
 static OFMutableArray<id> *nillable async_tsan_keepalive_objects;
 #endif
 
-OFString *FutureStatusToString(enum FutureStatus status)
+OFString *PromiseStatusToString(enum PromiseStatus status)
 {
     switch (status) {
-        case FutureStatus_PENDING: return @"PENDING";
-        case FutureStatus_FULFILLED: return @"FULFILLED";
-        case FutureStatus_REJECTED: return @"REJECTED";
+        case PromiseStatus_PENDING: return @"PENDING";
+        case PromiseStatus_FULFILLED: return @"FULFILLED";
+        case PromiseStatus_REJECTED: return @"REJECTED";
     }
 }
 
-OFString *DescribeFuture(Future *nillable future)
+OFString *DescribePromise(Promise *nillable future)
 {
     if (future == nilptr)
         return @"<nil>";
 
-    return [OFString stringWithFormat: @"%p (%@)", future, FutureStatusToString(future.status)];
+    return [OFString stringWithFormat: @"%p (%@)", future, PromiseStatusToString(future.status)];
 }
 
 OFString *DescribeScheduler(AsyncScheduler *nillable scheduler)
