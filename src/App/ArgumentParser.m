@@ -1,7 +1,10 @@
 #include "ArgumentParser.h"
 
-#include <ObjFW/OFMutableDictionary.h>
+#if !defined(__APPLE__)
 #include <ObjFWRT/ObjFWRT.h>
+#else
+#include <objc/objc.h>
+#endif
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -315,7 +318,7 @@
 
     @try {
         for (unsigned int index = 0; index < ivarCount; index++) {
-            auto ivarName = [OFString stringWithUTF8String: ivar_getName(ivars[index])];
+            auto ivarName = [OFString stringWithUTF8String: $assert_nonnil(ivar_getName(ivars[index]))];
 
             if (not [ivarName isEqual: propertyName]
                 and not [ivarName isEqual: underscoredPropertyName])

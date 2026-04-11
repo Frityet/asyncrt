@@ -22,4 +22,19 @@
 
 @end
 
+@implementation TaggedPointer
+
+
++ (uintptr_t)registerClass: (Class)c
+{
+    return 0;
+}
+
++ (id)createWithTag: (uintptr_t)tag payload: (id)payload
+{
+    return nil;
+}
+
+@end
+
 void async_link_scoped_lock_support(void) {}

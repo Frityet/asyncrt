@@ -1,5 +1,10 @@
 #import "TestSupport.h"
+
+#if !defined(__APPLE__)
 #import <ObjFWRT/ObjFWRT.h>
+#else
+#import <objc/objc.h>
+#endif
 
 #pragma clang assume_nonnull begin
 
@@ -204,8 +209,10 @@ static void optional_from_nillable_nil_is_none(void)
     OFString *fallback = [[OFString alloc] initWithUTF8String: "fallback"];
     bool caughtMissingValue = false;
 
+#if !defined(__APPLE__)
     [AsyncRuntimeTestSupport assertCondition: (object_isTaggedPointer(none)) message: (@"Optional.none should be a tagged pointer")];
     [AsyncRuntimeTestSupport assertCondition: (object_isTaggedPointer(from_nil)) message: (@"Optional.fromNillable(nil) should be a tagged pointer")];
+#endif
     [AsyncRuntimeTestSupport assertCondition: (not none.hasValue) message: (@"Optional.none should report no value")];
     [AsyncRuntimeTestSupport assertCondition: (not from_nil.hasValue) message: (@"Optional.fromNillable(nil) should collapse to none")];
     [AsyncRuntimeTestSupport assertCondition: ([none isEqual: from_nil]) message: (@"Optional.fromNillable(nil) should compare equal to Optional.none")];
@@ -232,8 +239,10 @@ static void optional_roundtrip_equality_and_description(void)
     Optional<OFMutableArray<OFString *> *> *equal_optional = [Optional some: equal_value];
     OFString *description = optional.description;
 
+#if !defined(__APPLE__)
     [AsyncRuntimeTestSupport assertCondition: (not object_isTaggedPointer(value)) message: (@"the Optional round-trip test needs a heap object payload")];
     [AsyncRuntimeTestSupport assertCondition: (not object_isTaggedPointer(optional)) message: (@"Optional.some should retain heap payloads in a heap-backed wrapper")];
+#endif
     [AsyncRuntimeTestSupport assertCondition: (optional.hasValue) message: (@"Optional.some should report a stored value")];
     [AsyncRuntimeTestSupport assertCondition: (optional.value == value) message: (@"Optional.value should round-trip the wrapped object pointer")];
     [AsyncRuntimeTestSupport assertCondition: ([optional isEqual: equal_optional]) message: (@"Optional equality should defer to the wrapped values")];
@@ -266,9 +275,9 @@ static void optional_some_accepts_tagged_payloads(void)
     Optional<Pointer *> *optional = [Optional some: tagged_pointer_value];
     Optional<Pointer *> *from_nillable = [Optional fromNillable: tagged_pointer_value];
     bool caughtNilArgument = false;
-
+#if !defined(__APPLE__)
     [AsyncRuntimeTestSupport assertCondition: (object_isTaggedPointer(tagged_pointer_value)) message: (@"the nested tagged-pointer test needs a tagged pointer payload")];
-
+#endif
     @try {
         (void)[Optional some: nilptr];
     } @catch (OFInvalidArgumentException *unusedException) {
@@ -279,8 +288,10 @@ static void optional_some_accepts_tagged_payloads(void)
     [AsyncRuntimeTestSupport assertCondition: (caughtNilArgument) message: (@"Optional.some should reject nil because nil maps to none instead")];
     [AsyncRuntimeTestSupport assertCondition: (optional.hasValue) message: (@"Optional.some should preserve tagged-pointer payloads")];
     [AsyncRuntimeTestSupport assertCondition: (from_nillable.hasValue) message: (@"Optional.fromNillable should preserve tagged-pointer payloads")];
+#if !defined(__APPLE__)
     [AsyncRuntimeTestSupport assertCondition: (not object_isTaggedPointer(optional)) message: (@"Optional.some should fall back to a heap representation for tagged-pointer payloads it cannot inline")];
     [AsyncRuntimeTestSupport assertCondition: (not object_isTaggedPointer(from_nillable)) message: (@"Optional.fromNillable should fall back to a heap representation for tagged-pointer payloads it cannot inline")];
+#endif
     [AsyncRuntimeTestSupport assertCondition: (optional.value == tagged_pointer_value) message: (@"Optional.some should round-trip tagged-pointer payload identities")];
     [AsyncRuntimeTestSupport assertCondition: (from_nillable.value == tagged_pointer_value) message: (@"Optional.fromNillable should round-trip tagged-pointer payload identities")];
     [AsyncRuntimeTestSupport assertCondition: ([optional isEqual: from_nillable]) message: (@"Optional equality should treat tagged-pointer payloads like any other payload")];

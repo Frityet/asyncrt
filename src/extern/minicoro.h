@@ -773,7 +773,11 @@ typedef struct _mco_ctxbuf {
   void *rip, *rsp, *rbp, *rbx, *r12, *r13, *r14, *r15;
 } _mco_ctxbuf;
 
-static MCO_NO_INLINE void _mco_dead_return(void) {
+[[gnu::used]]
+MCO_NO_INLINE void _mco_dead_return(void) asm("_mco_dead_return");
+
+[[gnu::used]]
+MCO_NO_INLINE void _mco_dead_return(void) {
 #if defined(__GNUC__) || defined(__clang__)
   __builtin_trap();
 #else

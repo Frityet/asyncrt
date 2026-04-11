@@ -48,4 +48,13 @@
 
 @end
 
+@namespace(TaggedPointer)
+
++ (uintptr_t)registerClass: (Class)c;
++ (id)createWithTag: (uintptr_t)tag payload: (id)payload;
+
+@end
+
 void async_link_scoped_lock_support(void);
+
+

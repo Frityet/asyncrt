@@ -1,14 +1,32 @@
 #include "Pointer.h"
 
 #import <ObjFW/ObjFW.h>
+#if !defined(__APPLE__)
 #import <ObjFWRT/ObjFWRT.h>
+#else
+#import <objc/objc.h>
+#endif
 #import <string.h>
 #import <iso646.h>
 
-static int tagged_pointer_data_class = -1;
-static thread_local uintptr_t tagged_pointer_item_buffer;
+//static int tagged_pointer_data_class = -1;
+//static thread_local uintptr_t tagged_pointer_item_buffer;
 
 @implementation Pointer
+
+#if defined(__APPLE__)
+
++ (instancetype)pointer: (const void *nillable)pointer
+{
+     return [super dataWithItems: &pointer count: 1 itemSize: sizeof(void *)];
+}
+
+- (const void *nillable)pointer
+{ return (const void *)*(const void **)self.items; }
+
+#else
+static int tagged_pointer_data_class = -1;
+static thread_local uintptr_t tagged_pointer_item_buffer;
 
 + (void)initialize
 {
@@ -149,5 +167,6 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 {
     return [OFString stringWithFormat: @"<%@: %p; pointer = %p>", self.className, self, self.pointer];
 }
+#endif
 
 @end

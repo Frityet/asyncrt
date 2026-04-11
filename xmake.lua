@@ -14,7 +14,7 @@ add_requires("objfw", {
     configs = {
         shared = false,
         debug = is_mode("debug"),
-        tls = "openssl"
+        --tls = "openssl"
     }
 })
 
@@ -48,7 +48,8 @@ add_flags (
     "-Wnull-conversion",
     "-Wnullability-completeness",
     "-Wnullable-to-nonnull-conversion",
-    "-Wno-auto-var-id"
+    "-Wno-auto-var-id",
+    "-Wno-compare-distinct-pointer-types" --why the fuck is this a diagnostic?
 )
 add_flags("-Wno-missing-braces")
 if is_plat("linux") then
