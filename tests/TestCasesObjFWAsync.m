@@ -45,7 +45,6 @@ static void AsyncRuntimeWriteFile(OFString *path, OFString *contents)
     OFThread *nillable _thread;
     OFMutex *_lock;
     bool _stopping;
-    uint16_t _port;
 }
 
 @synthesize port = _port;
@@ -158,7 +157,7 @@ static bool AsyncRuntimeCanBindLoopbackDNSStub(void)
 
 @interface LocalDNSQueryTestServer : OFObject
 
-- (instancetype)initWithResponseText: (OFString *)responseText OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithResponseText: (OFString *)responseText designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 - (void)start;
 - (void)stop;
@@ -372,9 +371,9 @@ static void AsyncRuntimeWithConnectedTCPSockets(AsyncScheduler *scheduler, bool 
             acceptPromise = [listener promiseToAcceptOnScheduler: scheduler];
 
         if (useConnectCancelSelector)
-            (void)[client promiseToConnectToHost: @"127.0.0.1" port: OFSocketAddressIPPort(&address) onScheduler: scheduler cancelOnTaskCancellation: false].await;
+            [[client promiseToConnectToHost: @"127.0.0.1" port: OFSocketAddressIPPort(&address) onScheduler: scheduler cancelOnTaskCancellation: false] await];
         else
-            (void)[client promiseToConnectToHost: @"127.0.0.1" port: OFSocketAddressIPPort(&address) onScheduler: scheduler].await;
+            [[client promiseToConnectToHost: @"127.0.0.1" port: OFSocketAddressIPPort(&address) onScheduler: scheduler] await];
 
         acceptedSocket = acceptPromise.await;
         block(client, acceptedSocket);
@@ -403,7 +402,7 @@ static void objfw_tcp_stream_wrappers(AsyncScope *rootScope)
     [listener listen];
 
     @try {
-        Task<AsyncUnit *> *acceptTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *acceptTask = [rootScope spawn: ^{
             AsyncBufferReadResult *serverRead;
 
             acceptedSocket = [listener promiseToAcceptOnScheduler: scheduler].await;
@@ -417,7 +416,7 @@ static void objfw_tcp_stream_wrappers(AsyncScope *rootScope)
                                             message: (@"TCP read results should preserve the caller buffer pointer")];
 
             [AsyncRuntimeTestSupport assertCondition: ([acceptedSocket promiseToWriteData: [OFData dataWithItems: "pong" count: sizeof(clientBuffer)] onScheduler: scheduler].await == AsyncUnit.unit)
-                                            message: (@"TCP write futures should resolve to AsyncUnit.unit")];
+                                            message: (@"TCP write promises should resolve to AsyncUnit.unit")];
             return AsyncUnit.unit;
         } name: @"objfw-tcp-accept"];
         AsyncBufferReadResult *clientRead;
@@ -426,12 +425,12 @@ static void objfw_tcp_stream_wrappers(AsyncScope *rootScope)
         connectResumedOnScheduler = (OFThread.currentThread == expectedThread);
 
         [AsyncRuntimeTestSupport assertCondition: (connectedSocket == client)
-                                        message: (@"TCP connect futures should resolve with the original socket")];
+                                        message: (@"TCP connect promises should resolve with the original socket")];
         [AsyncRuntimeTestSupport assertCondition: ([client promiseToWriteString: @"ping!" onScheduler: scheduler].await == AsyncUnit.unit)
                                         message: (@"stream string writes should resolve to AsyncUnit.unit")];
 
         clientRead = [client promiseToReadIntoBuffer: clientBufferPointer exactLength: sizeof(clientBuffer) onScheduler: scheduler].await;
-        (void)acceptTask.await;
+        [acceptTask await];
 
         [AsyncRuntimeTestSupport assertCondition: (clientRead.length == sizeof(clientBuffer))
                                         message: (@"client-side exact reads should report the full byte count")];
@@ -442,9 +441,9 @@ static void objfw_tcp_stream_wrappers(AsyncScope *rootScope)
         [AsyncRuntimeTestSupport assertCondition: (memcmp(clientBuffer, "pong", sizeof(clientBuffer)) == 0)
                                         message: (@"clients should receive bytes written back by the accepted socket")];
         [AsyncRuntimeTestSupport assertCondition: (connectResumedOnScheduler)
-                                        message: (@"awaiting TCP connect futures should resume on the scheduler thread")];
+                                        message: (@"awaiting TCP connect promises should resume on the scheduler thread")];
         [AsyncRuntimeTestSupport assertCondition: (acceptResumedOnScheduler)
-                                        message: (@"awaiting TCP accept futures should resume on the scheduler thread")];
+                                        message: (@"awaiting TCP accept promises should resume on the scheduler thread")];
     } @finally {
         if (acceptedSocket != nilptr)
             [acceptedSocket close];
@@ -464,7 +463,7 @@ static void objfw_stream_eof_optionals(AsyncScope *rootScope)
     [listener listen];
 
     @try {
-        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^{
             OFStreamSocket *acceptedSocket = nilptr;
 
             @try {
@@ -488,10 +487,10 @@ static void objfw_stream_eof_optionals(AsyncScope *rootScope)
         auto stringClient = [[OFTCPSocket alloc] init];
 
         @try {
-            (void)[stringClient promiseToConnectToHost: host port: port onScheduler: scheduler].await;
-            (void)[stringClient promiseToWriteString: @"payload" onScheduler: scheduler].await;
+            [[stringClient promiseToConnectToHost: host port: port onScheduler: scheduler] await];
+            [[stringClient promiseToWriteString: @"payload" onScheduler: scheduler] await];
             [stringClient close];
-            (void)stringTask.await;
+            [stringTask await];
         } @finally {
             @try {
                 [stringClient close];
@@ -499,7 +498,7 @@ static void objfw_stream_eof_optionals(AsyncScope *rootScope)
             }
         }
 
-        Task<AsyncUnit *> *lineTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *lineTask = [rootScope spawn: ^{
             OFStreamSocket *acceptedSocket = nilptr;
 
             @try {
@@ -527,10 +526,10 @@ static void objfw_stream_eof_optionals(AsyncScope *rootScope)
         auto lineClient = [[OFTCPSocket alloc] init];
 
         @try {
-            (void)[lineClient promiseToConnectToHost: host port: port onScheduler: scheduler].await;
-            (void)[lineClient promiseToWriteString: @"alpha\nbeta\n" onScheduler: scheduler].await;
+            [[lineClient promiseToConnectToHost: host port: port onScheduler: scheduler] await];
+            [[lineClient promiseToWriteString: @"alpha\nbeta\n" onScheduler: scheduler] await];
             [lineClient close];
-            (void)lineTask.await;
+            [lineTask await];
         } @finally {
             @try {
                 [lineClient close];
@@ -558,17 +557,17 @@ static void objfw_datagram_send_receive(AsyncScope *rootScope)
         receiveResult = receivePromise.await;
 
         [AsyncRuntimeTestSupport assertCondition: (sendResult == AsyncUnit.unit)
-                                        message: (@"datagram send futures should resolve to AsyncUnit.unit")];
+                                        message: (@"datagram send promises should resolve to AsyncUnit.unit")];
         [AsyncRuntimeTestSupport assertCondition: (receiveResult.length == sizeof(buffer))
-                                        message: (@"datagram receive futures should report the received datagram length")];
+                                        message: (@"datagram receive promises should report the received datagram length")];
         [AsyncRuntimeTestSupport assertCondition: (receiveResult.buffer == buffer)
                                         message: (@"datagram receive results should preserve the caller buffer pointer")];
         [AsyncRuntimeTestSupport assertCondition: (memcmp(buffer, "hello", sizeof(buffer)) == 0)
-                                        message: (@"datagram receive futures should deliver the sent bytes")];
+                                        message: (@"datagram receive promises should deliver the sent bytes")];
         [AsyncRuntimeTestSupport assertCondition: ([OFSocketAddressString(receiveResult.sender) isEqual: @"127.0.0.1"])
-                                        message: (@"datagram receive futures should preserve the sender address")];
+                                        message: (@"datagram receive promises should preserve the sender address")];
         [AsyncRuntimeTestSupport assertCondition: (OFSocketAddressIPPort(receiveResult.sender) == OFSocketAddressIPPort(&boundAddress))
-                                        message: (@"datagram receive futures should preserve the sender port")];
+                                        message: (@"datagram receive promises should preserve the sender port")];
     } @finally {
         [socket close];
     }
@@ -648,7 +647,7 @@ static void objfw_stream_string_cancel_selector_coverage(AsyncScope *rootScope)
     [listener listen];
 
     @try {
-        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^{
             OFStreamSocket *acceptedSocket = nilptr;
 
             @try {
@@ -667,11 +666,11 @@ static void objfw_stream_string_cancel_selector_coverage(AsyncScope *rootScope)
         auto client = [[OFTCPSocket alloc] init];
 
         @try {
-            (void)[client promiseToConnectToHost: host port: port onScheduler: scheduler].await;
+            [[client promiseToConnectToHost: host port: port onScheduler: scheduler] await];
             [AsyncRuntimeTestSupport assertCondition: ([client promiseToWriteString: @"payload-cancel" onScheduler: scheduler cancelOnTaskCancellation: false].await == AsyncUnit.unit)
                                             message: (@"cancel-selector default-encoding string writes should resolve to AsyncUnit.unit")];
             [client close];
-            (void)stringTask.await;
+            [stringTask await];
         } @finally {
             AsyncRuntimeCloseSocket(client);
         }
@@ -691,7 +690,7 @@ static void objfw_stream_string_encoding_selector_coverage(AsyncScope *rootScope
     [listener listen];
 
     @try {
-        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^{
             OFStreamSocket *acceptedSocket = nilptr;
 
             @try {
@@ -710,11 +709,11 @@ static void objfw_stream_string_encoding_selector_coverage(AsyncScope *rootScope
         auto client = [[OFTCPSocket alloc] init];
 
         @try {
-            (void)[client promiseToConnectToHost: host port: port onScheduler: scheduler].await;
+            [[client promiseToConnectToHost: host port: port onScheduler: scheduler] await];
             [AsyncRuntimeTestSupport assertCondition: ([client promiseToWriteString: @"utf8-default" encoding: OFStringEncodingUTF8 onScheduler: scheduler cancelOnTaskCancellation: false].await == AsyncUnit.unit)
                                             message: (@"cancel-selector explicit-encoding string writes should resolve to AsyncUnit.unit")];
             [client close];
-            (void)stringTask.await;
+            [stringTask await];
         } @finally {
             AsyncRuntimeCloseSocket(client);
         }
@@ -734,7 +733,7 @@ static void objfw_stream_string_encoding_cancel_selector_coverage(AsyncScope *ro
     [listener listen];
 
     @try {
-        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *stringTask = [rootScope spawn: ^{
             OFStreamSocket *acceptedSocket = nilptr;
 
             @try {
@@ -753,11 +752,11 @@ static void objfw_stream_string_encoding_cancel_selector_coverage(AsyncScope *ro
         auto client = [[OFTCPSocket alloc] init];
 
         @try {
-            (void)[client promiseToConnectToHost: host port: port onScheduler: scheduler].await;
+            [[client promiseToConnectToHost: host port: port onScheduler: scheduler] await];
             [AsyncRuntimeTestSupport assertCondition: ([client promiseToWriteString: @"utf8-cancel" encoding: OFStringEncodingUTF8 onScheduler: scheduler].await == AsyncUnit.unit)
                                             message: (@"default explicit-encoding string writes should remain usable alongside overload coverage")];
             [client close];
-            (void)stringTask.await;
+            [stringTask await];
         } @finally {
             AsyncRuntimeCloseSocket(client);
         }
@@ -823,9 +822,9 @@ static void objfw_iri_handler_wrappers(AsyncScope *rootScope)
         instanceStream = [handler promiseToOpenItemAtIRI: betaIRI mode: @"r" onScheduler: scheduler].await;
 
         [AsyncRuntimeTestSupport assertCondition: ([[classStream readString] isEqual: @"alpha"])
-                                        message: (@"class IRI handler futures should open readable streams through async-capable handlers")];
+                                        message: (@"class IRI handler promises should open readable streams through async-capable handlers")];
         [AsyncRuntimeTestSupport assertCondition: ([[instanceStream readString] isEqual: @"beta"])
-                                        message: (@"instance IRI handler futures should open readable streams through async-capable handlers")];
+                                        message: (@"instance IRI handler promises should open readable streams through async-capable handlers")];
     } @finally {
         if (classStream != nilptr)
             [classStream close];
@@ -857,11 +856,11 @@ static void objfw_dns_static_host_resolution(AsyncScope *rootScope)
         items = (const OFSocketAddress *)addresses.items;
 
         [AsyncRuntimeTestSupport assertCondition: (addresses.itemSize == sizeof(OFSocketAddress))
-                                        message: (@"host resolution futures should return OFData itemized as OFSocketAddress entries")];
+                                        message: (@"host resolution promises should return OFData itemized as OFSocketAddress entries")];
         [AsyncRuntimeTestSupport assertCondition: (addresses.count == 1)
                                         message: (@"static host resolution should return exactly one configured address")];
         [AsyncRuntimeTestSupport assertCondition: ([OFSocketAddressString(&items[0]) isEqual: @"127.0.0.1"])
-                                        message: (@"host resolution futures should preserve the configured IP address")];
+                                        message: (@"host resolution promises should preserve the configured IP address")];
         [AsyncRuntimeTestSupport assertCondition: (OFSocketAddressIPPort(&items[0]) == 0)
                                         message: (@"resolved static host addresses should retain port zero")];
         [AsyncRuntimeTestSupport assertCondition: ([cancelAddresses isEqual: addresses])
@@ -895,20 +894,20 @@ static void objfw_tls_client_handshake_failure(AsyncScope *rootScope)
 
     @try {
         [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToHost: @"127.0.0.1" port: server.port onScheduler: scheduler].await == client)
-                                        message: (@"TCP connect futures should still resolve with the client socket before TLS setup")];
+                                        message: (@"TCP connect promises should still resolve with the client socket before TLS setup")];
 
         TLSStream = [OFTLSStream streamWithStream: client];
 
         @try {
-            (void)[TLSStream promiseToPerformClientHandshakeWithHost: @"127.0.0.1" onScheduler: scheduler].await;
+            [[TLSStream promiseToPerformClientHandshakeWithHost: @"127.0.0.1" onScheduler: scheduler] await];
         } @catch (OFException *) {
             caughtHandshakeFailure = true;
         }
 
         [AsyncRuntimeTestSupport assertCondition: (caughtHandshakeFailure)
-                                        message: (@"TLS client handshake futures should reject when the peer is not speaking TLS")];
+                                        message: (@"TLS client handshake promises should reject when the peer is not speaking TLS")];
         [AsyncRuntimeTestSupport assertCondition: (OFThread.currentThread == expectedThread)
-                                        message: (@"awaiting TLS handshake futures should resume on the scheduler thread")];
+                                        message: (@"awaiting TLS handshake promises should resume on the scheduler thread")];
     } @finally {
         if (TLSStream != nilptr)
             [TLSStream close];
@@ -926,13 +925,13 @@ static void objfw_tls_client_handshake_failure(AsyncScope *rootScope)
         cancelTLSStream = [OFTLSStream streamWithStream: cancelClient];
 
         @try {
-            (void)[cancelTLSStream promiseToPerformClientHandshakeWithHost: @"127.0.0.1" onScheduler: scheduler cancelOnTaskCancellation: false].await;
+            [[cancelTLSStream promiseToPerformClientHandshakeWithHost: @"127.0.0.1" onScheduler: scheduler cancelOnTaskCancellation: false] await];
         } @catch (OFException *) {
             caughtCancelSelectorFailure = true;
         }
 
         [AsyncRuntimeTestSupport assertCondition: (caughtCancelSelectorFailure)
-                                        message: (@"cancel-selector TLS client handshake futures should reject when the peer is not speaking TLS")];
+                                        message: (@"cancel-selector TLS client handshake promises should reject when the peer is not speaking TLS")];
     } @finally {
         if (cancelTLSStream != nilptr)
             [cancelTLSStream close];
@@ -947,10 +946,10 @@ static void objfw_dns_query_local_stub(AsyncScope *rootScope)
     AsyncScheduler *scheduler = rootScope.scheduler;
     auto server = [[LocalDNSQueryTestServer alloc] initWithResponseText: @"async-query"];
     auto resolver = [[OFDNSResolver alloc] init];
-    OFDNSQuery *query = [OFDNSQuery queryWithDomainName: @"future-query.test"
+    OFDNSQuery *query = [OFDNSQuery queryWithDomainName: @"promise-query.test"
                                                DNSClass: OFDNSClassIN
                                              recordType: OFDNSRecordTypeTXT];
-    OFDNSQuery *cancelQuery = [OFDNSQuery queryWithDomainName: @"future-query-cancel.test"
+    OFDNSQuery *cancelQuery = [OFDNSQuery queryWithDomainName: @"promise-query-cancel.test"
                                                      DNSClass: OFDNSClassIN
                                                    recordType: OFDNSRecordTypeTXT];
     OFData *expectedText = [OFData dataWithItems: "async-query" count: strlen("async-query")];
@@ -977,26 +976,26 @@ static void objfw_dns_query_local_stub(AsyncScope *rootScope)
         cancelRecords = [cancelResponse.answerRecords objectForKey: cancelQuery.domainName];
 
         [AsyncRuntimeTestSupport assertCondition: ([response.domainName isEqual: query.domainName])
-                                        message: (@"DNS query futures should preserve the queried domain name")];
+                                        message: (@"DNS query promises should preserve the queried domain name")];
         [AsyncRuntimeTestSupport assertCondition: (records != nilptr and records.count == 1)
-                                        message: (@"DNS query futures should expose the answer records returned by the resolver")];
+                                        message: (@"DNS query promises should expose the answer records returned by the resolver")];
 
         record = (OFTXTDNSResourceRecord *)[records objectAtIndex: 0];
         [AsyncRuntimeTestSupport assertCondition: (record.recordType == OFDNSRecordTypeTXT)
-                                        message: (@"the local DNS stub should return a TXT record for the query future")];
+                                        message: (@"the local DNS stub should return a TXT record for the query promise")];
         [AsyncRuntimeTestSupport assertCondition: ([record.textStrings.count == 1 ? [record.textStrings objectAtIndex: 0] : nilptr isEqual: expectedText])
-                                        message: (@"DNS query futures should preserve TXT record payload bytes")];
+                                        message: (@"DNS query promises should preserve TXT record payload bytes")];
 
         [AsyncRuntimeTestSupport assertCondition: ([cancelResponse.domainName isEqual: cancelQuery.domainName])
-                                        message: (@"cancel-selector DNS query futures should preserve the queried domain name")];
+                                        message: (@"cancel-selector DNS query promises should preserve the queried domain name")];
         [AsyncRuntimeTestSupport assertCondition: (cancelRecords != nilptr and cancelRecords.count == 1)
-                                        message: (@"cancel-selector DNS query futures should expose the answer records returned by the resolver")];
+                                        message: (@"cancel-selector DNS query promises should expose the answer records returned by the resolver")];
 
         cancelRecord = (OFTXTDNSResourceRecord *)[cancelRecords objectAtIndex: 0];
         [AsyncRuntimeTestSupport assertCondition: (cancelRecord.recordType == OFDNSRecordTypeTXT)
-                                        message: (@"cancel-selector DNS query futures should preserve the TXT record type")];
+                                        message: (@"cancel-selector DNS query promises should preserve the TXT record type")];
         [AsyncRuntimeTestSupport assertCondition: ([cancelRecord.textStrings.count == 1 ? [cancelRecord.textStrings objectAtIndex: 0] : nilptr isEqual: expectedText])
-                                        message: (@"cancel-selector DNS query futures should preserve TXT record payload bytes")];
+                                        message: (@"cancel-selector DNS query promises should preserve TXT record payload bytes")];
     } @finally {
         [resolver close];
         [server stop];
@@ -1020,13 +1019,13 @@ static void objfw_tls_server_handshake_failure(AsyncScope *rootScope)
             [client close];
 
             @try {
-                (void)[serverStream promiseToPerformServerHandshakeOnScheduler: scheduler].await;
+                [[serverStream promiseToPerformServerHandshakeOnScheduler: scheduler] await];
             } @catch (OFException *) {
                 caughtFailure = true;
             }
 
             [AsyncRuntimeTestSupport assertCondition: (caughtFailure)
-                                            message: (@"TLS server handshake futures should reject when the peer is not speaking TLS")];
+                                            message: (@"TLS server handshake promises should reject when the peer is not speaking TLS")];
         } @finally {
             [serverStream close];
         }
@@ -1042,13 +1041,13 @@ static void objfw_tls_server_handshake_failure(AsyncScope *rootScope)
             [client close];
 
             @try {
-                (void)[serverStream promiseToPerformServerHandshakeOnScheduler: scheduler cancelOnTaskCancellation: false].await;
+                [[serverStream promiseToPerformServerHandshakeOnScheduler: scheduler cancelOnTaskCancellation: false] await];
             } @catch (OFException *) {
                 caughtFailure = true;
             }
 
             [AsyncRuntimeTestSupport assertCondition: (caughtFailure)
-                                            message: (@"cancel-selector TLS server handshake futures should reject when the peer is not speaking TLS")];
+                                            message: (@"cancel-selector TLS server handshake promises should reject when the peer is not speaking TLS")];
         } @finally {
             [serverStream close];
         }
@@ -1090,14 +1089,14 @@ static void objfw_spx_socket_connect_wrappers(AsyncScope *rootScope)
 
             @try {
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToNetwork: network node: node port: port onScheduler: scheduler].await == client)
-                                                message: (@"SPX message connect futures should resolve with the original socket")];
+                                                message: (@"SPX message connect promises should resolve with the original socket")];
                 acceptedSocket = acceptPromise.await;
 
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToSendData: [OFData dataWithItems: "ipx!" count: sizeof(buffer)] onScheduler: scheduler].await == AsyncUnit.unit)
                                                 message: (@"accepted SPX message sockets should remain usable through inherited sequenced-packet wrappers")];
                 readResult = [acceptedSocket promiseToReceiveIntoBuffer: buffer length: sizeof(buffer) onScheduler: scheduler].await;
                 [AsyncRuntimeTestSupport assertCondition: (readResult.length == sizeof(buffer) and memcmp(buffer, "ipx!", sizeof(buffer)) == 0)
-                                                message: (@"SPX message connect futures should establish a working connection")];
+                                                message: (@"SPX message connect promises should establish a working connection")];
             } @finally {
                 AsyncRuntimeCloseSocket(client);
                 AsyncRuntimeCloseSocket(acceptedSocket);
@@ -1113,14 +1112,14 @@ static void objfw_spx_socket_connect_wrappers(AsyncScope *rootScope)
 
             @try {
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToNetwork: network node: node port: port onScheduler: scheduler cancelOnTaskCancellation: false].await == client)
-                                                message: (@"cancel-selector SPX message connect futures should resolve with the original socket")];
+                                                message: (@"cancel-selector SPX message connect promises should resolve with the original socket")];
                 acceptedSocket = acceptPromise.await;
 
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToSendData: [OFData dataWithItems: "ipx-2" count: sizeof(buffer)] onScheduler: scheduler].await == AsyncUnit.unit)
-                                                message: (@"cancel-selector SPX message connect futures should support subsequent sends")];
+                                                message: (@"cancel-selector SPX message connect promises should support subsequent sends")];
                 readResult = [acceptedSocket promiseToReceiveIntoBuffer: buffer length: sizeof(buffer) onScheduler: scheduler].await;
                 [AsyncRuntimeTestSupport assertCondition: (readResult.length == sizeof(buffer) and memcmp(buffer, "ipx-2", sizeof(buffer)) == 0)
-                                                message: (@"cancel-selector SPX message connect futures should establish a working connection")];
+                                                message: (@"cancel-selector SPX message connect promises should establish a working connection")];
             } @finally {
                 AsyncRuntimeCloseSocket(client);
                 AsyncRuntimeCloseSocket(acceptedSocket);
@@ -1165,14 +1164,14 @@ static void objfw_spx_stream_socket_connect_wrappers(AsyncScope *rootScope)
 
             @try {
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToNetwork: network node: node port: port onScheduler: scheduler].await == client)
-                                                message: (@"SPX stream connect futures should resolve with the original socket")];
+                                                message: (@"SPX stream connect promises should resolve with the original socket")];
                 acceptedSocket = acceptPromise.await;
 
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToWriteData: [OFData dataWithItems: "spx!" count: sizeof(buffer)] onScheduler: scheduler].await == AsyncUnit.unit)
                                                 message: (@"accepted SPX stream sockets should remain usable through inherited stream wrappers")];
                 readResult = [acceptedSocket promiseToReadIntoBuffer: buffer exactLength: sizeof(buffer) onScheduler: scheduler].await;
                 [AsyncRuntimeTestSupport assertCondition: (readResult.length == sizeof(buffer) and memcmp(buffer, "spx!", sizeof(buffer)) == 0)
-                                                message: (@"SPX stream connect futures should establish a working connection")];
+                                                message: (@"SPX stream connect promises should establish a working connection")];
             } @finally {
                 AsyncRuntimeCloseSocket(client);
                 AsyncRuntimeCloseSocket(acceptedSocket);
@@ -1188,14 +1187,14 @@ static void objfw_spx_stream_socket_connect_wrappers(AsyncScope *rootScope)
 
             @try {
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToNetwork: network node: node port: port onScheduler: scheduler cancelOnTaskCancellation: false].await == client)
-                                                message: (@"cancel-selector SPX stream connect futures should resolve with the original socket")];
+                                                message: (@"cancel-selector SPX stream connect promises should resolve with the original socket")];
                 acceptedSocket = acceptPromise.await;
 
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToWriteData: [OFData dataWithItems: "spx-2" count: sizeof(buffer)] onScheduler: scheduler].await == AsyncUnit.unit)
-                                                message: (@"cancel-selector SPX stream connect futures should support subsequent writes")];
+                                                message: (@"cancel-selector SPX stream connect promises should support subsequent writes")];
                 readResult = [acceptedSocket promiseToReadIntoBuffer: buffer exactLength: sizeof(buffer) onScheduler: scheduler].await;
                 [AsyncRuntimeTestSupport assertCondition: (readResult.length == sizeof(buffer) and memcmp(buffer, "spx-2", sizeof(buffer)) == 0)
-                                                message: (@"cancel-selector SPX stream connect futures should establish a working connection")];
+                                                message: (@"cancel-selector SPX stream connect promises should establish a working connection")];
             } @finally {
                 AsyncRuntimeCloseSocket(client);
                 AsyncRuntimeCloseSocket(acceptedSocket);
@@ -1251,16 +1250,16 @@ static void objfw_sctp_wrapper_methods(AsyncScope *rootScope)
 
             @try {
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToHost: @"127.0.0.1" port: OFSocketAddressIPPort(&boundAddress) onScheduler: scheduler].await == client)
-                                                message: (@"SCTP connect futures should resolve with the original socket")];
+                                                message: (@"SCTP connect promises should resolve with the original socket")];
                 acceptedSocket = acceptPromise.await;
 
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToSendData: [OFData dataWithItems: "sctp" count: sizeof(buffer)] info: info onScheduler: scheduler].await == AsyncUnit.unit)
-                                                message: (@"SCTP send futures should resolve to AsyncUnit.unit")];
+                                                message: (@"SCTP send promises should resolve to AsyncUnit.unit")];
                 readResult = [(OFSCTPSocket *)acceptedSocket promiseToReceiveWithInfoIntoBuffer: buffer length: sizeof(buffer) onScheduler: scheduler].await;
                 [AsyncRuntimeTestSupport assertCondition: (readResult.length == sizeof(buffer) and memcmp(buffer, "sctp", sizeof(buffer)) == 0)
-                                                message: (@"SCTP receive futures should preserve payload bytes")];
+                                                message: (@"SCTP receive promises should preserve payload bytes")];
                 [AsyncRuntimeTestSupport assertCondition: ([readResult.info objectForKey: OFSCTPStreamID] != nilptr)
-                                                message: (@"SCTP receive futures should preserve message info")];
+                                                message: (@"SCTP receive promises should preserve message info")];
             } @finally {
                 AsyncRuntimeCloseSocket(client);
                 AsyncRuntimeCloseSocket(acceptedSocket);
@@ -1280,16 +1279,16 @@ static void objfw_sctp_wrapper_methods(AsyncScope *rootScope)
 
             @try {
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToConnectToHost: @"127.0.0.1" port: OFSocketAddressIPPort(&boundAddress) onScheduler: scheduler cancelOnTaskCancellation: false].await == client)
-                                                message: (@"cancel-selector SCTP connect futures should resolve with the original socket")];
+                                                message: (@"cancel-selector SCTP connect promises should resolve with the original socket")];
                 acceptedSocket = acceptPromise.await;
 
                 [AsyncRuntimeTestSupport assertCondition: ([client promiseToSendData: [OFData dataWithItems: "sctp2" count: sizeof(buffer)] info: info onScheduler: scheduler cancelOnTaskCancellation: false].await == AsyncUnit.unit)
-                                                message: (@"cancel-selector SCTP send futures should resolve to AsyncUnit.unit")];
+                                                message: (@"cancel-selector SCTP send promises should resolve to AsyncUnit.unit")];
                 readResult = [(OFSCTPSocket *)acceptedSocket promiseToReceiveWithInfoIntoBuffer: buffer length: sizeof(buffer) onScheduler: scheduler cancelOnTaskCancellation: false].await;
                 [AsyncRuntimeTestSupport assertCondition: (readResult.length == sizeof(buffer) and memcmp(buffer, "sctp2", sizeof(buffer)) == 0)
-                                                message: (@"cancel-selector SCTP receive futures should preserve payload bytes")];
+                                                message: (@"cancel-selector SCTP receive promises should preserve payload bytes")];
                 [AsyncRuntimeTestSupport assertCondition: ([[readResult.info objectForKey: OFSCTPUnordered] boolValue])
-                                                message: (@"cancel-selector SCTP receive futures should preserve unordered message info")];
+                                                message: (@"cancel-selector SCTP receive promises should preserve unordered message info")];
             } @finally {
                 AsyncRuntimeCloseSocket(client);
                 AsyncRuntimeCloseSocket(acceptedSocket);
@@ -1322,7 +1321,7 @@ static void objfw_unix_sequenced_packet_wrappers(AsyncScope *rootScope, OFUNIXSe
     block_reference bool acceptResumedOnScheduler = false;
 
     @try {
-        Task<AsyncUnit *> *acceptTask = [rootScope spawn: ^id {
+        Task<AsyncUnit *> *acceptTask = [rootScope spawn: ^{
             AsyncBufferReadResult *serverRead;
 
             acceptedSocket = [server promiseToAcceptOnScheduler: scheduler].await;
@@ -1330,11 +1329,11 @@ static void objfw_unix_sequenced_packet_wrappers(AsyncScope *rootScope, OFUNIXSe
             serverRead = [acceptedSocket promiseToReceiveIntoBuffer: serverBufferPointer length: sizeof(serverBuffer) onScheduler: scheduler].await;
 
             [AsyncRuntimeTestSupport assertCondition: (serverRead.length == sizeof(serverBuffer))
-                                            message: (@"sequenced packet receive futures should report the number of bytes received")];
+                                            message: (@"sequenced packet receive promises should report the number of bytes received")];
             [AsyncRuntimeTestSupport assertCondition: (serverRead.buffer == serverBufferPointer)
-                                            message: (@"sequenced packet receive futures should preserve the caller buffer pointer")];
+                                            message: (@"sequenced packet receive promises should preserve the caller buffer pointer")];
             [AsyncRuntimeTestSupport assertCondition: ([acceptedSocket promiseToSendData: [OFData dataWithItems: "pong" count: sizeof(clientBuffer)] onScheduler: scheduler].await == AsyncUnit.unit)
-                                            message: (@"sequenced packet send futures should resolve to AsyncUnit.unit")];
+                                            message: (@"sequenced packet send promises should resolve to AsyncUnit.unit")];
             return AsyncUnit.unit;
         } name: @"objfw-sequenced-accept"];
         AsyncBufferReadResult *clientRead;
@@ -1343,10 +1342,10 @@ static void objfw_unix_sequenced_packet_wrappers(AsyncScope *rootScope, OFUNIXSe
         [AsyncRuntimeTestSupport assertCondition: ([client promiseToSendData: [OFData dataWithItems: "hello" count: sizeof(serverBuffer)] onScheduler: scheduler].await == AsyncUnit.unit)
                                         message: (@"client-side sequenced packet sends should resolve to AsyncUnit.unit")];
         clientRead = [client promiseToReceiveIntoBuffer: clientBufferPointer length: sizeof(clientBuffer) onScheduler: scheduler].await;
-        (void)acceptTask.await;
+        [acceptTask await];
 
         [AsyncRuntimeTestSupport assertCondition: (acceptResumedOnScheduler)
-                                        message: (@"awaiting sequenced packet accept futures should resume on the scheduler thread")];
+                                        message: (@"awaiting sequenced packet accept promises should resume on the scheduler thread")];
         [AsyncRuntimeTestSupport assertCondition: (clientRead.length == sizeof(clientBuffer))
                                         message: (@"sequenced packet reply reads should report the number of bytes received")];
         [AsyncRuntimeTestSupport assertCondition: (memcmp(serverBuffer, "hello", sizeof(serverBuffer)) == 0)

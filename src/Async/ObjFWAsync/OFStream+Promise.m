@@ -9,7 +9,7 @@ static Promise<AsyncBufferReadResult *> *PromiseReadStream(OFStream *stream, voi
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: operation scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         OFStreamReadHandler handler = ^bool(OFStream *, void *callbackBuffer, size_t callbackLength, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return false;
             }
             if (callbackBuffer != buffer) {
@@ -30,9 +30,9 @@ static Promise<AsyncBufferReadResult *> *PromiseReadStream(OFStream *stream, voi
         [stream cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 static Promise<Optional<OFString *> *> *PromiseReadStringLike(OFStream *stream, OFStringEncoding encoding, bool line, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
@@ -42,7 +42,7 @@ static Promise<Optional<OFString *> *> *PromiseReadStringLike(OFStream *stream, 
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: operation scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         OFStreamStringReadHandler handler = ^bool(OFStream *, OFString *nillable string, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return false;
             }
 
@@ -59,9 +59,9 @@ static Promise<Optional<OFString *> *> *PromiseReadStringLike(OFStream *stream, 
         [stream cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 static Promise<AsyncUnit *> *PromiseWriteStreamData(OFStream *stream, OFData *data, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
@@ -70,7 +70,7 @@ static Promise<AsyncUnit *> *PromiseWriteStreamData(OFStream *stream, OFData *da
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: @"asyncWriteData:" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         [stream asyncWriteData: data runLoopMode: scheduler.mode handler: ^OFData *nillable(OFStream *, OFData *, size_t bytesWritten, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return nilptr;
             }
             if (bytesWritten != data.count * data.itemSize) {
@@ -85,9 +85,9 @@ static Promise<AsyncUnit *> *PromiseWriteStreamData(OFStream *stream, OFData *da
         [stream cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString *string, OFStringEncoding encoding, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
@@ -97,7 +97,7 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: @"asyncWriteString:encoding:" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         [stream asyncWriteString: string encoding: encoding runLoopMode: scheduler.mode handler: ^OFString *nillable(OFStream *, OFString *, OFStringEncoding callbackEncoding, size_t bytesWritten, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return nilptr;
             }
             if (callbackEncoding != encoding) {
@@ -116,9 +116,9 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
         [stream cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 @implementation OFStream (PromiseAdditions)

@@ -15,7 +15,6 @@
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
                                    scope: (AsyncScope *)scope;
-- (void)asyncApplicationDidFinishWithValue: (id)value;
 - (void)asyncApplicationDidFailWithException: (OFException *)exception;
 - (void)asyncApplicationWillTerminate: (OFNotification *)notification;
 - (int)applicationExitStatusForValue: (id)value;

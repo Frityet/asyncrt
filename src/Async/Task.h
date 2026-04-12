@@ -15,28 +15,22 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
     AsyncTaskExecutionState_RESOLVED
 };
 
-@interface TaskReturnedNilException : PromiseException {
-@private
-    unretained Task *nillable _task;
-}
+@interface TaskReturnedNilException : PromiseException
 
 @property(readonly, nonatomic) Task *nillable task;
 
-- (instancetype)initWithTask: (Task *)task OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
+- (instancetype)initWithTask: (Task *)task designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface TaskCancelledException : PromiseException {
-@private
-    unretained Task *nillable _task;
-}
+@interface TaskCancelledException : PromiseException
 
 @property(readonly, nonatomic) Task *nillable task;
 
-- (instancetype)initWithTask: (Task *)task OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
+- (instancetype)initWithTask: (Task *)task designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -54,6 +48,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
 
 + (Task *nillable)currentTask;
 + (void)checkCancellation;
++ (OFString *)describeExecutionState: (enum AsyncTaskExecutionState)state;
 - (void)cancel;
 - (instancetype)init OF_UNAVAILABLE;
 

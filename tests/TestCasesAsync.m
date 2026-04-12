@@ -2,7 +2,7 @@
 
 #pragma clang assume_nonnull begin
 
-static void future_await_and_protocol(AsyncScope *rootScope)
+static void promise_await_and_protocol(AsyncScope *rootScope)
 {
     AsyncScheduler *scheduler = rootScope.scheduler;
     OFString *fulfilledValue;
@@ -11,47 +11,48 @@ static void future_await_and_protocol(AsyncScope *rootScope)
 
     [AsyncRuntimeTestSupport assertCondition: (Task.currentTask != nilptr) message: (@"Task.currentTask should be set inside AsyncRuntime.run")];
     [AsyncRuntimeTestSupport assertCondition: (AsyncScope.currentScope == rootScope) message: (@"AsyncScope.currentScope should point at the root scope inside AsyncRuntime.run")];
+    [AsyncRuntimeTestSupport assertCondition: ([Promise conformsToProtocol: @protocol(PromiseLike)]) message: (@"Promise should conform to PromiseLike")];
 
     fulfilledValue = [AsyncRuntimeTestSupport timerResolvedStringForScheduler: scheduler seconds: 0.01 value: @"timer-value"].await;
     immediateValue = [Promise resolved: @"immediate-value"].await;
     awaitablePromise = [Promise resolved: @"awaitable-protocol"];
 
     [AsyncRuntimeTestSupport assertCondition: ([fulfilledValue isEqual: @"timer-value"]) message: (@"await should return the fulfilled timer value")];
-    [AsyncRuntimeTestSupport assertCondition: ([immediateValue isEqual: @"immediate-value"]) message: (@"await on an already fulfilled future should return immediately")];
-    [AsyncRuntimeTestSupport assertCondition: ([[(id)awaitablePromise await] isEqual: @"awaitable-protocol"]) message: (@"Awaitable.await should use the runtime future await implementation")];
+    [AsyncRuntimeTestSupport assertCondition: ([immediateValue isEqual: @"immediate-value"]) message: (@"await on an already fulfilled promise should return immediately")];
+    [AsyncRuntimeTestSupport assertCondition: ([[(id)awaitablePromise await] isEqual: @"awaitable-protocol"]) message: (@"Awaitable.await should use the runtime promise await implementation")];
 }
 
-static void future_rejection_paths(AsyncScope *rootScope)
+static void promise_rejection_paths(AsyncScope *rootScope)
 {
     AsyncScheduler *scheduler = rootScope.scheduler;
     bool caughtRejectedAwait = false;
     bool caughtImmediateRejection = false;
 
     @try {
-        (void)[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]].await;
+        [[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]] await];
     } @catch (TestRejectionException *) {
         caughtRejectedAwait = true;
     }
 
     @try {
-        (void)[Promise rejected: [[TestRejectionException alloc] init]].await;
+        [[Promise rejected: [[TestRejectionException alloc] init]] await];
     } @catch (TestRejectionException *) {
         caughtImmediateRejection = true;
     }
 
     [AsyncRuntimeTestSupport assertCondition: (caughtRejectedAwait) message: (@"await should rethrow the original timer rejection exception")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtImmediateRejection) message: (@"await on an already rejected future should rethrow immediately")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtImmediateRejection) message: (@"await on an already rejected promise should rethrow immediately")];
 }
 
 static void task_metadata_and_resolution(AsyncScope *rootScope)
 {
     AsyncScheduler *scheduler = rootScope.scheduler;
-    Task<AsyncUnit *> *unitTask = [rootScope spawn: ^id {
-        (void)[scheduler sleepForTimeInterval: 0.01].await;
+    Task<AsyncUnit *> *unitTask = [rootScope spawn: ^{
+        [[scheduler sleepForTimeInterval: 0.01] await];
         return AsyncUnit.unit;
     } name: @"unit-task"];
 
-    (void)unitTask.await;
+    [unitTask await];
 
     [AsyncRuntimeTestSupport assertCondition: (unitTask.scheduler == scheduler) message: (@"spawned tasks should inherit the current scheduler")];
     [AsyncRuntimeTestSupport assertCondition: (unitTask.scope == rootScope) message: (@"spawned tasks should belong to the current scope")];
@@ -69,7 +70,7 @@ static void task_returned_nil_exception(AsyncScope *rootScope)
 
     @try {
         (void)[rootScope withChildScopeNamed: @"nil-return-scope" block: ^id(AsyncScope *scope) {
-            task = [scope spawn: ^id {
+            task = [scope spawn: ^{
                 return nilptr;
             } name: @"nil-return"];
             return AsyncUnit.unit;
@@ -92,7 +93,229 @@ static void task_returned_nil_exception(AsyncScope *rootScope)
     [AsyncRuntimeTestSupport assertCondition: (task.executionState == AsyncTaskExecutionState_RESOLVED) message: (@"tasks returning nilptr should still finish with a resolved execution state")];
 }
 
-static void cross_thread_future_resolution(AsyncScope *rootScope)
+static void promise_combinators(AsyncScope *rootScope)
+{
+    AsyncScheduler *scheduler = rootScope.scheduler;
+    block_reference bool ensureCalledOnFulfilled = false;
+    block_reference bool ensureCalledOnRejected = false;
+    bool caughtRejectedEnsure = false;
+    bool caughtMapThrow = false;
+    bool caughtRecoverThrow = false;
+    bool caughtNilMap = false;
+    bool caughtNilRecover = false;
+    OFString *mappedValue;
+    OFString *flatMappedValue;
+    OFString *recoveredValue;
+    OFString *flatRecoveredValue;
+    OFString *ensuredValue;
+
+    mappedValue = [[Promise resolved: @"alpha"] map: ^id(OFString *value) {
+        return [value stringByAppendingString: @"-mapped"];
+    }].await;
+    flatMappedValue = [[AsyncRuntimeTestSupport timerResolvedStringForScheduler: scheduler seconds: 0.01 value: @"beta"] flatMap: ^id<PromiseLike>(OFString *value) {
+        return [Promise resolved: [value uppercaseString]];
+    }].await;
+    recoveredValue = [[Promise rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
+        [AsyncRuntimeTestSupport assertCondition: ([exception isKindOfClass: TestRejectionException.class]) message: (@"recover should receive the original rejection")];
+        return @"recovered";
+    }].await;
+    flatRecoveredValue = [[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]] flatRecover: ^id<PromiseLike>(OFException *exception) {
+        [AsyncRuntimeTestSupport assertCondition: ([exception isKindOfClass: TestRejectionException.class]) message: (@"flatRecover should receive the original rejection")];
+        return [Promise resolved: @"flat-recovered"];
+    }].await;
+    ensuredValue = [[AsyncRuntimeTestSupport timerResolvedStringForScheduler: scheduler seconds: 0.01 value: @"ensured"] ensure: ^{
+        ensureCalledOnFulfilled = true;
+    }].await;
+
+    @try {
+        (void)[[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]] ensure: ^{
+            ensureCalledOnRejected = true;
+        }].await;
+    } @catch (TestRejectionException *) {
+        caughtRejectedEnsure = true;
+    }
+
+    @try {
+        (void)[[Promise resolved: @"throw"] map: ^id(OFString *value) {
+            (void)value;
+            @throw [[TestRejectionException alloc] init];
+        }].await;
+    } @catch (TestRejectionException *) {
+        caughtMapThrow = true;
+    }
+
+    @try {
+        (void)[[Promise rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
+            (void)exception;
+            @throw [[TestRejectionException alloc] init];
+        }].await;
+    } @catch (TestRejectionException *) {
+        caughtRecoverThrow = true;
+    }
+
+    @try {
+        (void)[[Promise resolved: @"nil-map"] map: ^id(OFString *value) {
+            (void)value;
+            return nilptr;
+        }].await;
+    } @catch (PromiseNilResolutionValueException *) {
+        caughtNilMap = true;
+    }
+
+    @try {
+        (void)[[Promise rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
+            (void)exception;
+            return nilptr;
+        }].await;
+    } @catch (PromiseNilResolutionValueException *) {
+        caughtNilRecover = true;
+    }
+
+    [AsyncRuntimeTestSupport assertCondition: ([mappedValue isEqual: @"alpha-mapped"]) message: (@"map should transform fulfilled promises")];
+    [AsyncRuntimeTestSupport assertCondition: ([flatMappedValue isEqual: @"BETA"]) message: (@"flatMap should flatten pending promise chains")];
+    [AsyncRuntimeTestSupport assertCondition: ([recoveredValue isEqual: @"recovered"]) message: (@"recover should turn rejections into fulfilled values")];
+    [AsyncRuntimeTestSupport assertCondition: ([flatRecoveredValue isEqual: @"flat-recovered"]) message: (@"flatRecover should flatten recovery promises")];
+    [AsyncRuntimeTestSupport assertCondition: ([ensuredValue isEqual: @"ensured"]) message: (@"ensure should preserve fulfilled values")];
+    [AsyncRuntimeTestSupport assertCondition: (ensureCalledOnFulfilled) message: (@"ensure should run for fulfilled promises")];
+    [AsyncRuntimeTestSupport assertCondition: (ensureCalledOnRejected) message: (@"ensure should run for rejected promises")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtRejectedEnsure) message: (@"ensure should preserve the original rejection when the ensure block succeeds")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtMapThrow) message: (@"map should reject when its transform throws")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtRecoverThrow) message: (@"recover should reject when its handler throws")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtNilMap) message: (@"map should reject with PromiseNilResolutionValueException when its transform returns nilptr")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtNilRecover) message: (@"recover should reject with PromiseNilResolutionValueException when its handler returns nilptr")];
+}
+
+static void promise_continuation_scheduler_capture(AsyncScope *rootScope)
+{
+    AsyncScheduler *scheduler = rootScope.scheduler;
+    OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
+    auto crossThreadResolver = [[PromiseResolver<OFString *> alloc] init];
+    auto thread = [[CrossThreadResolverThread alloc] initWithResolver: crossThreadResolver value: @"thread-value" delay: 0.01];
+    block_reference OFThread *continuationThread = nilptr;
+    OFString *transformedValue;
+
+    [thread start];
+    transformedValue = [crossThreadResolver.promise map: ^id(OFString *value) {
+        continuationThread = $assert_nonnil(OFThread.currentThread);
+        return [value stringByAppendingString: @"-mapped"];
+    }].await;
+
+    [AsyncRuntimeTestSupport assertCondition: ([transformedValue isEqual: @"thread-value-mapped"]) message: (@"default promise combinators should resolve the transformed value")];
+    [AsyncRuntimeTestSupport assertCondition: (continuationThread == expectedThread) message: (@"default promise combinators should resume on the current task scheduler thread")];
+    [AsyncRuntimeTestSupport assertCondition: (Task.currentTask.scheduler == scheduler) message: (@"awaiting the transformed promise should preserve the current task scheduler")];
+    (void)[thread join];
+}
+
+static void promise_collection_helpers(AsyncScope *rootScope)
+{
+    AsyncScheduler *scheduler = rootScope.scheduler;
+    Promise<OFArray<id> *> *emptyAll = [Promise all: @[]];
+    bool caughtEmptyRace = false;
+    bool caughtAllFailure = false;
+    bool caughtRaceRejection = false;
+    block_reference bool allSiblingCancelled = false;
+    block_reference bool raceResolvedSiblingCancelled = false;
+    block_reference bool raceRejectedSiblingCancelled = false;
+    OFArray<id> *singleAllResult;
+    OFArray<id> *orderedAllResult;
+    OFString *singleRaceWinner;
+    OFString *resolvedRaceWinner;
+
+    [AsyncRuntimeTestSupport assertCondition: (emptyAll.isResolved) message: (@"Promise.all should resolve immediately for empty input")];
+    [AsyncRuntimeTestSupport assertCondition: (emptyAll.value.count == 0) message: (@"Promise.all should fulfill empty input with an empty array")];
+
+    singleAllResult = [Promise all: @[[Promise resolved: @"only"]]].await;
+    [AsyncRuntimeTestSupport assertCondition: (singleAllResult.count == 1) message: (@"Promise.all should preserve single-element input")];
+    [AsyncRuntimeTestSupport assertCondition: ([[singleAllResult objectAtIndex: 0] isEqual: @"only"]) message: (@"Promise.all should preserve single-element values")];
+
+    orderedAllResult = [Promise all: @[
+        [rootScope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.03] await];
+            return @"first";
+        } name: @"promise-all-first"],
+        [Promise resolved: @"second"],
+        [rootScope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
+            return @"third";
+        } name: @"promise-all-third"]
+    ]].await;
+
+    [AsyncRuntimeTestSupport assertCondition: (orderedAllResult.count == 3) message: (@"Promise.all should return every result")];
+    [AsyncRuntimeTestSupport assertCondition: ([[orderedAllResult objectAtIndex: 0] isEqual: @"first"]) message: (@"Promise.all should preserve input order for the first result")];
+    [AsyncRuntimeTestSupport assertCondition: ([[orderedAllResult objectAtIndex: 1] isEqual: @"second"]) message: (@"Promise.all should preserve input order for mixed Promise inputs")];
+    [AsyncRuntimeTestSupport assertCondition: ([[orderedAllResult objectAtIndex: 2] isEqual: @"third"]) message: (@"Promise.all should preserve input order for the last result")];
+
+    Task *allSlowSibling = [rootScope spawn: ^{
+        @try {
+            while (true)
+                [[scheduler sleepForTimeInterval: 0.05] await];
+        } @catch (TaskCancelledException *) {
+            allSiblingCancelled = true;
+            return AsyncUnit.unit;
+        }
+    } name: @"promise-all-cancelled-sibling"];
+
+    @try {
+        [[Promise all: @[allSlowSibling, [Promise rejected: [[TestRejectionException alloc] init]]]] await];
+    } @catch (TestRejectionException *) {
+        caughtAllFailure = true;
+    }
+
+    [[scheduler sleepForTimeInterval: 0.05] await];
+
+    @try {
+        (void)[Promise race: @[]];
+    } @catch (OFInvalidArgumentException *) {
+        caughtEmptyRace = true;
+    }
+
+    singleRaceWinner = [Promise race: @[[Promise resolved: @"winner"]]].await;
+
+    resolvedRaceWinner = [Promise race: @[
+        [Promise resolved: @"race-winner"],
+        [rootScope spawn: ^{
+            @try {
+                while (true)
+                    [[scheduler sleepForTimeInterval: 0.05] await];
+            } @catch (TaskCancelledException *) {
+                raceResolvedSiblingCancelled = true;
+                return AsyncUnit.unit;
+            }
+        } name: @"promise-race-resolved-sibling"]
+    ]].await;
+
+    [[scheduler sleepForTimeInterval: 0.05] await];
+
+    @try {
+        (void)[Promise race: @[
+            [Promise rejected: [[TestRejectionException alloc] init]],
+            [rootScope spawn: ^{
+                @try {
+                    while (true)
+                        [[scheduler sleepForTimeInterval: 0.05] await];
+                } @catch (TaskCancelledException *) {
+                    raceRejectedSiblingCancelled = true;
+                    return AsyncUnit.unit;
+                }
+            } name: @"promise-race-rejected-sibling"]
+        ]].await;
+    } @catch (TestRejectionException *) {
+        caughtRaceRejection = true;
+    }
+
+    [[scheduler sleepForTimeInterval: 0.05] await];
+
+    [AsyncRuntimeTestSupport assertCondition: (caughtAllFailure) message: (@"Promise.all should reject on the first failure")];
+    [AsyncRuntimeTestSupport assertCondition: (allSiblingCancelled) message: (@"Promise.all should cancel unresolved sibling tasks after a failure")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtEmptyRace) message: (@"Promise.race should reject empty input")];
+    [AsyncRuntimeTestSupport assertCondition: ([singleRaceWinner isEqual: @"winner"]) message: (@"Promise.race should preserve single-element input")];
+    [AsyncRuntimeTestSupport assertCondition: ([resolvedRaceWinner isEqual: @"race-winner"]) message: (@"Promise.race should resolve with the first settled fulfillment")];
+    [AsyncRuntimeTestSupport assertCondition: (raceResolvedSiblingCancelled) message: (@"Promise.race should cancel unresolved sibling tasks after a fulfilled winner")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtRaceRejection) message: (@"Promise.race should reject with the first settled rejection")];
+    [AsyncRuntimeTestSupport assertCondition: (raceRejectedSiblingCancelled) message: (@"Promise.race should cancel unresolved sibling tasks after a rejected winner")];
+}
+
+static void cross_thread_promise_resolution(AsyncScope *rootScope)
 {
     AsyncScheduler *scheduler = rootScope.scheduler;
     OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
@@ -101,7 +324,7 @@ static void cross_thread_future_resolution(AsyncScope *rootScope)
     OFString *crossThreadValue;
 
     [thread start];
-    crossThreadValue = crossThreadResolver.future.await;
+    crossThreadValue = crossThreadResolver.promise.await;
 
     [AsyncRuntimeTestSupport assertCondition: ([crossThreadValue isEqual: @"thread-value"]) message: (@"cross-thread resolution should deliver the resolved value")];
     [AsyncRuntimeTestSupport assertCondition: (OFThread.currentThread == expectedThread) message: (@"await continuations should resume on the scheduler run-loop thread")];
@@ -113,18 +336,18 @@ static void self_await_rejected(AsyncScope *rootScope)
 {
     block_reference Task *selfAwaitTask = nilptr;
 
-    selfAwaitTask = [rootScope spawn: ^id {
+    selfAwaitTask = [rootScope spawn: ^{
         @try {
-            (void)selfAwaitTask.await;
+            [selfAwaitTask await];
         } @catch (PromiseSelfAwaitException *exception) {
-            [AsyncRuntimeTestSupport assertCondition: (exception.future == selfAwaitTask) message: (@"self-await should throw PromiseSelfAwaitException")];
+            [AsyncRuntimeTestSupport assertCondition: (exception.promise == selfAwaitTask) message: (@"self-await should throw PromiseSelfAwaitException")];
             return AsyncUnit.unit;
         }
 
         @throw [[TestFailureException alloc] initWithMessage: @"self-await did not throw PromiseSelfAwaitException"];
     } name: @"self-await"];
 
-    (void)selfAwaitTask.await;
+    [selfAwaitTask await];
 }
 
 static void scope_waits_for_children(AsyncScope *rootScope)
@@ -134,8 +357,8 @@ static void scope_waits_for_children(AsyncScope *rootScope)
 
     (void)[rootScope withChildScopeNamed: @"nested-scope" block: ^id(AsyncScope *scope) {
         [scopeEvents addObject: @"body-enter"];
-        [scope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
             [scopeEvents addObject: @"child-finished"];
             return AsyncUnit.unit;
         } name: @"nested-child"];
@@ -157,23 +380,24 @@ static void scope_failure_cancels_siblings(AsyncScope *rootScope)
 
     @try {
         (void)[rootScope withChildScopeNamed: @"aggregate-scope" block: ^id(AsyncScope *scope) {
-            [scope spawn: ^id {
-                (void)[scheduler sleepForTimeInterval: 0.01].await;
+            [scope spawn: ^{
+                [[scheduler sleepForTimeInterval: 0.01] await];
                 [failureEvents addObject: @"failing-child"];
                 @throw [[TestRejectionException alloc] init];
+                return AsyncUnit.unit;
             } name: @"failing-child"];
 
-            [scope spawn: ^id {
+            [scope spawn: ^{
                 @try {
-                    for (;;)
-                        (void)[scheduler sleepForTimeInterval: 0.05].await;
+                    while (true)
+                        [[scheduler sleepForTimeInterval: 0.05] await];
                 } @catch (TaskCancelledException *) {
                     [failureEvents addObject: @"cleanup-child"];
                     return AsyncUnit.unit;
                 }
             } name: @"cleanup-child"];
 
-            (void)[scheduler sleepForTimeInterval: 0.25].await;
+            [[scheduler sleepForTimeInterval: 0.25] await];
             return AsyncUnit.unit;
         }];
     } @catch (AsyncScopeException *exception) {
@@ -195,8 +419,10 @@ static void task_cancellation_checkpoint(AsyncScope *rootScope)
     block_reference bool reachedCheckpoint = false;
 
     (void)[rootScope withChildScopeNamed: @"checkpoint-scope" block: ^id(AsyncScope *scope) {
-        Task *checkpointTask = [scope spawn: ^id {
-            while (not atomic_load_explicit(&cancelIssued, memory_order_acquire)) { }
+        Task *checkpointTask = [scope spawn: ^{
+            while (not atomic_load_explicit(&cancelIssued, memory_order_acquire)) {
+                
+            }
 
             reachedCheckpoint = true;
 
@@ -227,17 +453,17 @@ static void timeout_cancels_children(AsyncScope *rootScope)
 
     @try {
         (void)[rootScope withTimeout: 0.02 block: ^id(AsyncScope *scope) {
-            [scope spawn: ^id {
+            [scope spawn: ^{
                 @try {
-                    for (;;)
-                        (void)[scheduler sleepForTimeInterval: 0.05].await;
+                    while (true)
+                        [[scheduler sleepForTimeInterval: 0.05] await];
                 } @catch (TaskCancelledException *) {
                     timedOutChildCancelled = true;
                     return AsyncUnit.unit;
                 }
             } name: @"timeout-child"];
 
-            (void)[scheduler sleepForTimeInterval: 0.25].await;
+            [[scheduler sleepForTimeInterval: 0.25] await];
             return AsyncUnit.unit;
         }];
     } @catch (AsyncTimeoutException *exception) {
@@ -246,6 +472,89 @@ static void timeout_cancels_children(AsyncScope *rootScope)
 
     [AsyncRuntimeTestSupport assertCondition: (caughtTimeout) message: (@"withTimeout should throw AsyncTimeoutException when the deadline expires")];
     [AsyncRuntimeTestSupport assertCondition: (timedOutChildCancelled) message: (@"timeout should cancel descendant tasks before the scope unwinds")];
+}
+
+static void scope_spawn_all(AsyncScope *rootScope)
+{
+    AsyncScheduler *scheduler = rootScope.scheduler;
+    OFArray<id> *emptyResult = [rootScope spawnAll: @[]].await;
+    OFArray<id> *orderedResult;
+    bool caughtSpawnAllFailure = false;
+    bool caughtSpawnAllTimeout = false;
+    block_reference bool cancelledSibling = false;
+    block_reference bool timedOutChildCancelled = false;
+    auto orderedBlocks = [OFMutableArray<id (^)(void)> array];
+    auto failingBlocks = [OFMutableArray<id (^)(void)> array];
+
+    [orderedBlocks addObject: ^{
+        [[scheduler sleepForTimeInterval: 0.03] await];
+        return @"first";
+    }];
+    [orderedBlocks addObject: ^{
+        return @"second";
+    }];
+    [orderedBlocks addObject: ^{
+        [[scheduler sleepForTimeInterval: 0.01] await];
+        return @"third";
+    }];
+
+    orderedResult = [rootScope spawnAll: orderedBlocks name: @"ordered-group"].await;
+
+    [failingBlocks addObject: ^{
+        [[scheduler sleepForTimeInterval: 0.01] await];
+        @throw [[TestRejectionException alloc] init];
+        return AsyncUnit.unit;
+    }];
+    [failingBlocks addObject: ^{
+        @try {
+            while (true)
+                [[scheduler sleepForTimeInterval: 0.05] await];
+        } @catch (TaskCancelledException *) {
+            cancelledSibling = true;
+            return AsyncUnit.unit;
+        }
+    }];
+
+    @try {
+        (void)[rootScope withChildScopeNamed: @"spawn-all-failure-scope" block: ^id(AsyncScope *scope) {
+            [[scope spawnAll: failingBlocks name: @"failing-group"] await];
+            return AsyncUnit.unit;
+        }];
+    } @catch (AsyncScopeException *exception) {
+        caughtSpawnAllFailure = ([exception.primaryException isKindOfClass: TestRejectionException.class] and
+                                 exception.exceptions.count == 1);
+    }
+
+    @try {
+        (void)[rootScope withTimeout: 0.02 block: ^id(AsyncScope *scope) {
+            auto timeoutBlocks = [OFMutableArray<id (^)(void)> array];
+
+            [timeoutBlocks addObject: ^{
+                @try {
+                    while (true)
+                        [[scheduler sleepForTimeInterval: 0.05] await];
+                } @catch (TaskCancelledException *) {
+                    timedOutChildCancelled = true;
+                    return AsyncUnit.unit;
+                }
+            }];
+
+            [[scope spawnAll: timeoutBlocks name: @"timed-group"] await];
+            return AsyncUnit.unit;
+        }];
+    } @catch (AsyncTimeoutException *) {
+        caughtSpawnAllTimeout = true;
+    }
+
+    [AsyncRuntimeTestSupport assertCondition: (emptyResult.count == 0) message: (@"spawnAll should resolve empty input with an empty array")];
+    [AsyncRuntimeTestSupport assertCondition: (orderedResult.count == 3) message: (@"spawnAll should return every child result")];
+    [AsyncRuntimeTestSupport assertCondition: ([[orderedResult objectAtIndex: 0] isEqual: @"first"]) message: (@"spawnAll should preserve the first child result ordering")];
+    [AsyncRuntimeTestSupport assertCondition: ([[orderedResult objectAtIndex: 1] isEqual: @"second"]) message: (@"spawnAll should preserve the second child result ordering")];
+    [AsyncRuntimeTestSupport assertCondition: ([[orderedResult objectAtIndex: 2] isEqual: @"third"]) message: (@"spawnAll should preserve the third child result ordering")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtSpawnAllFailure) message: (@"spawnAll should reject when one child fails")];
+    [AsyncRuntimeTestSupport assertCondition: (cancelledSibling) message: (@"spawnAll should cancel unresolved sibling tasks after a child failure")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtSpawnAllTimeout) message: (@"spawnAll should cooperate with scope timeouts")];
+    [AsyncRuntimeTestSupport assertCondition: (timedOutChildCancelled) message: (@"spawnAll child tasks should be cancelled before a timeout unwinds the scope")];
 }
 
 static void past_deadline_fails_immediately(AsyncScope *rootScope)
@@ -271,27 +580,27 @@ static void parent_scope_cancellation_propagates(AsyncScope *rootScope)
     block_reference bool grandchildCancelled = false;
 
     (void)[rootScope withChildScopeNamed: @"parent-cancel-scope" block: ^id(AsyncScope *outerScope) {
-        [outerScope spawn: ^id {
+        [outerScope spawn: ^{
             (void)[outerScope withChildScopeNamed: @"inner-scope" block: ^id(AsyncScope *innerScope) {
-                [innerScope spawn: ^id {
+                [innerScope spawn: ^{
                     @try {
-                        for (;;)
-                            (void)[scheduler sleepForTimeInterval: 0.05].await;
+                        while (true)
+                            [[scheduler sleepForTimeInterval: 0.05] await];
                     } @catch (TaskCancelledException *) {
                         grandchildCancelled = true;
                         return AsyncUnit.unit;
                     }
                 } name: @"grandchild"];
 
-                (void)[scheduler sleepForTimeInterval: 1].await;
+                [[scheduler sleepForTimeInterval: 1] await];
                 return AsyncUnit.unit;
             }];
 
             return AsyncUnit.unit;
         } name: @"nested-owner"];
 
-        [outerScope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [outerScope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
             [outerScope cancel];
             return AsyncUnit.unit;
         } name: @"scope-canceller"];
@@ -306,7 +615,7 @@ static void scheduler_offload_roundtrip(AsyncScope *rootScope)
 {
     AsyncScheduler *scheduler = rootScope.scheduler;
     OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
-    OFThread *workerThread = [scheduler offload: ^id {
+    OFThread *workerThread = [scheduler offload: ^{
         return $assert_nonnil(OFThread.currentThread);
     }].await;
 
@@ -319,12 +628,12 @@ static void scheduler_snapshot_waiting_task(AsyncScope *rootScope)
     AsyncScheduler *scheduler = rootScope.scheduler;
 
     (void)[rootScope withChildScopeNamed: @"snapshot-scope" block: ^id(AsyncScope *scope) {
-        Task *snapshotTask = [scope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.05].await;
+        Task *snapshotTask = [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.05] await];
             return AsyncUnit.unit;
         } name: @"snapshot-child"];
 
-        (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [[scheduler sleepForTimeInterval: 0.01] await];
 
         AsyncSchedulerSnapshot *snapshot = scheduler.snapshot;
         auto taskSnapshot = [AsyncRuntimeTestSupport findTaskSnapshotNamed: @"snapshot-child" inSnapshot: snapshot];
@@ -332,12 +641,12 @@ static void scheduler_snapshot_waiting_task(AsyncScope *rootScope)
         [AsyncRuntimeTestSupport assertCondition: (taskSnapshot != nilptr) message: (@"scheduler.snapshot should include active tasks")];
         [AsyncRuntimeTestSupport assertCondition: (taskSnapshot.taskID == snapshotTask.taskID) message: (@"scheduler.snapshot should preserve task IDs")];
         [AsyncRuntimeTestSupport assertCondition: (taskSnapshot.executionState == AsyncTaskExecutionState_WAITING) message: (@"scheduler.snapshot should report waiting execution state")];
-        [AsyncRuntimeTestSupport assertCondition: ([taskSnapshot.waitReason isEqual: @"await future"]) message: (@"scheduler.snapshot should report why a task is waiting")];
+        [AsyncRuntimeTestSupport assertCondition: ([taskSnapshot.waitReason isEqual: @"await promise"]) message: (@"scheduler.snapshot should report why a task is waiting")];
         [AsyncRuntimeTestSupport assertCondition: ([taskSnapshot.scopeName isEqual: @"snapshot-scope"]) message: (@"scheduler.snapshot should expose the current scope name")];
         [AsyncRuntimeTestSupport assertCondition: (not taskSnapshot.cancellationRequested) message: (@"scheduler.snapshot should reflect cancellation state")];
         [AsyncRuntimeTestSupport assertCondition: (snapshot.tasks.count > 0) message: (@"scheduler.snapshot should expose active task entries")];
 
-        (void)snapshotTask.await;
+        [snapshotTask await];
         return AsyncUnit.unit;
     }];
 }
@@ -346,7 +655,7 @@ static void scheduler_shutdown_rejects_offload(AsyncScope *rootScope)
 {
     AsyncScheduler *parentScheduler = rootScope.scheduler;
     auto scheduler = [[AsyncScheduler alloc] initWithRunLoop: parentScheduler.runLoop mode: parentScheduler.mode maxWorkerCount: 1 maxDrainBatchSize: 1];
-    OFThread *workerThread = [scheduler offload: ^id {
+    OFThread *workerThread = [scheduler offload: ^{
         return $assert_nonnil(OFThread.currentThread);
     }].await;
     bool caughtShutdownOffload = false;
@@ -357,7 +666,7 @@ static void scheduler_shutdown_rejects_offload(AsyncScope *rootScope)
     [scheduler shutdown];
 
     @try {
-        (void)[scheduler offload: ^id {
+        (void)[scheduler offload: ^{
             return AsyncUnit.unit;
         }];
     } @catch (OFInvalidArgumentException *) {
@@ -376,12 +685,13 @@ static void scheduler_cancellation_counter(AsyncScope *rootScope)
 
     @try {
         (void)[rootScope withTimeout: 0.02 block: ^id(AsyncScope *scope) {
-            cancelledTask = [scope spawn: ^id {
-                for (;;)
-                    (void)[scheduler sleepForTimeInterval: 0.05].await;
+            cancelledTask = [scope spawn: ^{
+                while (true)
+                    [[scheduler sleepForTimeInterval: 0.05] await];
+                return AsyncUnit.unit;
             } name: @"cancelled-counter-child"];
 
-            (void)[scheduler sleepForTimeInterval: 0.25].await;
+            [[scheduler sleepForTimeInterval: 0.25] await];
             return AsyncUnit.unit;
         }];
     } @catch (AsyncTimeoutException *) {
@@ -402,7 +712,7 @@ static void scheduler_offload_failure_paths(AsyncScope *rootScope)
     bool caughtThrownOffload = false;
 
     @try {
-        (void)[scheduler offload: ^id {
+        (void)[scheduler offload: ^{
             return nilptr;
         }].await;
     } @catch (OFInvalidArgumentException *) {
@@ -410,8 +720,9 @@ static void scheduler_offload_failure_paths(AsyncScope *rootScope)
     }
 
     @try {
-        (void)[scheduler offload: ^id {
+        (void)[scheduler offload: ^{
             @throw [[TestRejectionException alloc] init];
+            return AsyncUnit.unit;
         }].await;
     } @catch (TestRejectionException *) {
         caughtThrownOffload = true;
@@ -435,6 +746,95 @@ static void scheduler_sleep_shortcuts(AsyncScope *rootScope)
     [AsyncRuntimeTestSupport assertCondition: (pastSleep.await == AsyncUnit.unit) message: (@"sleepUntilDate with a past deadline should resolve to AsyncUnit.unit")];
 }
 
+static void async_signal_next_waits_for_change(AsyncScope *rootScope)
+{
+    AsyncScheduler *scheduler = rootScope.scheduler;
+    auto signal = [AsyncSignal<OFString *> withValue: @"initial"];
+    block_reference OFString *nillable receivedValue = nilptr;
+
+    (void)[rootScope withChildScopeNamed: @"async-signal-next-scope" block: ^id(AsyncScope *scope) {
+        [scope spawn: ^{
+            receivedValue = signal.next;
+            return AsyncUnit.unit;
+        } name: @"async-signal-waiter"];
+
+        [[scheduler sleepForTimeInterval: 0.01] await];
+        signal.value = @"updated";
+        return AsyncUnit.unit;
+    }];
+
+    [AsyncRuntimeTestSupport assertCondition: ([receivedValue isEqual: @"updated"]) message: (@"AsyncSignal.next should resume with the next changed value")];
+}
+
+static void async_signal_nil_values_and_cancellation(AsyncScope *rootScope)
+{
+    AsyncScheduler *scheduler = rootScope.scheduler;
+    auto nilSignal = [AsyncSignal<OFString *> withValue: @"seed"];
+    auto cancellationSignal = [AsyncSignal<OFString *> withValue: @"seed"];
+    block_reference bool sawNilValue = false;
+    block_reference bool cancelledWait = false;
+
+    (void)[rootScope withChildScopeNamed: @"async-signal-nil-scope" block: ^id(AsyncScope *scope) {
+        [scope spawn: ^{
+            OFString *nillable value = nilSignal.next;
+            sawNilValue = (value == nilptr);
+            return AsyncUnit.unit;
+        } name: @"async-signal-nil-waiter"];
+
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
+            nilSignal.value = nilptr;
+            return AsyncUnit.unit;
+        } name: @"async-signal-nil-setter"];
+
+        return AsyncUnit.unit;
+    }];
+
+    (void)[rootScope withChildScopeNamed: @"async-signal-cancel-scope" block: ^id(AsyncScope *scope) {
+        [scope spawn: ^{
+            @try {
+                (void)cancellationSignal.next;
+            } @catch (TaskCancelledException *) {
+                cancelledWait = true;
+                return AsyncUnit.unit;
+            }
+
+            @throw [[TestFailureException alloc] initWithMessage: @"AsyncSignal.next should observe task cancellation while waiting"];
+        } name: @"async-signal-cancel-waiter"];
+
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
+            [scope cancel];
+            return AsyncUnit.unit;
+        } name: @"async-signal-canceller"];
+
+        return AsyncUnit.unit;
+    }];
+
+    [AsyncRuntimeTestSupport assertCondition: (sawNilValue) message: (@"AsyncSignal.next should preserve nilptr changes")];
+    [AsyncRuntimeTestSupport assertCondition: (cancelledWait) message: (@"AsyncSignal.next should be a cancellation checkpoint while waiting")];
+}
+
+static void async_computed_caches_until_signal_changes(AsyncScope *)
+{
+    auto signal = [AsyncSignal<OFString *> withValue: @"alpha"];
+    block_reference size_t computeCount = 0;
+    AsyncComputed<OFString *> *computed = [AsyncComputed withBlock: ^OFString * {
+        computeCount++;
+        return [OFString stringWithFormat: @"%@!", signal.value];
+    }];
+
+    [AsyncRuntimeTestSupport assertCondition: ([computed.value isEqual: @"alpha!"]) message: (@"AsyncComputed should evaluate on first access")];
+    [AsyncRuntimeTestSupport assertCondition: ([computed.value isEqual: @"alpha!"]) message: (@"AsyncComputed should cache repeated accesses while dependencies stay unchanged")];
+    [AsyncRuntimeTestSupport assertCondition: (computeCount == 1) message: (@"AsyncComputed should only compute once before dependency changes")];
+
+    signal.value = @"beta";
+
+    [AsyncRuntimeTestSupport assertCondition: (computeCount == 1) message: (@"AsyncComputed invalidation should stay lazy until the next read")];
+    [AsyncRuntimeTestSupport assertCondition: ([computed.value isEqual: @"beta!"]) message: (@"AsyncComputed should recompute after an AsyncSignal dependency changes")];
+    [AsyncRuntimeTestSupport assertCondition: (computeCount == 2) message: (@"AsyncComputed should only recompute once per dependency change")];
+}
+
 static void channel_rendezvous(AsyncScope *rootScope)
 {
     AsyncScheduler *scheduler = rootScope.scheduler;
@@ -442,12 +842,12 @@ static void channel_rendezvous(AsyncScope *rootScope)
     block_reference OFString *receivedValue = nilptr;
 
     (void)[rootScope withChildScopeNamed: @"rendezvous-scope" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^id {
+        [scope spawn: ^{
             receivedValue = channel.receive;
             return AsyncUnit.unit;
         } name: @"rendezvous-receiver"];
 
-        (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [[scheduler sleepForTimeInterval: 0.01] await];
         [channel send: @"ping"];
         return AsyncUnit.unit;
     }];
@@ -464,7 +864,7 @@ static void channel_buffer_backpressure_and_snapshot(AsyncScope *rootScope)
     block_reference OFString *secondBufferedValue = nilptr;
 
     (void)[rootScope withChildScopeNamed: @"buffered-scope" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^id {
+        [scope spawn: ^{
             [bufferedEvents addObject: @"before-first-send"];
             [channel send: @"one"];
             [bufferedEvents addObject: @"after-first-send"];
@@ -474,7 +874,7 @@ static void channel_buffer_backpressure_and_snapshot(AsyncScope *rootScope)
             return AsyncUnit.unit;
         } name: @"buffered-sender"];
 
-        (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [[scheduler sleepForTimeInterval: 0.01] await];
 
         auto senderSnapshot = [AsyncRuntimeTestSupport findTaskSnapshotNamed: @"buffered-sender" inSnapshot: scheduler.snapshot];
         [AsyncRuntimeTestSupport assertCondition: (senderSnapshot != nilptr) message: (@"buffered sender should appear in scheduler snapshots while blocked")];
@@ -482,7 +882,7 @@ static void channel_buffer_backpressure_and_snapshot(AsyncScope *rootScope)
         [AsyncRuntimeTestSupport assertCondition: ([senderSnapshot.waitReason isEqual: @"channel send"]) message: (@"buffered sender should report channel send as the wait reason")];
 
         firstBufferedValue = channel.receive;
-        (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [[scheduler sleepForTimeInterval: 0.01] await];
         secondBufferedValue = channel.receive;
         return AsyncUnit.unit;
     }];
@@ -530,7 +930,7 @@ static void channel_close_unblocks_waiters(AsyncScope *rootScope)
     block_reference bool blockedSenderClosed = false;
 
     (void)[rootScope withChildScopeNamed: @"close-receiver-scope" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^id {
+        [scope spawn: ^{
             @try {
                 (void)receiverChannel.receive;
             } @catch (AsyncChannelClosedException *exception) {
@@ -541,8 +941,8 @@ static void channel_close_unblocks_waiters(AsyncScope *rootScope)
             @throw [[TestFailureException alloc] initWithMessage: @"blocked receiver should observe channel close"];
         } name: @"blocked-receiver"];
 
-        [scope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
             [receiverChannel close];
             return AsyncUnit.unit;
         } name: @"receiver-closer"];
@@ -551,7 +951,7 @@ static void channel_close_unblocks_waiters(AsyncScope *rootScope)
     }];
 
     (void)[rootScope withChildScopeNamed: @"close-sender-scope" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^id {
+        [scope spawn: ^{
             @try {
                 [senderChannel send: @"value"];
             } @catch (AsyncChannelClosedException *exception) {
@@ -562,8 +962,8 @@ static void channel_close_unblocks_waiters(AsyncScope *rootScope)
             @throw [[TestFailureException alloc] initWithMessage: @"blocked sender should observe channel close"];
         } name: @"blocked-sender"];
 
-        [scope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
             [senderChannel close];
             return AsyncUnit.unit;
         } name: @"sender-closer"];
@@ -582,7 +982,7 @@ static void channel_send_cancellation(AsyncScope *rootScope)
     block_reference bool blockedSendCancelled = false;
 
     (void)[rootScope withChildScopeNamed: @"send-cancel-scope" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^id {
+        [scope spawn: ^{
             @try {
                 [channel send: @"blocked-send"];
             } @catch (TaskCancelledException *) {
@@ -593,8 +993,8 @@ static void channel_send_cancellation(AsyncScope *rootScope)
             @throw [[TestFailureException alloc] initWithMessage: @"blocked send should observe cancellation"];
         } name: @"blocked-sender"];
 
-        [scope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
             [scope cancel];
             return AsyncUnit.unit;
         } name: @"send-canceller"];
@@ -612,7 +1012,7 @@ static void channel_receive_cancellation(AsyncScope *rootScope)
     block_reference bool blockedReceiveCancelled = false;
 
     (void)[rootScope withChildScopeNamed: @"receive-cancel-scope" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^id {
+        [scope spawn: ^{
             @try {
                 (void)channel.receive;
             } @catch (TaskCancelledException *) {
@@ -623,8 +1023,8 @@ static void channel_receive_cancellation(AsyncScope *rootScope)
             @throw [[TestFailureException alloc] initWithMessage: @"blocked receive should observe cancellation"];
         } name: @"blocked-receiver"];
 
-        [scope spawn: ^id {
-            (void)[scheduler sleepForTimeInterval: 0.01].await;
+        [scope spawn: ^{
+            [[scheduler sleepForTimeInterval: 0.01] await];
             [scope cancel];
             return AsyncUnit.unit;
         } name: @"receive-canceller"];
@@ -645,7 +1045,7 @@ static void channel_multi_producer_consumer(AsyncScope *rootScope)
         for (size_t producerIndex = 0; producerIndex < 2; producerIndex++) {
             OFString *producerName = [OFString stringWithFormat: @"producer-%zu", producerIndex];
 
-            [scope spawn: ^id {
+            [scope spawn: ^{
                 for (size_t itemIndex = 0; itemIndex < itemsPerProducer; itemIndex++) {
                     OFString *value = [OFString stringWithFormat: @"p%zu-%zu", producerIndex, itemIndex];
                     [channel send: value];
@@ -658,7 +1058,7 @@ static void channel_multi_producer_consumer(AsyncScope *rootScope)
         for (size_t consumerIndex = 0; consumerIndex < 2; consumerIndex++) {
             OFString *consumerName = [OFString stringWithFormat: @"consumer-%zu", consumerIndex];
 
-            [scope spawn: ^id {
+            [scope spawn: ^{
                 for (size_t itemIndex = 0; itemIndex < itemsPerProducer; itemIndex++)
                     [receivedValues addObject: channel.receive];
 
@@ -700,8 +1100,8 @@ static void http_concurrent_requests(AsyncScope *rootScope)
         alphaResponse = alphaPromise.await;
         betaResponse = betaPromise.await;
 
-        [AsyncRuntimeTestSupport assertCondition: ([alphaResponse.readString isEqual: @"alpha"]) message: (@"HTTP future bridge should resolve the first concurrent request correctly")];
-        [AsyncRuntimeTestSupport assertCondition: ([betaResponse.readString isEqual: @"beta"]) message: (@"HTTP future bridge should resolve the second concurrent request correctly")];
+        [AsyncRuntimeTestSupport assertCondition: ([alphaResponse.readString isEqual: @"alpha"]) message: (@"HTTP promise bridge should resolve the first concurrent request correctly")];
+        [AsyncRuntimeTestSupport assertCondition: ([betaResponse.readString isEqual: @"beta"]) message: (@"HTTP promise bridge should resolve the second concurrent request correctly")];
     } @finally {
         [server stop];
     }
@@ -720,7 +1120,7 @@ static void http_timeout_cancellation_and_reuse(AsyncScope *rootScope)
     @try {
         @try {
             (void)[rootScope withTimeout: 0.02 block: ^id(AsyncScope *) {
-                (void)[client promiseToPerformRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/slow-cancel"]] onScheduler: scheduler].await;
+                [[client promiseToPerformRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/slow-cancel"]] onScheduler: scheduler] await];
                 return AsyncUnit.unit;
             }];
         } @catch (AsyncTimeoutException *) {
@@ -729,7 +1129,7 @@ static void http_timeout_cancellation_and_reuse(AsyncScope *rootScope)
 
         [AsyncRuntimeTestSupport assertCondition: (caughtTimeout) message: (@"cancelling a task waiting on HTTP should unwind via timeout")];
         gammaResponse = [client promiseToPerformRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/gamma"]] redirects: 0 onScheduler: scheduler cancelOnTaskCancellation: false].await;
-        [AsyncRuntimeTestSupport assertCondition: ([gammaResponse.readString isEqual: @"gamma"]) message: (@"HTTP future bridge should remain usable after cancelling an in-flight request")];
+        [AsyncRuntimeTestSupport assertCondition: ([gammaResponse.readString isEqual: @"gamma"]) message: (@"HTTP promise bridge should remain usable after cancelling an in-flight request")];
     } @finally {
         [server stop];
     }
@@ -745,9 +1145,9 @@ static void stress_timeout_repetitions(AsyncScope *rootScope)
 
         @try {
             (void)[rootScope withTimeout: 0.003 block: ^id(AsyncScope *scope) {
-                [scope spawn: ^id {
+                [scope spawn: ^{
                     @try {
-                        (void)[scheduler sleepForTimeInterval: 0.10].await;
+                        [[scheduler sleepForTimeInterval: 0.10] await];
                     } @catch (TaskCancelledException *) {
                         childCancelled = true;
                         return AsyncUnit.unit;
@@ -756,7 +1156,7 @@ static void stress_timeout_repetitions(AsyncScope *rootScope)
                     return AsyncUnit.unit;
                 } name: [OFString stringWithFormat: @"stress-timeout-child-%zu", iteration]];
 
-                (void)[scheduler sleepForTimeInterval: 0.10].await;
+                [[scheduler sleepForTimeInterval: 0.10] await];
                 return AsyncUnit.unit;
             }];
         } @catch (AsyncTimeoutException *) {
@@ -775,14 +1175,14 @@ static void stress_channel_repetitions(AsyncScope *rootScope)
         auto values = [OFMutableArray<OFString *> array];
 
         (void)[rootScope withChildScopeNamed: [OFString stringWithFormat: @"stress-channel-%zu", iteration] block: ^id(AsyncScope *scope) {
-            [scope spawn: ^id {
+            [scope spawn: ^{
                 for (size_t itemIndex = 0; itemIndex < 8; itemIndex++)
                     [channel send: [OFString stringWithFormat: @"%zu-%zu", iteration, itemIndex]];
 
                 return AsyncUnit.unit;
             } name: @"stress-producer"];
 
-            [scope spawn: ^id {
+            [scope spawn: ^{
                 for (size_t itemIndex = 0; itemIndex < 8; itemIndex++)
                     [values addObject: channel.receive];
 
@@ -796,14 +1196,18 @@ static void stress_channel_repetitions(AsyncScope *rootScope)
     }
 }
 
-ASYNC_RUNTIME_ASYNC_TEST(future_await_and_protocol)
-ASYNC_RUNTIME_ASYNC_TEST(future_rejection_paths)
+ASYNC_RUNTIME_ASYNC_TEST(promise_await_and_protocol)
+ASYNC_RUNTIME_ASYNC_TEST(promise_rejection_paths)
+ASYNC_RUNTIME_ASYNC_TEST(promise_combinators)
+ASYNC_RUNTIME_ASYNC_TEST(promise_continuation_scheduler_capture)
+ASYNC_RUNTIME_ASYNC_TEST(promise_collection_helpers)
 ASYNC_RUNTIME_ASYNC_TEST(task_metadata_and_resolution)
 ASYNC_RUNTIME_ASYNC_TEST(task_returned_nil_exception)
-ASYNC_RUNTIME_ASYNC_TEST(cross_thread_future_resolution)
+ASYNC_RUNTIME_ASYNC_TEST(cross_thread_promise_resolution)
 ASYNC_RUNTIME_ASYNC_TEST(self_await_rejected)
 ASYNC_RUNTIME_ASYNC_TEST(scope_waits_for_children)
 ASYNC_RUNTIME_ASYNC_TEST(scope_failure_cancels_siblings)
+ASYNC_RUNTIME_ASYNC_TEST(scope_spawn_all)
 ASYNC_RUNTIME_ASYNC_TEST(task_cancellation_checkpoint)
 ASYNC_RUNTIME_ASYNC_TEST(timeout_cancels_children)
 ASYNC_RUNTIME_ASYNC_TEST(past_deadline_fails_immediately)
@@ -814,6 +1218,9 @@ ASYNC_RUNTIME_ASYNC_TEST(scheduler_shutdown_rejects_offload)
 ASYNC_RUNTIME_ASYNC_TEST(scheduler_cancellation_counter)
 ASYNC_RUNTIME_ASYNC_TEST(scheduler_offload_failure_paths)
 ASYNC_RUNTIME_ASYNC_TEST(scheduler_sleep_shortcuts)
+ASYNC_RUNTIME_ASYNC_TEST(async_signal_next_waits_for_change)
+ASYNC_RUNTIME_ASYNC_TEST(async_signal_nil_values_and_cancellation)
+ASYNC_RUNTIME_ASYNC_TEST(async_computed_caches_until_signal_changes)
 ASYNC_RUNTIME_ASYNC_TEST(channel_rendezvous)
 ASYNC_RUNTIME_ASYNC_TEST(channel_buffer_backpressure_and_snapshot)
 ASYNC_RUNTIME_ASYNC_TEST(channel_close_semantics)

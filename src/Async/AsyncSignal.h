@@ -1,38 +1,29 @@
+#pragma once
+
 #include "Utilities/common.h"
 
 #pragma clang assume_nonnull begin
 
-typedef void (^SignalCleanupBlock)(void);
-
 [[clang::objc_subclassing_restricted, clang::objc_direct_members]]
-@interface Signal<T> : OFObject
+@interface AsyncSignal<T> : OFObject
 
 @property T _Null_unspecified value;
+
 + (instancetype)withValue: (T _Null_unspecified)value;
 - (instancetype)initWithValue: (T _Null_unspecified)value designated_initaliser;
+- (void (^)(void))subscribe: (void (^)(T _Null_unspecified))subscriber;
+- (T _Null_unspecified)next;
 - (instancetype)init OF_UNAVAILABLE;
-
-- (SignalCleanupBlock)subscribe: (void (^)(T _Null_unspecified))subscriber;
 
 @end
 
 [[clang::objc_subclassing_restricted, clang::objc_direct_members]]
-@interface Computed<T> : OFObject
+@interface AsyncComputed<T> : OFObject
 
 @property(readonly) T _Null_unspecified value;
 
 + (instancetype)withBlock: (T (^)(void))computeBlock;
 - (instancetype)initWithBlock: (T (^)(void))computeBlock designated_initaliser;
-- (instancetype)init OF_UNAVAILABLE;
-
-@end
-
-[[clang::objc_subclassing_restricted, clang::objc_direct_members]]
-@interface Effect : OFObject
-
-+ (instancetype)withBlock: (void (^)(void))effectBlock;
-- (instancetype)initWithBlock: (void (^)(void))effectBlock designated_initaliser;
-- (void)invalidate;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

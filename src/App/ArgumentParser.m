@@ -14,20 +14,7 @@
 
 @class CLICommandIntrospection;
 
-@interface CLIOption () {
-@public
-    CLIOptionKind _kind;
-    Class _valueClass;
-    bool _required;
-    OFString *nillable _longName;
-    char _shortName;
-    OFString *nillable _help;
-    OFString *nillable _valueName;
-    id nillable _defaultValue;
-    bool _hasDefaultValue;
-    id nillable _parsedValue;
-    bool _hasParsedValue;
-}
+@interface CLIOption (ArgumentParserInternal)
 - (void)cli_reset;
 - (void)cli_setParsedValue: (id)value;
 @end
@@ -863,7 +850,19 @@
 
 @end
 
-@implementation CLIOption
+@implementation CLIOption {
+    CLIOptionKind _kind;
+    Class _valueClass;
+    bool _required;
+    OFString *nillable _longName;
+    char _shortName;
+    OFString *nillable _help;
+    OFString *nillable _valueName;
+    id nillable _defaultValue;
+    bool _hasDefaultValue;
+    id nillable _parsedValue;
+    bool _hasParsedValue;
+}
 
 @synthesize kind = _kind;
 @synthesize valueClass = _valueClass;

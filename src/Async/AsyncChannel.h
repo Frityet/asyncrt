@@ -6,16 +6,12 @@
 
 @class AsyncChannel;
 
-@interface AsyncChannelClosedException : OFException {
-@private
-    AsyncChannel *_channel;
-    OFString *_operation;
-}
+@interface AsyncChannelClosedException : OFException
 
 @property(readonly, nonatomic) AsyncChannel *channel;
 @property(readonly, nonatomic) OFString *operation;
 
-- (instancetype)initWithChannel: (AsyncChannel *)channel operation: (OFString *)operation OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithChannel: (AsyncChannel *)channel operation: (OFString *)operation designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -23,9 +19,9 @@
 @interface AsyncChannel<__covariant T> : OFObject
 
 @property(readonly, nonatomic) size_t capacity;
-@property(readonly, nonatomic, getter=isClosed) bool closed;
+@property(readonly, nonatomic) bool isClosed;
 
-- (instancetype)initWithCapacity: (size_t)capacity OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithCapacity: (size_t)capacity designated_initaliser;
 - (void)send: (T)value;
 - (T)receive;
 - (void)close;

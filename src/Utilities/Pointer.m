@@ -28,7 +28,7 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
     return self;
 }
 
-+ (instancetype)pointer: (const void *nillable)pointer
++ (instancetype)from: (const void *nillable)pointer
 {
     return [[self alloc] initWithPointer: pointer];
 }
@@ -98,9 +98,38 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
     return [OFString stringWithFormat: @"%p", self.pointer];
 }
 
+
 - (OFString *)stringByBase64Encoding
 {
-    return ((OFData *)self.mutableCopy).stringByBase64Encoding;
+    char output[12];
+    {
+        const unsigned char *inputBytes = (const unsigned char *)&_pointerValue;
+        size_t inputLength = sizeof(_pointerValue);
+
+        static const char encodingTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        size_t outputIndex = 0;
+
+        for (size_t i = 0; i < inputLength; i += 3) {
+            uint32_t buffer = 0;
+            size_t bytesToProcess = (i + 3 <= inputLength) ? 3 : (inputLength - i);
+
+            for (size_t j = 0; j < bytesToProcess; j++) {
+                buffer <<= 8;
+                buffer |= inputBytes[i + j];
+            }
+            buffer <<= (3 - bytesToProcess) * 8;
+
+            for (size_t j = 0; j < 4; j++) {
+                if (j <= bytesToProcess) {
+                    output[outputIndex++] = encodingTable[(buffer >> (18 - j * 6)) & 0x3F];
+                } else {
+                    output[outputIndex++] = '=';
+                }
+            }
+        }
+    }
+
+    return [OFString stringWithCString: output encoding: OFStringEncodingUTF8 length: 12];
 }
 
 - (OFComparisonResult)compare: (OFData *)data
@@ -145,14 +174,13 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 {
     if (object == self)
         return true;
-    if (not [object isKindOfClass: OFData.class])
-        return false;
+    // if (not [object isKindOfClass: OFData.class])
+    //     return false;
 
     if ([object isKindOfClass: Pointer.class])
         return self.pointer == ((Pointer *)object).pointer;
 
-    // TODO: maybe?
-    return false;
+    return self->_pointerValue == (uintptr_t)object;
 }
 
 - (OFString *)description

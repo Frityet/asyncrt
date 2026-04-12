@@ -16,7 +16,7 @@
     block_reference Task *rootTask = nilptr;
     block_reference AsyncScope *rootScope = nilptr;
 
-    rootTask = [[Task alloc] initWithScheduler: scheduler scope: nilptr name: @"root" block: ^id {
+    rootTask = [[Task alloc] initWithScheduler: scheduler scope: nilptr name: @"root" block: ^{
         if (rootScope == nilptr) {
             rootScope = [[AsyncScope alloc] initWithScheduler: scheduler ownerTask: rootTask parentScope: nilptr name: @"root" deadline: nilptr];
             [rootTask _setScope: rootScope];

@@ -5,7 +5,16 @@
 
 static atomic_t(uint64_t) async_next_task_id = 1;
 
+[[clang::objc_direct_members]]
+@interface Task ()
+
+- (AsyncPromiseCompletion *)_completionForBlockExecution;
+
+@end
+
 @implementation TaskReturnedNilException
+
+@synthesize task = _task;
 
 - (instancetype)initWithTask: (Task *)task
 {
@@ -22,6 +31,8 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 @end
 
 @implementation TaskCancelledException
+
+@synthesize task = _task;
 
 - (instancetype)initWithTask: (Task *)task
 {
@@ -51,20 +62,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     bool _cancellationRequested;
     size_t _cancellationSuppressionDepth;
     unretained AsyncScope *nillable _currentExecutionScope;
-}
-
-static AsyncPromiseCompletion *task_completion_for_task(unretained Task *task)
-{
-    @try {
-        id value = task->_block();
-
-        if (value == nilptr)
-            return [[AsyncPromiseCompletion alloc] initWithException: [[TaskReturnedNilException alloc] initWithTask: task]];
-
-        return [[AsyncPromiseCompletion alloc] initWithValue: value];
-    } @catch (OFException *exception) {
-        return [[AsyncPromiseCompletion alloc] initWithException: exception];
-    }
 }
 
 @synthesize scheduler = _scheduler;
@@ -97,6 +94,16 @@ static AsyncPromiseCompletion *task_completion_for_task(unretained Task *task)
         @throw [[TaskCancelledException alloc] initWithTask: currentTask];
 }
 
++ (OFString *)describeExecutionState: (enum AsyncTaskExecutionState)state
+{
+    switch (state) {
+        case AsyncTaskExecutionState_READY: return @"READY";
+        case AsyncTaskExecutionState_RUNNING: return @"RUNNING";
+        case AsyncTaskExecutionState_WAITING: return @"WAITING";
+        case AsyncTaskExecutionState_RESOLVED: return @"RESOLVED";
+    }
+}
+
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler scope: (AsyncScope *nillable)scope name: (OFString *nillable)name block: (id (^)(void))block
 {
     self = [super _initInternal];
@@ -114,13 +121,27 @@ static AsyncPromiseCompletion *task_completion_for_task(unretained Task *task)
     unretained Task *unsafeSelf = self;
     _coroutine = [[Coroutine alloc] initWithBlock: ^id(unretained Coroutine *co) {
         (void)co;
-        return task_completion_for_task(unsafeSelf);
+        return [unsafeSelf _completionForBlockExecution];
     } stackSize: Task.defaultStackSize];
 
     if (scope != nilptr)
         [scope _registerChildTask: self];
     [_scheduler _enqueueTask: self];
     return self;
+}
+
+- (AsyncPromiseCompletion *)_completionForBlockExecution
+{
+    @try {
+        id value = _block();
+
+        if (value == nilptr)
+            return [[AsyncPromiseCompletion alloc] initWithException: [[TaskReturnedNilException alloc] initWithTask: self]];
+
+        return [[AsyncPromiseCompletion alloc] initWithValue: value];
+    } @catch (OFException *exception) {
+        return [[AsyncPromiseCompletion alloc] initWithException: exception];
+    }
 }
 
 - (void)cancel
@@ -421,9 +442,9 @@ static AsyncPromiseCompletion *task_completion_for_task(unretained Task *task)
     OFString *name = self.name;
 
     if (name != nilptr)
-        return [OFString stringWithFormat: @"<Task %p #%llu %@ %@>", self, (unsigned long long)self.taskID, name, TaskExecutionStateToString(self.executionState)];
+        return [OFString stringWithFormat: @"<Task %p #%llu %@ %@>", self, (unsigned long long)self.taskID, name, [Task describeExecutionState: self.executionState]];
 
-    return [OFString stringWithFormat: @"<Task %p #%llu %@>", self, (unsigned long long)self.taskID, TaskExecutionStateToString(self.executionState)];
+    return [OFString stringWithFormat: @"<Task %p #%llu %@>", self, (unsigned long long)self.taskID, [Task describeExecutionState: self.executionState]];
 }
 
 @end

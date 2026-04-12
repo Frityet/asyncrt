@@ -3,12 +3,7 @@
 
 #pragma clang assume_nonnull begin
 
-@interface ParserServeCommand : CLICommand {
-@private
-    CLIOption<OFString *> *_root;
-    CLIOption<OFNumber *> *_port;
-    CLIOption<OFString *> *_host;
-}
+@interface ParserServeCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *root;
 @property(readonly, nonatomic) CLIOption<OFNumber *> *port;
@@ -44,12 +39,7 @@
 
 @end
 
-@interface ParserRootCommand : CLICommand {
-@private
-    CLIOption<OFNumber *> *_verbose;
-    CLIOption<OFIRI *> *_config;
-    ParserServeCommand *_serve;
-}
+@interface ParserRootCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFNumber *> *verbose;
 @property(readonly, nonatomic) CLIOption<OFIRI *> *config;
@@ -84,10 +74,7 @@
 
 @end
 
-@interface ParserPositionalCommand : CLICommand {
-@private
-    CLIOption<OFString *> *_input;
-}
+@interface ParserPositionalCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *input;
 

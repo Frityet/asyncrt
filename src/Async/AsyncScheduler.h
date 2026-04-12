@@ -11,55 +11,37 @@
 @class AsyncTaskSnapshot;
 @class AsyncSchedulerSnapshot;
 
-@interface AsyncSchedulerException : OFException {
-@private
-    unretained AsyncScheduler *nillable _scheduler;
-}
+@interface AsyncSchedulerException : OFException
 
 @property(readonly, nonatomic) AsyncScheduler *nillable scheduler;
 
- - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler OF_DESIGNATED_INITIALIZER;
+ - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface AsyncSchedulerInvalidInitializationException : AsyncSchedulerException {
-@private
-    OFString *_reason;
-}
+@interface AsyncSchedulerInvalidInitializationException : AsyncSchedulerException
 
 @property(readonly, nonatomic) OFString *reason;
 
-- (instancetype)initWithReason: (OFString *)reason OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithReason: (OFString *)reason designated_initaliser;
 - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface AsyncSchedulerUnsupportedYieldException : AsyncSchedulerException {
-@private
-    unretained Task *nillable _task;
-    id nillable _yieldedObject;
-}
+@interface AsyncSchedulerUnsupportedYieldException : AsyncSchedulerException
 
 @property(readonly, nonatomic) Task *nillable task;
 @property(readonly, nonatomic) id nillable yieldedObject;
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task yieldedObject: (id nillable)yieldedObject OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task yieldedObject: (id nillable)yieldedObject designated_initaliser;
 - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface AsyncTaskSnapshot : OFObject {
-@private
-    uint64_t _taskID;
-    OFString *nillable _name;
-    enum AsyncTaskExecutionState _executionState;
-    OFString *nillable _waitReason;
-    bool _cancellationRequested;
-    OFString *nillable _scopeName;
-}
+@interface AsyncTaskSnapshot : OFObject
 
 @property(readonly, nonatomic) uint64_t taskID;
 @property(readonly, nonatomic) OFString *nillable name;
@@ -68,19 +50,12 @@
 @property(readonly, nonatomic, getter=isCancellationRequested) bool cancellationRequested;
 @property(readonly, nonatomic) OFString *nillable scopeName;
 
-- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested scopeName: (OFString *nillable)scopeName OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested scopeName: (OFString *nillable)scopeName designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface AsyncSchedulerSnapshot : OFObject {
-@private
-    size_t _queuedTaskCount;
-    size_t _runningTaskCount;
-    uint64_t _completedTaskCount;
-    uint64_t _cancelledTaskCount;
-    OFArray<AsyncTaskSnapshot *> *_tasks;
-}
+@interface AsyncSchedulerSnapshot : OFObject
 
 @property(readonly, nonatomic) size_t queuedTaskCount;
 @property(readonly, nonatomic) size_t runningTaskCount;
@@ -88,7 +63,7 @@
 @property(readonly, nonatomic) uint64_t cancelledTaskCount;
 @property(readonly, nonatomic) OFArray<AsyncTaskSnapshot *> *tasks;
 
-- (instancetype)initWithQueuedTaskCount: (size_t)queuedTaskCount runningTaskCount: (size_t)runningTaskCount completedTaskCount: (uint64_t)completedTaskCount cancelledTaskCount: (uint64_t)cancelledTaskCount tasks: (OFArray<AsyncTaskSnapshot *> *)tasks OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithQueuedTaskCount: (size_t)queuedTaskCount runningTaskCount: (size_t)runningTaskCount completedTaskCount: (uint64_t)completedTaskCount cancelledTaskCount: (uint64_t)cancelledTaskCount tasks: (OFArray<AsyncTaskSnapshot *> *)tasks designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -103,9 +78,10 @@
 
 + (AsyncScheduler *)defaultScheduler;
 + (void)shutdownDefaultSchedulerForCurrentThread;
-- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode maxWorkerCount: (size_t)maxWorkerCount maxDrainBatchSize: (size_t)maxDrainBatchSize OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode maxWorkerCount: (size_t)maxWorkerCount maxDrainBatchSize: (size_t)maxDrainBatchSize designated_initaliser;
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode;
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop;
+- (OFString *)describe;
 - (Promise<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
 - (Promise<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
 - (Promise<id> *)offload: (id (^)(void))block;

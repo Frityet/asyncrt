@@ -16,7 +16,7 @@
                                             object: value
                                            repeats: false];
     [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
-    return resolver.future;
+    return resolver.promise;
 }
 
 + (Promise<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
@@ -31,7 +31,7 @@
                                             object: exception
                                            repeats: false];
     [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
-    return resolver.future;
+    return resolver.promise;
 }
 
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot
@@ -131,17 +131,8 @@
 
 @end
 
-@interface LocalHTTPTestServer ()
-
-- (void)_acceptLoop;
-- (void)_handleAcceptedSocket: (OFTCPSocket *)acceptedSocket;
-- (OFString *)_pathFromRequestLine: (OFString *)requestLine;
-
-@end
-
 @implementation LocalHTTPTestServer {
     OFTCPSocket *_listener;
-    uint16_t _port;
     OFThread *nillable _acceptThread;
     OFMutex *_lock;
     OFMutableArray<OFThread *> *_handlerThreads;
@@ -252,7 +243,7 @@
             [_lock unlock];
         }
 
-        thread = [[OFThread alloc] initWithBlock: ^id {
+        thread = [[OFThread alloc] initWithBlock: ^{
             [unsafeSelf _handleAcceptedSocket: acceptedSocket];
             return nilptr;
         }];

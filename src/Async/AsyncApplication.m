@@ -25,10 +25,7 @@
 
 @end
 
-@implementation AsyncApplication {
-    AsyncScheduler *nillable _scheduler;
-    Task<id> *nillable _launchTask;
-}
+@implementation AsyncApplication
 
 @synthesize scheduler = _scheduler;
 @synthesize launchTask = _launchTask;

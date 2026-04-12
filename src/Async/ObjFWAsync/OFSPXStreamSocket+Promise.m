@@ -25,7 +25,7 @@
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: self operation: @"asyncConnectToNetwork:node:port:" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         [self asyncConnectToNetwork: network node: expectedNodePointer port: port runLoopMode: scheduler.mode handler: ^(OFSPXStreamSocket *socket, uint32_t callbackNetwork, const unsigned char callbackNode[_Nonnull IPX_NODE_LEN], uint16_t callbackPort, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return;
             }
             if (socket != self or callbackNetwork != network or memcmp(callbackNode, expectedNodePointer, IPX_NODE_LEN) != 0 or callbackPort != port) {
@@ -39,9 +39,9 @@
         [self cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 @end

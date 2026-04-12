@@ -22,41 +22,6 @@ static pthread_mutex_t async_tsan_keepalive_lock = PTHREAD_MUTEX_INITIALIZER;
 static OFMutableArray<id> *nillable async_tsan_keepalive_objects;
 #endif
 
-OFString *PromiseStatusToString(enum PromiseStatus status)
-{
-    switch (status) {
-        case PromiseStatus_PENDING: return @"PENDING";
-        case PromiseStatus_FULFILLED: return @"FULFILLED";
-        case PromiseStatus_REJECTED: return @"REJECTED";
-    }
-}
-
-OFString *DescribePromise(Promise *nillable future)
-{
-    if (future == nilptr)
-        return @"<nil>";
-
-    return [OFString stringWithFormat: @"%p (%@)", future, PromiseStatusToString(future.status)];
-}
-
-OFString *DescribeScheduler(AsyncScheduler *nillable scheduler)
-{
-    if (scheduler == nilptr)
-        return @"<nil>";
-
-    return [OFString stringWithFormat: @"%p (%@)", scheduler, scheduler.mode];
-}
-
-OFString *TaskExecutionStateToString(enum AsyncTaskExecutionState state)
-{
-    switch (state) {
-        case AsyncTaskExecutionState_READY: return @"READY";
-        case AsyncTaskExecutionState_RUNNING: return @"RUNNING";
-        case AsyncTaskExecutionState_WAITING: return @"WAITING";
-        case AsyncTaskExecutionState_RESOLVED: return @"RESOLVED";
-    }
-}
-
 void AsyncRetainForTSAN(id nillable object)
 {
 #if !defined(ASYNC_RUNTIME_HAVE_TSAN)
@@ -101,10 +66,7 @@ void AsyncRetainForTSAN(id nillable object)
 
 @end
 
-@implementation AsyncWaitInstruction {
-    AsyncTaskWaitRegistration *_registration;
-    OFString *_waitReason;
-}
+@implementation AsyncWaitInstruction
 
 @synthesize registration = _registration;
 @synthesize waitReason = _waitReason;
@@ -119,10 +81,7 @@ void AsyncRetainForTSAN(id nillable object)
 
 @end
 
-@implementation AsyncPromiseCompletion {
-    id nillable _value;
-    OFException *nillable _exception;
-}
+@implementation AsyncPromiseCompletion
 
 @synthesize value = _value;
 @synthesize exception = _exception;

@@ -50,27 +50,20 @@ typedef enum : uint8_t {
 
 @end
 
-@interface ArgumentParserException : OFException {
-@private
-    OFString *_message;
-    OFString *nillable _usage;
-}
+@interface ArgumentParserException : OFException
 
 @property (readonly, copy, nonatomic) OFString *message;
 @property (readonly, copy, nonatomic) OFString *nillable usage;
 
 - (instancetype)initWithMessage: (OFString *)message
-                          usage: (OFString *nillable)usage OF_DESIGNATED_INITIALIZER;
+                          usage: (OFString *nillable)usage designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface ArgumentParserHelpException : ArgumentParserException @end
 
-@interface ArgumentParser<T> : OFObject {
-@private
-    T _command;
-}
+@interface ArgumentParser<T> : OFObject
 
 @property (readonly, nonatomic) T command;
 

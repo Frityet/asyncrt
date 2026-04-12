@@ -7,32 +7,24 @@
 
 void AsyncEnsureObjFWBindingsLoaded(void);
 
-@interface PromiseHTTPClientInvalidCompletionException : PromiseException {
-@private
-    OFHTTPClient *_client;
-    OFHTTPRequest *_request;
-    OFString *_reason;
-}
+@interface PromiseHTTPClientInvalidCompletionException : PromiseException
 
 @property(readonly, nonatomic) OFHTTPClient *client;
 @property(readonly, nonatomic) OFHTTPRequest *request;
 @property(readonly, nonatomic) OFString *reason;
 
-- (instancetype)initWithPromise: (Promise *)future client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)promise client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface PromiseHTTPClientCancelledException : PromiseException {
-@private
-    OFHTTPRequest *_request;
-}
+@interface PromiseHTTPClientCancelledException : PromiseException
 
 @property(readonly, nonatomic) OFHTTPRequest *request;
 
-- (instancetype)initWithPromise: (Promise *)future request: (OFHTTPRequest *)request OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)promise request: (OFHTTPRequest *)request designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

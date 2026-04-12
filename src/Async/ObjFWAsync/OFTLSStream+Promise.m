@@ -4,8 +4,14 @@
 
 @interface AsyncTLSStreamPromiseDelegate : OFObject<OFTLSStreamDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
+- (void)_cleanup [[clang::objc_direct]];
++ (Promise<OFTLSStream *> *)promiseHandshakeForStream: (OFTLSStream *)stream
+                                                 host: (OFString *nillable)host
+                                      clientHandshake: (bool)clientHandshake
+                                          onScheduler: (AsyncScheduler *)scheduler
+                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation [[clang::objc_direct]];
 - (void)start;
 - (void)cancel;
 
@@ -34,15 +40,53 @@
     return self;
 }
 
++ (Promise<OFTLSStream *> *)promiseHandshakeForStream: (OFTLSStream *)stream
+                                                 host: (OFString *nillable)host
+                                      clientHandshake: (bool)clientHandshake
+                                          onScheduler: (AsyncScheduler *)scheduler
+                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
+{
+    if (clientHandshake and host == nilptr)
+        @throw [OFInvalidArgumentException exception];
+
+    id<OFTLSStreamDelegate> forwardDelegate = stream.delegate;
+    auto resolver = [[PromiseResolver<OFTLSStream *> alloc] init];
+    block_reference AsyncTLSStreamPromiseDelegate *delegate = nilptr;
+    auto bridge = [[AsyncObjFWPromiseBridge alloc]
+        initWithObject: stream
+              operation: (clientHandshake ? @"asyncPerformClientHandshakeWithHost:" : @"asyncPerformServerHandshake")
+              scheduler: scheduler
+               resolver: (PromiseResolver<id> *)resolver
+             startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
+                 delegate = [[AsyncTLSStreamPromiseDelegate alloc]
+                     initWithBridge: bridge
+                             stream: stream
+                    forwardDelegate: forwardDelegate
+                               host: host
+             performsClientHandshake: clientHandshake];
+                 [delegate start];
+             }
+            cancelBlock: ^(AsyncObjFWPromiseBridge *) {
+                [delegate cancel];
+            }];
+
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
+    return resolver.promise;
+}
+
 - (void)_cleanup
 {
     block_reference bool shouldCleanup = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         shouldCleanup = (not _cleanedUp);
         if (shouldCleanup)
             _cleanedUp = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (shouldCleanup)
         _stream.delegate = _forwardDelegate;
@@ -114,7 +158,7 @@
     [self _cleanup];
 
     if (exception != nilptr) {
-        [_bridge reject: (OFException *)exception];
+        [_bridge reject: $as_nonnil((OFException *)exception)];
     } else if (stream != _stream or not [host isEqual: _host]) {
         [_bridge rejectInvalidCompletionWithReason: @"ObjFW completed a TLS client handshake with mismatched metadata"];
     } else {
@@ -130,7 +174,7 @@
     [self _cleanup];
 
     if (exception != nilptr) {
-        [_bridge reject: (OFException *)exception];
+        [_bridge reject: $as_nonnil((OFException *)exception)];
     } else if (stream != _stream) {
         [_bridge rejectInvalidCompletionWithReason: @"ObjFW completed a TLS server handshake on the wrong stream"];
     } else {
@@ -143,26 +187,6 @@
 
 @end
 
-static Promise<OFTLSStream *> *PromiseTLSHandshake(OFTLSStream *stream, OFString *nillable host, bool clientHandshake, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
-{
-    if (clientHandshake and host == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    id<OFTLSStreamDelegate> forwardDelegate = stream.delegate;
-    auto resolver = [[PromiseResolver<OFTLSStream *> alloc] init];
-    block_reference AsyncTLSStreamPromiseDelegate *delegate = nilptr;
-    auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: (clientHandshake ? @"asyncPerformClientHandshakeWithHost:" : @"asyncPerformServerHandshake") scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
-        delegate = [[AsyncTLSStreamPromiseDelegate alloc] initWithBridge: bridge stream: stream forwardDelegate: forwardDelegate host: host performsClientHandshake: clientHandshake];
-        [delegate start];
-    } cancelBlock: ^(AsyncObjFWPromiseBridge *) {
-        [delegate cancel];
-    }];
-
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
-    [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
-}
-
 @implementation OFTLSStream (PromiseAdditions)
 
 - (Promise<OFTLSStream *> *)promiseToPerformClientHandshakeWithHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler
@@ -172,7 +196,12 @@ static Promise<OFTLSStream *> *PromiseTLSHandshake(OFTLSStream *stream, OFString
 
 - (Promise<OFTLSStream *> *)promiseToPerformClientHandshakeWithHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseTLSHandshake(self, host, true, scheduler, cancelOnTaskCancellation);
+    return [AsyncTLSStreamPromiseDelegate
+        promiseHandshakeForStream: self
+                             host: host
+                  clientHandshake: true
+                      onScheduler: scheduler
+         cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 - (Promise<OFTLSStream *> *)promiseToPerformServerHandshakeOnScheduler: (AsyncScheduler *)scheduler
@@ -182,7 +211,12 @@ static Promise<OFTLSStream *> *PromiseTLSHandshake(OFTLSStream *stream, OFString
 
 - (Promise<OFTLSStream *> *)promiseToPerformServerHandshakeOnScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseTLSHandshake(self, nilptr, false, scheduler, cancelOnTaskCancellation);
+    return [AsyncTLSStreamPromiseDelegate
+        promiseHandshakeForStream: self
+                             host: nilptr
+                  clientHandshake: false
+                      onScheduler: scheduler
+         cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 @end

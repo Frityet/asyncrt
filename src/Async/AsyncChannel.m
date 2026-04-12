@@ -5,23 +5,15 @@
 @class AsyncChannelSendWaitRegistration;
 @class AsyncChannelReceiveWaitRegistration;
 
-@interface AsyncChannel ()
-
-- (void)_armSendRegistration: (AsyncChannelSendWaitRegistration *)registration;
-- (void)_cancelSendRegistration: (AsyncChannelSendWaitRegistration *)registration;
-- (void)_armReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)registration;
-- (void)_cancelReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)registration;
-
-@end
-
 @interface AsyncChannelSendWaitRegistration : AsyncTaskWaitRegistration
 
 @property(readonly, nonatomic) AsyncChannel *channel;
 @property(readonly, nonatomic) id value;
 @property(readonly, nonatomic, getter=isClosed) bool closed;
 
-- (instancetype)initWithChannel: (AsyncChannel *)channel value: (id)value scheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithChannel: (AsyncChannel *)channel value: (id)value scheduler: (AsyncScheduler *)scheduler task: (Task *)task designated_initaliser;
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
+- (bool)_finishOnce [[clang::objc_direct]];
 - (void)signalDelivered;
 - (void)signalClosed;
 
@@ -34,8 +26,9 @@
 @property(readonly, nonatomic) bool hasReceivedValue;
 @property(readonly, nonatomic, getter=isClosed) bool closed;
 
-- (instancetype)initWithChannel: (AsyncChannel *)channel scheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithChannel: (AsyncChannel *)channel scheduler: (AsyncScheduler *)scheduler task: (Task *)task designated_initaliser;
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
+- (bool)_finishOnce [[clang::objc_direct]];
 - (void)signalReceivedValue: (id)value;
 - (void)signalClosed;
 
@@ -62,7 +55,6 @@
 @end
 
 @implementation AsyncChannel {
-    size_t _capacity;
     OFMutex *_lock;
     bool _closed;
     OFMutableArray<id> *_buffer;
@@ -88,9 +80,12 @@
 {
     block_reference bool closed;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         closed = _closed;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return closed;
 }
@@ -105,12 +100,13 @@
 
     [Task checkCancellation];
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (_closed)
             @throw [[AsyncChannelClosedException alloc] initWithChannel: self operation: @"send"];
 
         if (_receiveWaitRegistrations.count > 0) {
-            AsyncChannelReceiveWaitRegistration *receiveRegistration = [_receiveWaitRegistrations objectAtIndex: 0];
+            AsyncChannelReceiveWaitRegistration *receiveRegistration = _receiveWaitRegistrations[0];
             [_receiveWaitRegistrations removeObjectAtIndex: 0];
             [receiveRegistration signalReceivedValue: value];
             didSendImmediately = true;
@@ -121,7 +117,9 @@
             [_buffer addObject: value];
             didSendImmediately = true;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (didSendImmediately)
         return;
@@ -145,34 +143,33 @@
 
     [Task checkCancellation];
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (_buffer.count > 0) {
-            receivedValue = [_buffer objectAtIndex: 0];
+            receivedValue = _buffer[0];
             [_buffer removeObjectAtIndex: 0];
 
             if (_sendWaitRegistrations.count > 0) {
-                AsyncChannelSendWaitRegistration *sendRegistration = [_sendWaitRegistrations objectAtIndex: 0];
+                AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
                 [_sendWaitRegistrations removeObjectAtIndex: 0];
                 [_buffer addObject: sendRegistration.value];
                 [sendRegistration signalDelivered];
             }
 
             didReceiveImmediately = true;
-            return;
-        }
-
-        if (_sendWaitRegistrations.count > 0) {
-            AsyncChannelSendWaitRegistration *sendRegistration = [_sendWaitRegistrations objectAtIndex: 0];
+        } else if (_sendWaitRegistrations.count > 0) {
+            AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
             [_sendWaitRegistrations removeObjectAtIndex: 0];
             receivedValue = sendRegistration.value;
             [sendRegistration signalDelivered];
             didReceiveImmediately = true;
-            return;
         }
 
-        if (_closed)
+        if (_closed and not didReceiveImmediately)
             @throw [[AsyncChannelClosedException alloc] initWithChannel: self operation: @"receive"];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (didReceiveImmediately)
         return $assert_nonnil(receivedValue);
@@ -193,7 +190,8 @@
     block_reference OFArray<AsyncChannelReceiveWaitRegistration *> *receiveRegistrations;
     block_reference bool shouldClose = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _closed) {
             shouldClose = true;
             _closed = true;
@@ -202,7 +200,9 @@
             [_sendWaitRegistrations removeAllObjects];
             [_receiveWaitRegistrations removeAllObjects];
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldClose)
         return;
@@ -215,14 +215,15 @@
 
 - (void)_armSendRegistration: (AsyncChannelSendWaitRegistration *)registration
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (_closed) {
             [registration signalClosed];
             return;
         }
 
         if (_receiveWaitRegistrations.count > 0) {
-            AsyncChannelReceiveWaitRegistration *receiveRegistration = [_receiveWaitRegistrations objectAtIndex: 0];
+            AsyncChannelReceiveWaitRegistration *receiveRegistration = _receiveWaitRegistrations[0];
             [_receiveWaitRegistrations removeObjectAtIndex: 0];
             [receiveRegistration signalReceivedValue: registration.value];
             [registration signalDelivered];
@@ -236,25 +237,31 @@
         }
 
         [_sendWaitRegistrations addObject: registration];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 }
 
 - (void)_cancelSendRegistration: (AsyncChannelSendWaitRegistration *)registration
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         [_sendWaitRegistrations removeObjectIdenticalTo: registration];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 }
 
 - (void)_armReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)registration
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (_buffer.count > 0) {
-            id value = [_buffer objectAtIndex: 0];
+            id value = _buffer[0];
             [_buffer removeObjectAtIndex: 0];
 
             if (_sendWaitRegistrations.count > 0) {
-                AsyncChannelSendWaitRegistration *sendRegistration = [_sendWaitRegistrations objectAtIndex: 0];
+                AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
                 [_sendWaitRegistrations removeObjectAtIndex: 0];
                 [_buffer addObject: sendRegistration.value];
                 [sendRegistration signalDelivered];
@@ -265,7 +272,7 @@
         }
 
         if (_sendWaitRegistrations.count > 0) {
-            AsyncChannelSendWaitRegistration *sendRegistration = [_sendWaitRegistrations objectAtIndex: 0];
+            AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
             [_sendWaitRegistrations removeObjectAtIndex: 0];
             [registration signalReceivedValue: sendRegistration.value];
             [sendRegistration signalDelivered];
@@ -278,26 +285,29 @@
         }
 
         [_receiveWaitRegistrations addObject: registration];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 }
 
 - (void)_cancelReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)registration
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         [_receiveWaitRegistrations removeObjectIdenticalTo: registration];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 }
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"<AsyncChannel %p capacity=%zu closed=%s>", self, self.capacity, self.closed ? "true" : "false"];
+    return [OFString stringWithFormat: @"<AsyncChannel %p capacity=%zu closed=%s>", self, self.capacity, self.isClosed ? "true" : "false"];
 }
 
 @end
 
 @implementation AsyncChannelSendWaitRegistration {
-    AsyncChannel *_channel;
-    id _value;
     OFMutex *_lock;
     bool _completed;
     bool _closed;
@@ -321,11 +331,14 @@
 {
     block_reference bool shouldFinish;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         shouldFinish = (not _completed);
         if (shouldFinish)
             _completed = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return shouldFinish;
 }
@@ -334,9 +347,12 @@
 {
     block_reference bool closed;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         closed = _closed;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return closed;
 }
@@ -367,9 +383,12 @@
 
 - (void)signalClosed
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         _closed = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     [self signalDelivered];
 }
@@ -377,12 +396,10 @@
 @end
 
 @implementation AsyncChannelReceiveWaitRegistration {
-    AsyncChannel *_channel;
     OFMutex *_lock;
     bool _completed;
     bool _closed;
     bool _hasReceivedValue;
-    id nillable _receivedValue;
 }
 
 @synthesize channel = _channel;
@@ -404,11 +421,14 @@
 {
     block_reference bool shouldFinish;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         shouldFinish = (not _completed);
         if (shouldFinish)
             _completed = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return shouldFinish;
 }
@@ -417,9 +437,12 @@
 {
     block_reference bool closed;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         closed = _closed;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return closed;
 }
@@ -428,9 +451,12 @@
 {
     block_reference id value;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         value = _receivedValue;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return value;
 }
@@ -452,10 +478,13 @@
 
 - (void)signalReceivedValue: (id)value
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         _receivedValue = value;
         _hasReceivedValue = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not [self _finishOnce])
         return;
@@ -466,9 +495,12 @@
 
 - (void)signalClosed
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         _closed = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not [self _finishOnce])
         return;

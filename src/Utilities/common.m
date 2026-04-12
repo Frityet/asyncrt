@@ -7,23 +7,7 @@
 
 @end
 
-@implementation OFMutex(ScopedLock)
-
-- (void)scopedLock: (void (^)(void)) [[clang::noescape]] block
-{
-    [self lock];
-    @try {
-        block();
-    } 
-    @finally {
-        [self unlock];
-    }
-}
-
-@end
-
 @implementation TaggedPointer
-
 
 + (uintptr_t)registerClass: (Class)c
 {
@@ -36,5 +20,3 @@
 }
 
 @end
-
-void async_link_scoped_lock_support(void) {}

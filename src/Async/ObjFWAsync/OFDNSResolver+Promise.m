@@ -4,14 +4,14 @@
 
 @interface AsyncDNSResolverQueryPromiseDelegate : OFObject<OFDNSResolverQueryDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver query: (OFDNSQuery *)query OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver query: (OFDNSQuery *)query designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface AsyncDNSResolverHostPromiseDelegate : OFObject<OFDNSResolverHostDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver host: (OFString *)host OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver host: (OFString *)host designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -39,7 +39,7 @@
     }
 
     if (exception != nilptr) {
-        [_bridge reject: (OFException *)exception];
+        [_bridge reject: $as_nonnil((OFException *)exception)];
     } else if ((OFDNSResponse *nillable)response == nilptr) {
         [_bridge rejectInvalidCompletionWithReason: @"ObjFW completed a DNS query without a response or exception"];
     } else {
@@ -72,7 +72,7 @@
     }
 
     if (exception != nilptr) {
-        [_bridge reject: (OFException *)exception];
+        [_bridge reject: $as_nonnil((OFException *)exception)];
     } else if ((OFData *nillable)addresses == nilptr) {
         [_bridge rejectInvalidCompletionWithReason: @"ObjFW completed a host resolution without addresses or exception"];
     } else {
@@ -100,9 +100,9 @@
         [self close];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 - (Promise<OFData *> *)promiseToResolveAddressesForHost: (OFString *)host onScheduler: (AsyncScheduler *)scheduler
@@ -132,9 +132,9 @@
         [self close];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 @end

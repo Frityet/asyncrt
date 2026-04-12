@@ -54,14 +54,11 @@
 
 @end
 
-@interface TestFailureException : OFException {
-@private
-    OFString *_message;
-}
+@interface TestFailureException : OFException
 
 @property(readonly, nonatomic) OFString *message;
 
-- (instancetype)initWithMessage: (OFString *)message OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithMessage: (OFString *)message designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -70,14 +67,14 @@
 
 @interface CrossThreadResolverThread : OFThread
 
-- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface TaskCancellationThread : OFThread
 
-- (instancetype)initWithTask: (Task *)task delay: (OFTimeInterval)delay cancelIssuedFlag: (atomic_t(bool) *)cancelIssuedFlag OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithTask: (Task *)task delay: (OFTimeInterval)delay cancelIssuedFlag: (atomic_t(bool) *)cancelIssuedFlag designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

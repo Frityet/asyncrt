@@ -2,6 +2,18 @@
 
 #pragma clang assume_nonnull begin
 
+[[clang::objc_direct_members]]
+@interface AsyncScope ()
+
+- (void)_resolveCompletionIfNeeded;
+- (void)_recordFailureIfNeeded: (OFException *)exception;
+- (void)_cancelOwnedTasks;
+- (void)_installDeadlineTimerIfNeeded;
+- (void)_invalidateDeadlineTimerIfNeeded;
+- (void)_waitForChildrenToFinish;
+
+@end
+
 @implementation AsyncScopeException
 
 @synthesize scope = _scope;
@@ -51,11 +63,6 @@
 @end
 
 @implementation AsyncScope {
-    AsyncScheduler *_scheduler;
-    AsyncScope *nillable _parentScope;
-    unretained Task *nillable _ownerTask;
-    OFString *nillable _name;
-    OFDate *nillable _deadline;
     OFMutex *_lock;
     OFMutableSet<Task *> *_liveTasks;
     OFMutableArray<OFException *> *_failures;
@@ -97,9 +104,12 @@
 {
     block_reference bool cancellationRequested;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         cancellationRequested = _cancellationRequested;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     return cancellationRequested;
 }
@@ -121,9 +131,12 @@
 {
     block_reference bool shouldResolve = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         shouldResolve = (_bodyFinished and _liveTasks.count == 0);
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldResolve)
         return;
@@ -141,10 +154,13 @@
     if ([exception isKindOfClass: TaskCancelledException.class])
         return;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         [_failures addObject: exception];
         shouldCancel = (_failures.count == 1);
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (shouldCancel)
         [self cancel];
@@ -152,18 +168,24 @@
 
 - (void)_registerChildTask: (Task *)task
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (_bodyFinished or _cancellationRequested)
             @throw [OFInvalidArgumentException exception];
         [_liveTasks addObject: task];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 }
 
 - (void)_task: (Task *)task didCompleteWithException: (OFException *nillable)exception
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         [_liveTasks removeObject: task];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (exception != nilptr)
         [self _recordFailureIfNeeded: $assert_nonnil(exception)];
@@ -175,9 +197,12 @@
 {
     block_reference OFArray<Task *> *liveTasks;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         liveTasks = _liveTasks.allObjects;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     for (Task *task in liveTasks)
         [task cancel];
@@ -187,12 +212,15 @@
 {
     block_reference bool didRequestCancellation = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _cancellationRequested) {
             _cancellationRequested = true;
             didRequestCancellation = true;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not didRequestCancellation)
         return;
@@ -205,13 +233,16 @@
 {
     block_reference bool shouldAddTimeout = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _cancellationRequested) {
             _cancellationRequested = true;
             shouldAddTimeout = true;
             [_failures insertObject: [[AsyncTimeoutException alloc] initWithScope: self deadline: deadline] atIndex: 0];
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldAddTimeout)
         return;
@@ -252,10 +283,10 @@
 {
     [self.ownerTask _pushCancellationSuppression];
     @try {
-        if (self->_completionResolver.future.isResolved)
+        if (self->_completionResolver.promise.isResolved)
             return;
 
-        (void)self->_completionResolver.future.await;
+        [self->_completionResolver.promise await];
     } @finally {
         [self.ownerTask _popCancellationSuppression];
     }
@@ -277,6 +308,49 @@
 
     [Task checkCancellation];
     return [[Task alloc] initWithScheduler: self.scheduler scope: self name: name block: block];
+}
+
+- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block name: (OFString *nillable)name
+{
+    Task *currentTask = Task.currentTask;
+
+    if (currentTask == nilptr)
+        @throw [OFInvalidArgumentException exception];
+    if (currentTask.scheduler != self.scheduler)
+        @throw [OFInvalidArgumentException exception];
+
+    auto childScope = [[AsyncScope alloc] initWithScheduler: self.scheduler ownerTask: $assert_nonnil(currentTask) parentScope: self name: name deadline: self.deadline];
+    return [childScope _runScopeBody: block];
+}
+
+- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block
+{
+    return [self spawnInChildScope: block name: nilptr];
+}
+
+- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks
+{
+    return [self spawnAll: blocks name: nilptr];
+}
+
+- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks name: (OFString *nillable)name
+{
+    OFArray<id (^)(void)> *taskBlocks = [blocks copy];
+
+    return (Task<OFArray<id> *> *)[self spawn: ^{
+        auto promises = [OFMutableArray<id<PromiseLike>> arrayWithCapacity: taskBlocks.count];
+
+        for (size_t index = 0; index < taskBlocks.count; index++) {
+            OFString *nillable childName = nilptr;
+
+            if (name != nilptr)
+                childName = [OFString stringWithFormat: @"%@[%zu]", name, index];
+
+            [promises addObject: [self spawn: taskBlocks[index] name: childName]];
+        }
+
+        return [Promise all: promises].await;
+    } name: name];
 }
 
 - (id)withChildScope: (id (^)(AsyncScope *scope))block
@@ -348,17 +422,23 @@
         [self cancel];
     }
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         _bodyFinished = true;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     [self _resolveCompletionIfNeeded];
     [self _waitForChildrenToFinish];
     [self _invalidateDeadlineTimerIfNeeded];
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         failures = [_failures copy];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (failures.count == 1) {
         OFException *failure = $assert_nonnil(failures.firstObject);

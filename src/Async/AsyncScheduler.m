@@ -6,43 +6,52 @@
 static OFString * const async_default_scheduler_key = @"AsyncScheduler.defaultScheduler";
 static size_t const async_default_drain_batch_size = 64;
 
+@protocol AsyncTaskCoroutineLike
+
+@property(readonly, nonatomic) enum CoroutineStatus status;
+@property(readonly, nonatomic) id nillable returnedObject;
+
+- (id nillable)resume;
+
+@end
+
 [[gnu::constructor]]
 static void async_link_support_categories(void)
 {
-    async_link_scoped_lock_support();
     async_link_objfw_promise_categories();
 }
 
+[[clang::objc_direct_members]]
 @interface AsyncOffloadJob : OFObject
 
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) PromiseResolver<id> *resolver;
 @property(readonly, nonatomic) id (^block)(void);
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block designated_initaliser;
 - (void)perform;
 
 @end
 
+[[clang::objc_direct_members]]
 @interface AsyncWorkerPool : OFObject
 
 @property(readonly, nonatomic) size_t maxWorkerCount;
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount designated_initaliser;
 - (void)enqueueBlock: (id (^)(void))block resolver: (PromiseResolver<id> *)resolver;
 - (void)shutdown;
 
 @end
 
-static size_t async_default_worker_count(void)
-{
-    long cpuCount = sysconf(_SC_NPROCESSORS_ONLN);
+[[clang::objc_direct_members]]
+@interface AsyncScheduler ()
 
-    if (cpuCount <= 1)
-        return 1;
++ (size_t)_defaultWorkerCount;
+- (void)_scheduleDrainTimer;
+- (void)_resumeTask: (Task *)task;
 
-    return (size_t)(cpuCount - 1);
-}
+@end
 
 @namespace_implementation(AsyncSchedulerValidation)
 
@@ -69,6 +78,7 @@ static size_t async_default_worker_count(void)
 @synthesize name = _name;
 @synthesize executionState = _executionState;
 @synthesize waitReason = _waitReason;
+@synthesize cancellationRequested = _cancellationRequested;
 @synthesize scopeName = _scopeName;
 
 - (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested scopeName: (OFString *nillable)scopeName
@@ -113,6 +123,8 @@ static size_t async_default_worker_count(void)
 
 @implementation AsyncSchedulerException
 
+@synthesize scheduler = _scheduler;
+
 - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler
 {
     self = [super init];
@@ -122,12 +134,15 @@ static size_t async_default_worker_count(void)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"AsyncSchedulerException: %@", DescribeScheduler(self.scheduler)];
+    OFString *schedulerDescription = (self.scheduler == nilptr ? @"<nil>" : self.scheduler.describe);
+    return [OFString stringWithFormat: @"AsyncSchedulerException: %@", schedulerDescription];
 }
 
 @end
 
 @implementation AsyncSchedulerInvalidInitializationException
+
+@synthesize reason = _reason;
 
 - (instancetype)initWithReason: (OFString *)reason
 {
@@ -145,6 +160,9 @@ static size_t async_default_worker_count(void)
 
 @implementation AsyncSchedulerUnsupportedYieldException
 
+@synthesize task = _task;
+@synthesize yieldedObject = _yieldedObject;
+
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task yieldedObject: (id nillable)yieldedObject
 {
     self = [super initWithScheduler: scheduler];
@@ -155,16 +173,13 @@ static size_t async_default_worker_count(void)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"AsyncSchedulerUnsupportedYieldException: %@ received unsupported yield from %@: %@", DescribeScheduler(self.scheduler), self.task, self.yieldedObject];
+    OFString *schedulerDescription = (self.scheduler == nilptr ? @"<nil>" : self.scheduler.describe);
+    return [OFString stringWithFormat: @"AsyncSchedulerUnsupportedYieldException: %@ received unsupported yield from %@: %@", schedulerDescription, self.task, self.yieldedObject];
 }
 
 @end
 
 @implementation AsyncScheduler {
-    OFRunLoop *_runLoop;
-    OFRunLoopMode _mode;
-    size_t _maxWorkerCount;
-    size_t _maxDrainBatchSize;
     OFMutex *_lock;
     OFMutableArray<Task *> *_readyTasks;
     OFMutableSet<Task *> *_queuedTasks;
@@ -197,6 +212,16 @@ static size_t async_default_worker_count(void)
     }
 
     return scheduler;
+}
+
++ (size_t)_defaultWorkerCount
+{
+    long cpuCount = sysconf(_SC_NPROCESSORS_ONLN);
+
+    if (cpuCount <= 1)
+        return 1;
+
+    return (size_t)(cpuCount - 1);
 }
 
 + (void)shutdownDefaultSchedulerForCurrentThread
@@ -237,7 +262,7 @@ static size_t async_default_worker_count(void)
 
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode
 {
-    return [self initWithRunLoop: runLoop mode: mode maxWorkerCount: async_default_worker_count() maxDrainBatchSize: async_default_drain_batch_size];
+    return [self initWithRunLoop: runLoop mode: mode maxWorkerCount: [AsyncScheduler _defaultWorkerCount] maxDrainBatchSize: async_default_drain_batch_size];
 }
 
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop
@@ -260,7 +285,8 @@ static size_t async_default_worker_count(void)
     if (task.isResolved)
         return;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _shutdown) {
             shouldEnqueueTask = true;
             [_activeTasks addObject: task];
@@ -274,7 +300,9 @@ static size_t async_default_worker_count(void)
                 shouldScheduleTimer = true;
             }
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldEnqueueTask)
         return;
@@ -285,19 +313,24 @@ static size_t async_default_worker_count(void)
 
 - (void)_recordTaskResolutionForTask: (Task *)task
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         [_activeTasks removeObject: task];
         [_queuedTasks removeObject: task];
         _completedTaskCount++;
         if (task.status == PromiseStatus_REJECTED and [task.rejectionException isKindOfClass: TaskCancelledException.class])
             _cancelledTaskCount++;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 }
 
 - (void)_resumeTask: (Task *)task
 {
-    Coroutine<id> *coroutine;
+    id coroutineObject;
     id yieldedObject = nilptr;
+    id returnedObject = nilptr;
+    enum CoroutineStatus coroutineStatus;
     Task *previousTask;
     AsyncScheduler *previousScheduler;
     AsyncScope *previousScope;
@@ -305,7 +338,7 @@ static size_t async_default_worker_count(void)
     if (task.isResolved)
         return;
 
-    coroutine = [task _coroutineObject];
+    coroutineObject = [task _coroutineObject];
     previousTask = async_current_task;
     previousScheduler = async_current_scheduler;
     previousScope = async_current_scope;
@@ -313,14 +346,27 @@ static size_t async_default_worker_count(void)
     async_current_scheduler = self;
     async_current_scope = [task _resumeScopeContext];
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         _runningTaskCount++;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     [task _setExecutionState: AsyncTaskExecutionState_RUNNING waitReason: nilptr];
 
     @try {
-        yieldedObject = [coroutine resume];
+        if ([coroutineObject isKindOfClass: Coroutine.class]) {
+            Coroutine<id> *coroutine = (Coroutine<id> *)coroutineObject;
+            yieldedObject = [coroutine resume];
+            coroutineStatus = coroutine.status;
+            returnedObject = coroutine.returnedObject;
+        } else {
+            id<AsyncTaskCoroutineLike> coroutine = (id<AsyncTaskCoroutineLike>)coroutineObject;
+            yieldedObject = [coroutine resume];
+            coroutineStatus = coroutine.status;
+            returnedObject = coroutine.returnedObject;
+        }
     } @catch (OFException *exception) {
         [task _captureCurrentScopeContext];
         [task _rejectTaskWithException: exception];
@@ -331,19 +377,21 @@ static size_t async_default_worker_count(void)
         async_current_scheduler = previousScheduler;
         async_current_scope = previousScope;
 
-        [_lock scopedLock: ^{
+        [_lock lock];
+        @try {
             _runningTaskCount--;
-        }];
+        } @finally {
+            [_lock unlock];
+        }
     }
 
-    if (coroutine.status == CoroutineStatus_DEAD) {
-        id returnedObject = coroutine.returnedObject;
+    if (coroutineStatus == CoroutineStatus_DEAD) {
         if (not [returnedObject isKindOfClass: AsyncPromiseCompletion.class]) {
             [task _rejectTaskWithException: [[TaskReturnedNilException alloc] initWithTask: task]];
             return;
         }
 
-        [task _resolveFromCompletion: $assert_nonnil((AsyncPromiseCompletion *)returnedObject)];
+        [task _resolveFromCompletion: $as_nonnil((AsyncPromiseCompletion *)returnedObject)];
         return;
     }
 
@@ -352,7 +400,7 @@ static size_t async_default_worker_count(void)
         return;
     }
 
-    AsyncWaitInstruction *instruction = $assert_nonnil((AsyncWaitInstruction *)yieldedObject);
+    AsyncWaitInstruction *instruction = $as_nonnil((AsyncWaitInstruction *)yieldedObject);
     [instruction.registration arm];
 }
 
@@ -362,7 +410,8 @@ static size_t async_default_worker_count(void)
     block_reference bool shouldScheduleAnotherDrain = false;
     block_reference bool hasBatch = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         size_t taskCount = _readyTasks.count;
         size_t batchCount = taskCount;
 
@@ -382,7 +431,9 @@ static size_t async_default_worker_count(void)
             [_queuedTasks removeObject: task];
             [batch addObject: task];
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not hasBatch)
         return;
@@ -390,10 +441,13 @@ static size_t async_default_worker_count(void)
     for (Task *task in batch)
         [self _resumeTask: task];
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         shouldScheduleAnotherDrain = (_readyTasks.count > 0);
         _drainScheduled = shouldScheduleAnotherDrain;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (shouldScheduleAnotherDrain)
         [self _scheduleDrainTimer];
@@ -407,7 +461,7 @@ static size_t async_default_worker_count(void)
     auto resolver = [[PromiseResolver alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: timeInterval] interval: 0 target: resolver selector: @selector(resolve:) object: AsyncUnit.unit repeats: false];
     [self.runLoop addTimer: timer forMode: self.mode];
-    return resolver.future;
+    return resolver.promise;
 }
 
 - (Promise *)sleepUntilDate: (OFDate *)date
@@ -418,19 +472,22 @@ static size_t async_default_worker_count(void)
     auto resolver = [[PromiseResolver alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: date interval: 0 target: resolver selector: @selector(resolve:) object: AsyncUnit.unit repeats: false];
     [self.runLoop addTimer: timer forMode: self.mode];
-    return resolver.future;
+    return resolver.promise;
 }
 
 - (Promise<id> *)offload: (id (^)(void))block
 {
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (_shutdown)
             @throw [OFInvalidArgumentException exception];
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     auto resolver = [[PromiseResolver alloc] init];
     [_workerPool enqueueBlock: block resolver: resolver];
-    return resolver.future;
+    return resolver.promise;
 }
 
 - (void)shutdown
@@ -438,7 +495,8 @@ static size_t async_default_worker_count(void)
     block_reference AsyncWorkerPool *workerPool = nilptr;
     block_reference bool shouldShutdown = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _shutdown) {
             shouldShutdown = true;
             _shutdown = true;
@@ -448,7 +506,9 @@ static size_t async_default_worker_count(void)
             workerPool = _workerPool;
             _workerPool = nilptr;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldShutdown)
         return;
@@ -470,13 +530,16 @@ static size_t async_default_worker_count(void)
     block_reference uint64_t cancelledTaskCount;
     auto taskSnapshots = [OFMutableArray<AsyncTaskSnapshot *> array];
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         activeTasks = _activeTasks.allObjects;
         queuedTaskCount = _readyTasks.count;
         runningTaskCount = _runningTaskCount;
         completedTaskCount = _completedTaskCount;
         cancelledTaskCount = _cancelledTaskCount;
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     for (Task *task in activeTasks) {
         [taskSnapshots addObject: [[AsyncTaskSnapshot alloc] initWithTaskID: task.taskID name: task.name executionState: task.executionState waitReason: task.waitReason cancellationRequested: task.cancellationRequested scopeName: task.scope._scopeNameForSnapshots]];
@@ -487,16 +550,17 @@ static size_t async_default_worker_count(void)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"<AsyncScheduler %p %@>", self, self.mode];
+    return self.describe;
+}
+
+- (OFString *)describe
+{
+    return [OFString stringWithFormat: @"%p (%@)", self, self.mode];
 }
 
 @end
 
-@implementation AsyncOffloadJob {
-    AsyncScheduler *_scheduler;
-    PromiseResolver<id> *_resolver;
-    id (^_block)(void);
-}
+@implementation AsyncOffloadJob
 
 @synthesize scheduler = _scheduler;
 @synthesize resolver = _resolver;
@@ -540,7 +604,6 @@ static size_t async_default_worker_count(void)
 
 @implementation AsyncWorkerPool {
     AsyncScheduler *_scheduler;
-    size_t _maxWorkerCount;
     OFCondition *_condition;
     OFMutableArray<AsyncOffloadJob *> *_jobs;
     OFMutableArray<OFThread *> *_threads;
@@ -572,7 +635,7 @@ static size_t async_default_worker_count(void)
                     if (self->_stopping and self->_jobs.count == 0)
                         return nilptr;
 
-                    job = [self->_jobs objectAtIndex: 0];
+                    job = self->_jobs[0];
                     [self->_jobs removeObjectAtIndex: 0];
                 } @finally {
                     [self->_condition unlock];

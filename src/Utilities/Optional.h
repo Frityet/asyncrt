@@ -4,7 +4,8 @@
 
 #pragma clang assume_nonnull begin
 
-@interface Optional<T> : OFObject <OFCopying>
+[[clang::objc_subclassing_restricted, clang::objc_direct_members]]
+@interface Optional<T> : OFObject
 
 @property (readonly, nonatomic) bool hasValue;
 @property (readonly, nonatomic) T nonnil value;
@@ -13,7 +14,6 @@
 + (instancetype)some: (T nonnil)value;
 + (instancetype)fromNillable: (T nillable)value;
 - (T nonnil)valueOr: (T nonnil)fallbackValue;
-- (Optional<T> *)copy;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

@@ -118,11 +118,6 @@ enum : uintptr_t {
 #endif
 }
 
-- (id)copy
-{
-    return self;
-}
-
 - (unsigned long)hash
 {
 #if !defined(__APPLE__)

@@ -15,7 +15,7 @@
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: self operation: @"asyncReceiveIntoBuffer:length:" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         [self asyncReceiveIntoBuffer: buffer length: length runLoopMode: scheduler.mode handler: ^bool(OFDatagramSocket *, void *callbackBuffer, size_t callbackLength, const OFSocketAddress *sender, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return false;
             }
             if (callbackBuffer != buffer) {
@@ -30,9 +30,9 @@
         [self cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 - (Promise<AsyncUnit *> *)promiseToSendData: (OFData *)data receiver: (const OFSocketAddress *)receiver onScheduler: (AsyncScheduler *)scheduler
@@ -47,7 +47,7 @@
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: self operation: @"asyncSendData:receiver:" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         [self asyncSendData: data receiver: (const OFSocketAddress *)receiverData.items runLoopMode: scheduler.mode handler: ^OFData *nillable(OFDatagramSocket *, OFData *, const OFSocketAddress *callbackReceiver, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return nilptr;
             }
             if (not [[AsyncObjFWSupport copySocketAddressData: callbackReceiver] isEqual: receiverData]) {
@@ -62,9 +62,9 @@
         [self cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 @end

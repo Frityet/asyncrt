@@ -1,7 +1,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdatomic.h>
+// #if defined(NDEBUG)
 #define MCO_NO_DEBUG
+// #endif
 #define MINICORO_IMPL
 #include "extern/minicoro.h"
 #import "Async/Coroutine.h"
@@ -33,132 +35,29 @@ static atomic_t(size_t) coroutine_default_stack_size = 256 * 1024;
 static thread_local unretained Coroutine *nillable current_coroutine;
 static OFConstantString *coroutine_root_key = @"asyncrt.Coroutine.root";
 
+[[clang::objc_direct_members]]
 @interface Coroutine ()
 
 - (instancetype)_initAsRootCoroutine;
++ (void)_replaceOwnedObjectAtSlot: (id nillable *)slot withObject: (id nillable)object;
++ (int)_errorCodeForMCOResult: (mco_result)result;
++ (void)_throwForMCOResult: (mco_result)result coroutine: (Coroutine *)co operation: (OFString *)operation;
++ (void)_enterNativeCoroutine: (mco_coro *)nativeCoroutine;
++ (Coroutine *)_currentCoroutine;
+- (void)_clearYieldedState;
+- (void)_clearReturnedState;
+- (void)_finishWithResult: (id nillable)result;
 
 @end
 
-static OFString *coroutine_state_to_string(enum CoroutineStatus status)
-{
-    switch (status) {
-        case CoroutineStatus_READY: return @"READY";
-        case CoroutineStatus_RUNNING: return @"RUNNING";
-        case CoroutineStatus_SUSPENDED: return @"SUSPENDED";
-        case CoroutineStatus_DEAD: return @"DEAD";
-    }
-}
-
-static OFString *describe_coroutine(Coroutine *nillable co)
-{
-    if (co == nilptr)
-        return @"<nil>";
-
-    return [OFString stringWithFormat: @"%p (%@)", co, coroutine_state_to_string(co->_status)];
-}
-
-static void replace_owned_object(id nillable *slot, id nillable object)
-{
-    if (*slot == object)
-        return;
-
-    [object retain];
-    [*slot release];
-    *slot = object;
-}
-
-static void clear_yielded_state(Coroutine *co)
-{
-    co->_didYieldObject = false;
-    [co->_yieldedObject release];
-    co->_yieldedObject = nilptr;
-}
-
-static void clear_returned_state(Coroutine *co)
-{
-    co->_didReturnObject = false;
-    [co->_returnedObject release];
-    co->_returnedObject = nilptr;
-}
-
-static int error_code_for_mco_result(mco_result result)
-{
-    if (result == MCO_OUT_OF_MEMORY)
-        return ENOMEM;
-
-    return -(int)result;
-}
-
-static void throw_for_mco_result(Coroutine *co, OFString *operation, mco_result result)
-{
-    if (result == MCO_SUCCESS)
-        return;
-
-    @throw [[[CoroutineStackSetupFailedException alloc] initWithCoroutine: co operation: operation errorCode: error_code_for_mco_result(result)] autorelease];
-}
-
-static OF_NO_RETURN void coroutine_finish(Coroutine *co, id nillable result)
-{
-    Coroutine *target = co->_caller;
-    mco_coro *nativeCoroutine = (mco_coro *)co->_nativeCoroutine;
-
-    clear_yielded_state(co);
-    clear_returned_state(co);
-    replace_owned_object(&co->_returnedObject, result);
-    replace_owned_object(&co->_raisedException, nilptr);
-    co->_didReturnObject = true;
-    co->_caller = nilptr;
-    co->_status = CoroutineStatus_DEAD;
-    current_coroutine = target;
-
-    if (target != nilptr)
-        target->_status = CoroutineStatus_RUNNING;
-
-    nativeCoroutine->state = MCO_DEAD;
-    _mco_jumpout(nativeCoroutine);
-    __builtin_unreachable();
-}
-
 static void coroutine_entry(mco_coro *nativeCoroutine)
 {
-    Coroutine *co = (Coroutine *)mco_get_user_data(nativeCoroutine);
-
-    current_coroutine = co;
-    co->_status = CoroutineStatus_RUNNING;
-
-    @try {
-        coroutine_finish(co, co->_block(co));
-    } @catch (id exception) {
-        clear_yielded_state(co);
-        clear_returned_state(co);
-        replace_owned_object(&co->_raisedException, exception);
-        co->_caller = nilptr;
-        co->_status = CoroutineStatus_DEAD;
-    }
-}
-
-static Coroutine *get_current_coroutine(void)
-{
-    if (current_coroutine == nilptr) {
-        OFMutableDictionary<OFString *, Coroutine *> *threadDictionary = OFThread.threadDictionary;
-        Coroutine *rootCoroutine = nilptr;
-
-        if (threadDictionary != nilptr)
-            rootCoroutine = threadDictionary[coroutine_root_key];
-
-        if (rootCoroutine == nilptr) {
-            rootCoroutine = [[Coroutine alloc] _initAsRootCoroutine];
-            threadDictionary[coroutine_root_key] = rootCoroutine;
-            [rootCoroutine release];
-        }
-
-        current_coroutine = rootCoroutine;
-    }
-
-    return $assert_nonnil(current_coroutine);
+    [Coroutine _enterNativeCoroutine: nativeCoroutine];
 }
 
 @implementation CoroutineException
+
+@synthesize coroutine = _coroutine;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine
 {
@@ -175,12 +74,15 @@ static Coroutine *get_current_coroutine(void)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"CoroutineException: %@", describe_coroutine(self.coroutine)];
+    return [OFString stringWithFormat: @"CoroutineException: %@", self.coroutine.describe];
 }
 
 @end
 
 @implementation CoroutineStateTransitionFailedException
+
+@synthesize fromState = _fromState;
+@synthesize toState = _toState;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine fromState: (enum CoroutineStatus)fromState toState: (enum CoroutineStatus)toState
 {
@@ -192,12 +94,14 @@ static Coroutine *get_current_coroutine(void)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"CoroutineStateTransitionFailedException: %@ cannot transition from %@ to %@", describe_coroutine(self.coroutine), coroutine_state_to_string(self.fromState), coroutine_state_to_string(self.toState)];
+    return [OFString stringWithFormat: @"CoroutineStateTransitionFailedException: %@ cannot transition from %@ to %@", self.coroutine.describe, [Coroutine describeStatus: self.fromState], [Coroutine describeStatus: self.toState]];
 }
 
 @end
 
 @implementation CoroutineMissingCallerException
+
+@synthesize operation = _operation;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation
 {
@@ -214,12 +118,15 @@ static Coroutine *get_current_coroutine(void)
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"CoroutineMissingCallerException: %@ cannot %@ without a caller", describe_coroutine(self.coroutine), self.operation];
+    return [OFString stringWithFormat: @"CoroutineMissingCallerException: %@ cannot %@ without a caller", self.coroutine.describe, self.operation];
 }
 
 @end
 
 @implementation CoroutineStackSetupFailedException
+
+@synthesize operation = _operation;
+@synthesize errorCode = _errorCode;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation errorCode: (int)errorCode
 {
@@ -244,12 +151,136 @@ static Coroutine *get_current_coroutine(void)
     else
         reason = OFStrError(self.errorCode);
 
-    return [OFString stringWithFormat: @"CoroutineStackSetupFailedException: %@ failed during %@: %@", describe_coroutine(self.coroutine), self.operation, reason];
+    return [OFString stringWithFormat: @"CoroutineStackSetupFailedException: %@ failed during %@: %@", self.coroutine.describe, self.operation, reason];
 }
 
 @end
 
 @implementation Coroutine
+
++ (void)_replaceOwnedObjectAtSlot: (id nillable *)slot withObject: (id nillable)object
+{
+    if (*slot == object)
+        return;
+
+    [object retain];
+    [*slot release];
+    *slot = object;
+}
+
++ (int)_errorCodeForMCOResult: (mco_result)result
+{
+    if (result == MCO_OUT_OF_MEMORY)
+        return ENOMEM;
+
+    return -(int)result;
+}
+
++ (void)_throwForMCOResult: (mco_result)result coroutine: (Coroutine *)co operation: (OFString *)operation
+{
+    if (result == MCO_SUCCESS)
+        return;
+
+    @throw [[[CoroutineStackSetupFailedException alloc]
+        initWithCoroutine: co
+                 operation: operation
+                 errorCode: [Coroutine _errorCodeForMCOResult: result]] autorelease];
+}
+
++ (void)_enterNativeCoroutine: (mco_coro *)nativeCoroutine
+{
+    Coroutine *co = (Coroutine *)mco_get_user_data(nativeCoroutine);
+
+    current_coroutine = co;
+    co->_status = CoroutineStatus_RUNNING;
+
+    @try {
+        [co _finishWithResult: co->_block(co)];
+    } @catch (id exception) {
+        [co _clearYieldedState];
+        [co _clearReturnedState];
+        [Coroutine _replaceOwnedObjectAtSlot: &co->_raisedException withObject: exception];
+        co->_caller = nilptr;
+        co->_status = CoroutineStatus_DEAD;
+    }
+}
+
++ (Coroutine *)_currentCoroutine
+{
+    if (current_coroutine == nilptr) {
+        OFMutableDictionary<OFString *, Coroutine *> *threadDictionary = OFThread.threadDictionary;
+        Coroutine *rootCoroutine = nilptr;
+
+        if (threadDictionary != nilptr)
+            rootCoroutine = threadDictionary[coroutine_root_key];
+
+        if (rootCoroutine == nilptr) {
+            rootCoroutine = [[Coroutine alloc] _initAsRootCoroutine];
+            threadDictionary[coroutine_root_key] = rootCoroutine;
+            [rootCoroutine release];
+        }
+
+        current_coroutine = rootCoroutine;
+    }
+
+    return $assert_nonnil(current_coroutine);
+}
+
+- (void)_clearYieldedState
+{
+    _didYieldObject = false;
+    [_yieldedObject release];
+    _yieldedObject = nilptr;
+}
+
+- (void)_clearReturnedState
+{
+    _didReturnObject = false;
+    [_returnedObject release];
+    _returnedObject = nilptr;
+}
+
+- (void)_finishWithResult: (id nillable)result
+{
+    Coroutine *target = _caller;
+    mco_coro *nativeCoroutine = (mco_coro *)_nativeCoroutine;
+
+    [self _clearYieldedState];
+    [self _clearReturnedState];
+    [Coroutine _replaceOwnedObjectAtSlot: &_returnedObject withObject: result];
+    [Coroutine _replaceOwnedObjectAtSlot: &_raisedException withObject: nilptr];
+    _didReturnObject = true;
+    _caller = nilptr;
+    _status = CoroutineStatus_DEAD;
+    current_coroutine = target;
+
+    if (target != nilptr)
+        target->_status = CoroutineStatus_RUNNING;
+
+    nativeCoroutine->state = MCO_DEAD;
+    _mco_jumpout(nativeCoroutine);
+    __builtin_unreachable();
+}
+
++ (OFString *)describeStatus: (enum CoroutineStatus)status
+{
+    switch (status) {
+        case CoroutineStatus_READY: return @"READY";
+        case CoroutineStatus_RUNNING: return @"RUNNING";
+        case CoroutineStatus_SUSPENDED: return @"SUSPENDED";
+        case CoroutineStatus_DEAD: return @"DEAD";
+    }
+}
+
+- (OFString *)description
+{
+    return self.describe;
+}
+
+- (OFString *)describe
+{
+    return [OFString stringWithFormat: @"%p (%@)", self, [Coroutine describeStatus: self.status]];
+}
 
 + (size_t)defaultStackSize
 {
@@ -302,7 +333,9 @@ static Coroutine *get_current_coroutine(void)
 
     description = mco_desc_init(coroutine_entry, stackSize);
     description.user_data = self;
-    throw_for_mco_result(self, @"mco_create", mco_create(&nativeCoroutine, &description));
+    [Coroutine _throwForMCOResult: mco_create(&nativeCoroutine, &description)
+                        coroutine: self
+                        operation: @"mco_create"];
 
     _nativeCoroutine = nativeCoroutine;
     _stackSize = nativeCoroutine->stack_size;
@@ -337,10 +370,10 @@ static Coroutine *get_current_coroutine(void)
     if (_status == CoroutineStatus_DEAD or _status == CoroutineStatus_RUNNING)
         @throw [[[CoroutineStateTransitionFailedException alloc] initWithCoroutine: self fromState: self.status toState: CoroutineStatus_RUNNING] autorelease];
 
-    Coroutine *previous = get_current_coroutine();
-    clear_yielded_state(self);
-    clear_returned_state(self);
-    replace_owned_object(&_raisedException, nilptr);
+    Coroutine *previous = [Coroutine _currentCoroutine];
+    [self _clearYieldedState];
+    [self _clearReturnedState];
+    [Coroutine _replaceOwnedObjectAtSlot: &_raisedException withObject: nilptr];
     current_coroutine = self;
     _caller = previous;
 
@@ -352,7 +385,7 @@ static Coroutine *get_current_coroutine(void)
     current_coroutine = previous;
     previous->_status = CoroutineStatus_RUNNING;
 
-    throw_for_mco_result(self, @"mco_resume", result);
+    [Coroutine _throwForMCOResult: result coroutine: self operation: @"mco_resume"];
 
     if (_raisedException != nilptr)
         @throw [[_raisedException retain] autorelease];
@@ -376,7 +409,7 @@ static Coroutine *get_current_coroutine(void)
         @throw [[[CoroutineMissingCallerException alloc] initWithCoroutine: self operation: @"yield"] autorelease];
 
     target = _caller;
-    replace_owned_object(&_yieldedObject, object);
+    [Coroutine _replaceOwnedObjectAtSlot: &_yieldedObject withObject: object];
     _didYieldObject = true;
     _status = CoroutineStatus_SUSPENDED;
     current_coroutine = target;
@@ -388,7 +421,7 @@ static Coroutine *get_current_coroutine(void)
         current_coroutine = self;
         _status = CoroutineStatus_RUNNING;
         target->_status = CoroutineStatus_SUSPENDED;
-        throw_for_mco_result(self, @"mco_yield", result);
+        [Coroutine _throwForMCOResult: result coroutine: self operation: @"mco_yield"];
     }
 
     current_coroutine = self;
@@ -406,7 +439,7 @@ static Coroutine *get_current_coroutine(void)
         @throw [[[CoroutineStateTransitionFailedException alloc] initWithCoroutine: self fromState: self.status toState: CoroutineStatus_DEAD] autorelease];
     if (_caller == nilptr)
         @throw [[[CoroutineMissingCallerException alloc] initWithCoroutine: self operation: @"return"] autorelease];
-    coroutine_finish(self, object);
+    [self _finishWithResult: object];
 }
 
 - (int)countByEnumeratingWithState: (OFFastEnumerationState *)state objects: (id unretained _Nonnull *_Nonnull)objects count: (int)count

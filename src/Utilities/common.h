@@ -16,6 +16,8 @@
 #define unretained __unsafe_unretained
 #define unretained_cast __bridge
 #define retained_cast __bridge_retained
+#define designated_initaliser __attribute__((objc_designated_initializer))
+
 #define atomic_t(...) _Atomic(__VA_ARGS__)
 
 #define $assert_nonnil(...) ({ \
@@ -25,6 +27,8 @@
     } \
     (typeof(typeof(*_assert_nonnil_value) *nonnil))_assert_nonnil_value; \
 })
+
+#define $as_nonnil(...) ((typeof(typeof(*(__VA_ARGS__)) *nonnil))(__VA_ARGS__))
 
 [[clang::objc_root_class]]
 @interface NamespaceClass {
@@ -42,19 +46,9 @@
 #define namespace_implementation(Name) class Name;\
     @implementation Name\
 
-@interface OFMutex(ScopedLock)
-
-- (void)scopedLock: (void (^)(void)) [[clang::noescape]] block;
-
-@end
-
 @namespace(TaggedPointer)
 
 + (uintptr_t)registerClass: (Class)c;
 + (id)createWithTag: (uintptr_t)tag payload: (id)payload;
 
 @end
-
-void async_link_scoped_lock_support(void);
-
-

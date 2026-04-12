@@ -6,6 +6,7 @@
 #pragma clang assume_nonnull begin
 
 @class Promise;
+@class AsyncScheduler;
 
 enum [[clang::enum_extensibility(closed)]] PromiseStatus {
     PromiseStatus_PENDING,
@@ -13,77 +14,76 @@ enum [[clang::enum_extensibility(closed)]] PromiseStatus {
     PromiseStatus_REJECTED
 };
 
-@interface PromiseException : OFException {
-@private
-    unretained Promise *nillable _future;
-}
+@protocol PromiseLike <Awaitable>
+@end
 
-@property(readonly, nonatomic) Promise *nillable future;
+@interface PromiseException : OFException
 
-- (instancetype)initWithPromise: (Promise *)future OF_DESIGNATED_INITIALIZER;
+@property(readonly, nonatomic) Promise *nillable promise;
+
+- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface PromiseAlreadyResolvedException : PromiseException {
-@private
-    enum PromiseStatus _currentStatus;
-    enum PromiseStatus _attemptedStatus;
-}
+@interface PromiseAlreadyResolvedException : PromiseException
 
 @property(readonly, nonatomic) enum PromiseStatus currentStatus;
 @property(readonly, nonatomic) enum PromiseStatus attemptedStatus;
 
-- (instancetype)initWithPromise: (Promise *)future currentStatus: (enum PromiseStatus)currentStatus attemptedStatus: (enum PromiseStatus)attemptedStatus OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)promise currentStatus: (enum PromiseStatus)currentStatus attemptedStatus: (enum PromiseStatus)attemptedStatus designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface PromiseNilResolutionValueException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)future OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface PromiseNilRejectionException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)future OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface PromiseInvalidStateAccessException : PromiseException {
-@private
-    OFString *_operation;
-    enum PromiseStatus _status;
-}
+@interface PromiseInvalidStateAccessException : PromiseException
 
 @property(readonly, nonatomic) OFString *operation;
 @property(readonly, nonatomic) enum PromiseStatus status;
 
-- (instancetype)initWithPromise: (Promise *)future operation: (OFString *)operation status: (enum PromiseStatus)status OF_DESIGNATED_INITIALIZER;
-- (instancetype)initWithPromise: (Promise *)future OF_UNAVAILABLE;
+- (instancetype)initWithPromise: (Promise *)promise operation: (OFString *)operation status: (enum PromiseStatus)status designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface PromiseAwaitOutsideTaskException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)future OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface PromiseSelfAwaitException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)future OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface Promise<__covariant T> : OFObject<Awaitable>
+@interface PromiseContinuationOutsideTaskException : PromiseException
+
+- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
+@interface Promise<__covariant T> : OFObject<PromiseLike>
 
 @property(readonly, nonatomic) enum PromiseStatus status;
 @property(readonly, nonatomic) bool isResolved;
@@ -92,19 +92,30 @@ enum [[clang::enum_extensibility(closed)]] PromiseStatus {
 
 + (Promise<T> *)resolved: (T)value;
 + (Promise<T> *)rejected: (OFException *)exception;
++ (Promise<OFArray<T> *> *)all: (OFArray<id<PromiseLike>> *)promises;
++ (Promise<T> *)race: (OFArray<id<PromiseLike>> *)promises;
++ (OFString *)describeStatus: (enum PromiseStatus)status;
+- (Promise<id> *)map: (id (^)(T value))transform;
+- (Promise<id> *)mapOnScheduler: (AsyncScheduler *)scheduler transform: (id (^)(T value))transform;
+- (Promise<id> *)flatMap: (id<PromiseLike> (^)(T value))transform;
+- (Promise<id> *)flatMapOnScheduler: (AsyncScheduler *)scheduler transform: (id<PromiseLike> (^)(T value))transform;
+- (Promise<id> *)recover: (id (^)(OFException *exception))handler;
+- (Promise<id> *)recoverOnScheduler: (AsyncScheduler *)scheduler handler: (id (^)(OFException *exception))handler;
+- (Promise<id> *)flatRecover: (id<PromiseLike> (^)(OFException *exception))handler;
+- (Promise<id> *)flatRecoverOnScheduler: (AsyncScheduler *)scheduler handler: (id<PromiseLike> (^)(OFException *exception))handler;
+- (Promise<T> *)ensure: (void (^)(void))block;
+- (Promise<T> *)ensureOnScheduler: (AsyncScheduler *)scheduler block: (void (^)(void))block;
+- (OFString *)describe;
 - (T)await;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface PromiseResolver<__covariant T> : OFObject {
-@private
-    Promise<T> *_future;
-}
+@interface PromiseResolver<__covariant T> : OFObject
 
-@property(readonly, nonatomic) Promise<T> *future;
+@property(readonly, nonatomic) Promise<T> *promise;
 
-- (instancetype)init OF_DESIGNATED_INITIALIZER;
+- (instancetype)init designated_initaliser;
 - (void)resolve: (T)value;
 - (void)reject: (OFException *)exception;
 

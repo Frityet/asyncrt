@@ -15,7 +15,7 @@
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: self operation: @"asyncAccept" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
         [self asyncAcceptWithRunLoopMode: scheduler.mode handler: ^bool(OFStreamSocket *, OFStreamSocket *nillable acceptedSocket, id nillable exception) {
             if (exception != nilptr) {
-                [bridge reject: (OFException *)exception];
+                [bridge reject: $as_nonnil((OFException *)exception)];
                 return false;
             }
             if ((OFStreamSocket *nillable)acceptedSocket == nilptr) {
@@ -31,9 +31,9 @@
         [self cancelAsyncRequests];
     }];
 
-    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.future cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
+    [AsyncObjFWSupport attachCancellationBridgeToPromise: resolver.promise cancelOnTaskCancellation: cancelOnTaskCancellation bridge: bridge];
     [AsyncObjFWSupport scheduleOnScheduler: scheduler target: bridge selector: @selector(start)];
-    return resolver.future;
+    return resolver.promise;
 }
 
 @end

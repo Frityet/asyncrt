@@ -21,7 +21,7 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 @interface AsyncObjFWTimerTarget : OFObject
 
-- (instancetype)initWithBlock: (void (^)(void))block OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithBlock: (void (^)(void))block designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 - (void)fire;
 
@@ -29,9 +29,9 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 @implementation PromiseObjFWOperationException
 
-- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation
+- (instancetype)initWithPromise: (Promise *)promise object: (id)object operation: (OFString *)operation
 {
-    self = [super initWithPromise: future];
+    self = [super initWithPromise: promise];
     _object = object;
     _operation = [operation copy];
     return self;
@@ -39,37 +39,37 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"PromiseObjFWOperationException: %@ %@ on %@", DescribePromise(self.future), self.operation, self.object];
+    return [OFString stringWithFormat: @"PromiseObjFWOperationException: %@ %@ on %@", self.promise.describe, self.operation, self.object];
 }
 
 @end
 
 @implementation PromiseObjFWInvalidCompletionException
 
-- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation reason: (OFString *)reason
+- (instancetype)initWithPromise: (Promise *)promise object: (id)object operation: (OFString *)operation reason: (OFString *)reason
 {
-    self = [super initWithPromise: future object: object operation: operation];
+    self = [super initWithPromise: promise object: object operation: operation];
     _reason = [reason copy];
     return self;
 }
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"PromiseObjFWInvalidCompletionException: %@ %@ on %@ completed invalidly: %@", DescribePromise(self.future), self.operation, self.object, self.reason];
+    return [OFString stringWithFormat: @"PromiseObjFWInvalidCompletionException: %@ %@ on %@ completed invalidly: %@", self.promise.describe, self.operation, self.object, self.reason];
 }
 
 @end
 
 @implementation PromiseObjFWOperationCancelledException
 
-- (instancetype)initWithPromise: (Promise *)future object: (id)object operation: (OFString *)operation
+- (instancetype)initWithPromise: (Promise *)promise object: (id)object operation: (OFString *)operation
 {
-    return [super initWithPromise: future object: object operation: operation];
+    return [super initWithPromise: promise object: object operation: operation];
 }
 
 - (OFString *)description
 {
-    return [OFString stringWithFormat: @"PromiseObjFWOperationCancelledException: %@ cancelled %@ on %@", DescribePromise(self.future), self.operation, self.object];
+    return [OFString stringWithFormat: @"PromiseObjFWOperationCancelledException: %@ cancelled %@ on %@", self.promise.describe, self.operation, self.object];
 }
 
 @end
@@ -143,8 +143,8 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
     _operation = [operation copy];
     _scheduler = scheduler;
     _resolver = resolver;
-    _startBlock = [startBlock copy];
-    _cancelBlock = [cancelBlock copy];
+    _startBlock = (void (^)(AsyncObjFWPromiseBridge *))(startBlock != nilptr ? [(id)startBlock copy] : nilptr);
+    _cancelBlock = (void (^nillable)(AsyncObjFWPromiseBridge *))(cancelBlock != nilptr ? [(id)cancelBlock copy] : nilptr);
     _lock = [OFMutex mutex];
     _started = false;
     _completed = false;
@@ -156,14 +156,17 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
     block_reference bool shouldStart = false;
     block_reference void (^startBlock)(AsyncObjFWPromiseBridge *bridge) = nilptr;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _completed and not _started) {
             _started = true;
             shouldStart = true;
             startBlock = _startBlock;
             _startBlock = nilptr;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldStart)
         return;
@@ -181,7 +184,8 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
     block_reference bool started = false;
     block_reference void (^nillable cancelBlock)(AsyncObjFWPromiseBridge *bridge) = nilptr;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _completed) {
             _completed = true;
             shouldCancel = true;
@@ -190,12 +194,14 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
             _cancelBlock = nilptr;
             _startBlock = nilptr;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (not shouldCancel)
         return;
 
-    [_resolver reject: [[PromiseObjFWOperationCancelledException alloc] initWithPromise: _resolver.future object: _object operation: _operation]];
+    [_resolver reject: [[PromiseObjFWOperationCancelledException alloc] initWithPromise: _resolver.promise object: _object operation: _operation]];
 
     if (started and cancelBlock != nilptr)
         cancelBlock(self);
@@ -205,14 +211,17 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 {
     block_reference bool shouldResolve = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _completed) {
             _completed = true;
             shouldResolve = true;
             _cancelBlock = nilptr;
             _startBlock = nilptr;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (shouldResolve)
         [_resolver resolve: value];
@@ -222,14 +231,17 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 {
     block_reference bool shouldReject = false;
 
-    [_lock scopedLock: ^{
+    [_lock lock];
+    @try {
         if (not _completed) {
             _completed = true;
             shouldReject = true;
             _cancelBlock = nilptr;
             _startBlock = nilptr;
         }
-    }];
+    } @finally {
+        [_lock unlock];
+    }
 
     if (shouldReject)
         [_resolver reject: exception];
@@ -237,7 +249,7 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 - (void)rejectInvalidCompletionWithReason: (OFString *)reason
 {
-    [self reject: [[PromiseObjFWInvalidCompletionException alloc] initWithPromise: self.resolver.future object: self.object operation: self.operation reason: reason]];
+    [self reject: [[PromiseObjFWInvalidCompletionException alloc] initWithPromise: self.resolver.promise object: self.object operation: self.operation reason: reason]];
 }
 
 @end
@@ -293,10 +305,10 @@ void async_link_objfw_promise_categories(void)
     [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
 }
 
-+ (void)attachCancellationBridgeToPromise: (Promise *)future cancelOnTaskCancellation: (bool)cancelOnTaskCancellation bridge: (AsyncObjFWPromiseBridge *)bridge
++ (void)attachCancellationBridgeToPromise: (Promise *)promise cancelOnTaskCancellation: (bool)cancelOnTaskCancellation bridge: (AsyncObjFWPromiseBridge *)bridge
 {
     if (cancelOnTaskCancellation)
-        [future _setPendingCancellationCallback: ^{ [bridge cancel]; }];
+        [promise _setPendingCancellationCallback: ^{ [bridge cancel]; }];
 }
 
 + (OFData *)copySocketAddressData: (const OFSocketAddress *)socketAddress

@@ -7,31 +7,23 @@
 @class AsyncScope;
 @class AsyncScheduler;
 
-@interface AsyncScopeException : OFException {
-@private
-    unretained AsyncScope *nillable _scope;
-    OFArray<OFException *> *_exceptions;
-}
+@interface AsyncScopeException : OFException
 
 @property(readonly, nonatomic) AsyncScope *nillable scope;
 @property(readonly, nonatomic) OFArray<OFException *> *exceptions;
 @property(readonly, nonatomic) OFException *primaryException;
 
-- (instancetype)initWithScope: (AsyncScope *)scope exceptions: (OFArray<OFException *> *)exceptions OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithScope: (AsyncScope *)scope exceptions: (OFArray<OFException *> *)exceptions designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-@interface AsyncTimeoutException : OFException {
-@private
-    unretained AsyncScope *nillable _scope;
-    OFDate *_deadline;
-}
+@interface AsyncTimeoutException : OFException
 
 @property(readonly, nonatomic) AsyncScope *nillable scope;
 @property(readonly, nonatomic) OFDate *deadline;
 
-- (instancetype)initWithScope: (AsyncScope *)scope deadline: (OFDate *)deadline OF_DESIGNATED_INITIALIZER;
+- (instancetype)initWithScope: (AsyncScope *)scope deadline: (OFDate *)deadline designated_initaliser;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -49,6 +41,11 @@
 + (AsyncScope *nillable)currentScope;
 - (Task<id> *)spawn: (id (^)(void))block;
 - (Task<id> *)spawn: (id (^)(void))block name: (OFString *nillable)name;
+- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block;
+- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block name: (OFString *nillable)name;
+- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks;
+- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks name: (OFString *nillable)name;
+
 - (id)withChildScope: (id (^)(AsyncScope *scope))block;
 - (id)withChildScopeNamed: (OFString *nillable)name block: (id (^)(AsyncScope *scope))block;
 - (id)withTimeout: (OFTimeInterval)timeout block: (id (^)(AsyncScope *scope))block;

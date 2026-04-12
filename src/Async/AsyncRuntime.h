@@ -6,6 +6,7 @@
 #import "Async/AsyncScheduler.h"
 #import "Async/AsyncScope.h"
 #import "Async/AsyncChannel.h"
+#import "Async/AsyncSignal.h"
 #import "Async/Task.h"
 #import "Async/AsyncApplication.h"
 #import "Async/ObjFWAsync/ObjFWAsync.h"
