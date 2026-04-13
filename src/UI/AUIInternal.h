@@ -10,7 +10,11 @@
 
 #pragma clang assume_nonnull begin
 
-@class AUIBackend;
+@class AUIWindow;
+
+typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
+                                                  Clay_TextElementConfig *config,
+                                                  void *nillable userData);
 
 [[subclassing_restricted, direct_members]]
 @interface AUIKeyEvent : OFObject
@@ -145,9 +149,20 @@
 - (void)_setClipboardText: (OFString *nillable)text;
 - (void)_setCursorStyle: (AUICursorStyle)cursorStyle;
 - (AUIContextMenu *nillable)_activeContextMenuForTesting;
-- (void)_setBackendForTesting: (AUIBackend *nillable)backend;
+- (void)_setWindowForTesting: (AUIWindow *nillable)window;
 - (void)_setRootComponentForTesting: (AUIComponent *nillable)rootComponent;
 - (bool)_consumePendingRenderRequest;
+
+@end
+
+@interface AUIWindow ()
+
+- (Clay_RenderCommandArray)_buildRenderCommandsForViewportSize: (AUISize)viewportSize
+                                           textMeasureFunction: (AUITextMeasureFunction)textMeasureFunction
+                                                      userData: (void *nillable)userData;
+- (void)_setViewportSize: (AUISize)viewportSize;
+- (void)_setDarkMode: (bool)darkMode explicitly: (bool)explicitly;
+- (bool)_hasExplicitDarkMode;
 
 @end
 

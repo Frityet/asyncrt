@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUICheckbox : OFObject<AUICompositeRenderable>
+@interface AUICheckbox : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *label;
 @property(readonly, nonatomic) bool isChecked;

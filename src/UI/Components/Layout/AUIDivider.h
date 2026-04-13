@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIDivider : OFObject<AUICompositeRenderable>
+@interface AUIDivider : OFObject<AUIRenderable>
 
 @property(readonly, nonatomic) bool horizontal;
 @property(readonly, nonatomic) uint16_t thickness;

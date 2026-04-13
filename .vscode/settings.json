@@ -8,5 +8,9 @@
         "tsconfig.json": "tsconfig.*.json",
         "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb, bun.lock",
         "*.h": "${capture}.m, ${capture}.mm"
+    },
+    "explorer.fileNesting.enabled": true,
+    "files.associations": {
+        "*.h": "objective-c"
     }
 }

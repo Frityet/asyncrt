@@ -1,13 +1,14 @@
 #include <cairo.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 #import "TestSupport.h"
 #import "UI/UI.h"
 #import "UI/AUIClaySupport.h"
-#import "UI/AUIBackend.h"
 #import "UI/AUIInternal.h"
-#import "UI/Backend/Window/AUIHeadlessWindowBackend.h"
+#import "UI/Backend/AUICairoRenderSupport.h"
+#import "UI/Backend/Window/AUIHeadlessWindow.h"
 #import "UI/Components/AUIComponents.h"
 #import "UI/Components/Controls/AUIControls.h"
 #import "UI/Components/Display/AUIDisplay.h"
@@ -16,8 +17,8 @@
 #import "UI/Components/Surface/AUISurface.h"
 #import "Async/AsyncSignal.h"
 
-#if defined(__APPLE__)
-@interface AUICocoaWindowBackend (AUITestingBridge)
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+@interface AUICoreGraphicsWindow (AUITestingBridge)
 + (bool)_prepareSharedApplicationForTesting;
 + (bool)_sharedApplicationIsForegroundForTesting;
 + (bool)_sharedApplicationIsActiveForTesting;
@@ -25,6 +26,9 @@
 + (size_t)_sharedApplicationWindowCountForTesting;
 + (OFString *nillable)_roundTripBridgedStringForTesting: (OFString *nillable)string;
 - (void)_performCloseForTesting;
+- (void)_sendPointerMoveForTestingWithViewX: (float)x y: (float)y;
+- (void)_sendMouseDownForTestingWithViewX: (float)x y: (float)y;
+- (void)_sendMouseUpForTestingWithViewX: (float)x y: (float)y;
 - (bool)_windowIsVisibleForTesting;
 - (bool)_windowIsKeyForTesting;
 - (bool)_windowIsMainForTesting;
@@ -258,6 +262,43 @@
             ]]
         ]]
     ]];
+}
+
+@end
+
+[[subclassing_restricted]]
+@interface AUITestFixedSizeRootComponent : AUIComponent @end
+
+@implementation AUITestFixedSizeRootComponent
+
+- (id<AUIRenderable>)body
+{
+    return [AUIFrame width: [AUI axisFixed: 180]
+                     height: [AUI axisFixed: 60]
+                      child: [AUILabel text: @"Auto sized"]];
+}
+
+@end
+
+[[subclassing_restricted]]
+@interface AUITestDarkModeComponent : AUIComponent
+
+@property(readonly, nonatomic) bool observedDarkMode;
+
+@end
+
+@implementation AUITestDarkModeComponent {
+    bool _observedDarkMode;
+}
+
+@synthesize observedDarkMode = _observedDarkMode;
+
+- (id<AUIRenderable>)body
+{
+    AUIRenderContext *nillable context = AUIRenderContext.currentContext;
+
+    _observedDarkMode = (context != nilptr and context.window.isDarkMode);
+    return [AUILabel text: @"Dark mode"];
 }
 
 @end
@@ -752,8 +793,12 @@
 
 @end
 
+static char *_Nonnull AUITestSpyWindowFonts[] = {
+    (char *)"Sans"
+};
+
 [[subclassing_restricted]]
-@interface AUITestSpyWindowBackend : AUIWindowBackend
+@interface AUITestSpyWindow : AUIWindow
 
 @property(nonatomic) bool failOpen;
 @property(nonatomic) bool closeAfterNextRender;
@@ -762,11 +807,12 @@
 @property(readonly, nonatomic) size_t pollCount;
 @property(readonly, nonatomic) size_t closeCount;
 @property(readonly, nonatomic) size_t renderCount;
+@property(readonly, nonatomic) size_t resizeCount;
 @property(readonly, nonatomic) AUICursorStyle cursorStyle;
 
 @end
 
-@implementation AUITestSpyWindowBackend {
+@implementation AUITestSpyWindow {
     bool _open;
     bool _failOpen;
     bool _closeAfterNextRender;
@@ -775,6 +821,8 @@
     size_t _pollCount;
     size_t _closeCount;
     size_t _renderCount;
+    size_t _resizeCount;
+    AUISize _viewportSize;
     AUICursorStyle _cursorStyle;
     OFString *nillable _clipboardText;
     cairo_surface_t *nillable _surface;
@@ -789,6 +837,7 @@
 @synthesize pollCount = _pollCount;
 @synthesize closeCount = _closeCount;
 @synthesize renderCount = _renderCount;
+@synthesize resizeCount = _resizeCount;
 @synthesize cursorStyle = _cursorStyle;
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
@@ -803,6 +852,8 @@
     _pollCount = 0;
     _closeCount = 0;
     _renderCount = 0;
+    _resizeCount = 0;
+    _viewportSize = $assert_nonnil(options).initialSize;
     _cursorStyle = AUICursorStyleDefault;
     _clipboardText = nilptr;
     _surface = nullptr;
@@ -823,7 +874,7 @@
 
 - (AUISize)viewportSize
 {
-    return self.options.initialSize;
+    return _viewportSize;
 }
 
 - (double)scaleFactor
@@ -836,7 +887,7 @@
     _openCount++;
 
     if (_failOpen)
-        @throw [[AUIInitializationException alloc] initWithReason: @"Spy window backend failed to open"];
+        @throw [[AUIInitializationException alloc] initWithReason: @"Spy window failed to open"];
 
     _open = true;
 }
@@ -884,8 +935,8 @@
 
 - (bool)_ensureSurface
 {
-    int width = (int)self.options.initialSize.width;
-    int height = (int)self.options.initialSize.height;
+    int width = (int)_viewportSize.width;
+    int height = (int)_viewportSize.height;
     int stride;
 
     if (width <= 0 or height <= 0)
@@ -933,9 +984,18 @@
     return true;
 }
 
-- (void)_renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock
+- (void)_setViewportSize: (AUISize)viewportSize
 {
-    if (not _open or renderBlock == nilptr or not [self _ensureSurface])
+    _resizeCount++;
+    _viewportSize = viewportSize;
+}
+
+- (void)renderFrame
+{
+    AUICairoTextMeasureContext measureContext;
+    Clay_RenderCommandArray commands;
+
+    if (not _open or not [self _ensureSurface])
         return;
 
     _renderCount++;
@@ -945,7 +1005,16 @@
         cairo_set_operator($assert_nonnil(_cairo), CAIRO_OPERATOR_SOURCE);
         cairo_set_source_rgba($assert_nonnil(_cairo), 0.0, 0.0, 0.0, 0.0);
         cairo_paint($assert_nonnil(_cairo));
-        renderBlock($assert_nonnil(_cairo), self.options.initialSize);
+        measureContext = (AUICairoTextMeasureContext){
+            .context = $assert_nonnil(_cairo),
+            .fonts = AUITestSpyWindowFonts
+        };
+        commands = [self _buildRenderCommandsForViewportSize: _viewportSize
+                                         textMeasureFunction: AUICairoMeasureText
+                                                    userData: &measureContext];
+        [AUICairoRenderSupport renderCommands: commands
+                                    onContext: $assert_nonnil(_cairo)
+                                        fonts: AUITestSpyWindowFonts];
         cairo_surface_flush($assert_nonnil(_surface));
     } @finally {
         cairo_restore($assert_nonnil(_cairo));
@@ -958,66 +1027,20 @@
 @end
 
 [[subclassing_restricted]]
-@interface AUITestSpyRendererBackend : AUIRendererBackend
-
-@property(readonly, nonatomic) size_t prepareCount;
-@property(readonly, nonatomic) size_t renderCount;
-@property(readonly, nonatomic) AUISize lastPreparedViewportSize;
-@property(readonly, nonatomic) AUISize lastRenderedViewportSize;
-
-@end
-
-@implementation AUITestSpyRendererBackend {
-    size_t _prepareCount;
-    size_t _renderCount;
-    AUISize _lastPreparedViewportSize;
-    AUISize _lastRenderedViewportSize;
-}
-
-@synthesize prepareCount = _prepareCount;
-@synthesize renderCount = _renderCount;
-@synthesize lastPreparedViewportSize = _lastPreparedViewportSize;
-@synthesize lastRenderedViewportSize = _lastRenderedViewportSize;
-
-- (void)_prepareForViewportSize: (AUISize)viewportSize
-{
-    _prepareCount++;
-    _lastPreparedViewportSize = viewportSize;
-}
-
-- (void)_renderApplication: (AUIApplication *)application
-                 inputState: (AUIInputState *)inputState
-               viewportSize: (AUISize)viewportSize
-                      cairo: (cairo_t *)cairo
-{
-    (void)inputState;
-    (void)cairo;
-
-    _renderCount++;
-    _lastRenderedViewportSize = viewportSize;
-    (void)[application _buildRenderCommandsWithViewportSize: viewportSize deltaTime: 1.0f / 60.0f];
-}
-
-@end
-
-[[subclassing_restricted]]
 @interface AUITestLifecycleApplication : AUIApplication
 
 @property(retain, nonatomic) AUIComponent *nillable providedRootComponent;
-@property(retain, nonatomic) AUIWindowBackend *nillable providedWindowBackend;
-@property(retain, nonatomic) AUIRendererBackend *nillable providedRendererBackend;
+@property(retain, nonatomic) AUIWindow *nillable providedWindow;
 
 @end
 
 @implementation AUITestLifecycleApplication {
     AUIComponent *nillable _providedRootComponent;
-    AUIWindowBackend *nillable _providedWindowBackend;
-    AUIRendererBackend *nillable _providedRendererBackend;
+    AUIWindow *nillable _providedWindow;
 }
 
 @synthesize providedRootComponent = _providedRootComponent;
-@synthesize providedWindowBackend = _providedWindowBackend;
-@synthesize providedRendererBackend = _providedRendererBackend;
+@synthesize providedWindow = _providedWindow;
 
 - (AUIWindowOptions *)windowOptions
 {
@@ -1031,14 +1054,9 @@
     return _providedRootComponent;
 }
 
-- (AUIWindowBackend *)makeWindowBackend
+- (AUIWindow *)makeWindow
 {
-    return _providedWindowBackend;
-}
-
-- (AUIRendererBackend *)makeRendererBackend
-{
-    return _providedRendererBackend;
+    return _providedWindow;
 }
 
 @end
@@ -1048,21 +1066,18 @@
 
 @interface AUITestApplication ()
 
-@property(readonly, nonatomic) AUIHeadlessWindowBackend *headlessWindowBackend;
-@property(readonly, nonatomic) AUIBackend *backendCoordinator;
+@property(readonly, nonatomic) AUIHeadlessWindow *headlessWindow;
 
-- (AUIBackend *)ensureBackendWithWidth: (float)width height: (float)height;
-- (void)disposeBackend;
+- (AUIWindow *)ensureWindowWithWidth: (float)width height: (float)height;
+- (void)disposeWindow;
 
 @end
 
 @implementation AUITestApplication {
-    AUIHeadlessWindowBackend *_headlessWindowBackend;
-    AUIBackend *_backendCoordinator;
+    AUIHeadlessWindow *_headlessWindow;
 }
 
-@synthesize headlessWindowBackend = _headlessWindowBackend;
-@synthesize backendCoordinator = _backendCoordinator;
+@synthesize headlessWindow = _headlessWindow;
 
 - (AUIWindowOptions *)windowOptions
 {
@@ -1076,33 +1091,29 @@
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 }
 
-- (AUIBackend *)ensureBackendWithWidth: (float)width height: (float)height
+- (AUIWindow *)ensureWindowWithWidth: (float)width height: (float)height
 {
-    if (_headlessWindowBackend == nilptr) {
+    if (_headlessWindow == nilptr) {
         AUIWindowOptions *options = [AUIWindowOptions title: @"Test UI"
                                                        size: (AUISize){ width, height }
                                                   resizable: true];
 
-        _headlessWindowBackend = [[AUIHeadlessWindowBackend alloc] initWithApplication: self options: options];
-        _backendCoordinator = [[AUIBackend alloc] initWithApplication: self
-                                                         windowBackend: _headlessWindowBackend
-                                                       rendererBackend: [[AUICairoRendererBackend alloc] initWithApplication: self]];
-        [self _setBackendForTesting: _backendCoordinator];
-        [_backendCoordinator openWindow];
+        _headlessWindow = [[AUIHeadlessWindow alloc] initWithApplication: self options: options];
+        [self _setWindowForTesting: _headlessWindow];
+        [_headlessWindow openWindow];
     }
 
-    [_headlessWindowBackend setViewportSize: (AUISize){ width, height }];
-    return _backendCoordinator;
+    [_headlessWindow setViewportSize: (AUISize){ width, height }];
+    return _headlessWindow;
 }
 
-- (void)disposeBackend
+- (void)disposeWindow
 {
-    if (_backendCoordinator != nilptr)
-        [_backendCoordinator closeWindow];
+    if (_headlessWindow != nilptr)
+        [_headlessWindow closeWindow];
 
-    [self _setBackendForTesting: nilptr];
-    _backendCoordinator = nilptr;
-    _headlessWindowBackend = nilptr;
+    [self _setWindowForTesting: nilptr];
+    _headlessWindow = nilptr;
 }
 
 @end
@@ -1175,15 +1186,15 @@ static void AUITestDetachAndUnmountRoot(AUITestApplication *app, AUIComponent *r
     [root _unmountRecursively];
     [root _detachFromApplication];
     [app _setRootComponentForTesting: nilptr];
-    [app disposeBackend];
+    [app disposeWindow];
 }
 
 static void AUITestRenderApplication(AUITestApplication *app, float width, float height)
 {
-    AUIBackend *backend = [app ensureBackendWithWidth: width height: height];
+    AUIWindow *window = [app ensureWindowWithWidth: width height: height];
 
     [app setNeedsRender];
-    [backend renderFrame];
+    [window renderFrame];
 }
 
 static Clay_RenderCommandArray AUITestRenderCommandsForMountedComponent(AUIComponent *root,
@@ -1232,44 +1243,44 @@ static OFString *nillable AUITestFirstRenderedTextString(Clay_RenderCommandArray
 
 static void AUITestClick(AUITestApplication *app, float x, float y)
 {
-    [app ensureBackendWithWidth: 320 height: 240];
-    [app.headlessWindowBackend sendPointerMoveToX: x y: y];
+    [app ensureWindowWithWidth: 320 height: 240];
+    [app.headlessWindow sendPointerMoveToX: x y: y];
     AUITestRenderApplication(app, 320, 240);
 
-    [app.headlessWindowBackend sendMouseDown: AUIMouseButtonPrimary];
+    [app.headlessWindow sendMouseDown: AUIMouseButtonPrimary];
     AUITestRenderApplication(app, 320, 240);
 
-    [app.headlessWindowBackend sendPointerMoveToX: x y: y];
-    [app.headlessWindowBackend sendMouseUp: AUIMouseButtonPrimary];
+    [app.headlessWindow sendPointerMoveToX: x y: y];
+    [app.headlessWindow sendMouseUp: AUIMouseButtonPrimary];
     AUITestRenderApplication(app, 320, 240);
 }
 
 static void AUITestSecondaryClick(AUITestApplication *app, float x, float y)
 {
-    [app ensureBackendWithWidth: 320 height: 240];
-    [app.headlessWindowBackend sendPointerMoveToX: x y: y];
+    [app ensureWindowWithWidth: 320 height: 240];
+    [app.headlessWindow sendPointerMoveToX: x y: y];
     AUITestRenderApplication(app, 320, 240);
 
-    [app.headlessWindowBackend sendMouseDown: AUIMouseButtonSecondary];
+    [app.headlessWindow sendMouseDown: AUIMouseButtonSecondary];
     AUITestRenderApplication(app, 320, 240);
 
-    [app.headlessWindowBackend sendPointerMoveToX: x y: y];
-    [app.headlessWindowBackend sendMouseUp: AUIMouseButtonSecondary];
+    [app.headlessWindow sendPointerMoveToX: x y: y];
+    [app.headlessWindow sendMouseUp: AUIMouseButtonSecondary];
     AUITestRenderApplication(app, 320, 240);
 }
 
 static void AUITestTypeASCII(AUITestApplication *app, const char *text)
 {
-    [app ensureBackendWithWidth: 320 height: 240];
-    [app.headlessWindowBackend sendText: [OFString stringWithUTF8String: text]];
+    [app ensureWindowWithWidth: 320 height: 240];
+    [app.headlessWindow sendText: [OFString stringWithUTF8String: text]];
 
     AUITestRenderApplication(app, 320, 240);
 }
 
 static void AUITestSendKey(AUITestApplication *app, AUIKey key, AUIModifierFlags modifiers)
 {
-    [app ensureBackendWithWidth: 320 height: 240];
-    [app.headlessWindowBackend sendKey: key modifiers: modifiers repeat: false];
+    [app ensureWindowWithWidth: 320 height: 240];
+    [app.headlessWindow sendKey: key modifiers: modifiers repeat: false];
     AUITestRenderApplication(app, 320, 240);
 }
 
@@ -1277,16 +1288,14 @@ static void application_launch_closes_backend_on_open_failure(AsyncScope *rootSc
 {
     AUITestLifecycleApplication *app = [[AUITestLifecycleApplication alloc] init];
     AUITestGroupComponent *root = [[AUITestGroupComponent alloc] init];
-    AUITestSpyWindowBackend *windowBackend = [[AUITestSpyWindowBackend alloc] initWithApplication: app
-                                                                                           options: app.windowOptions];
-    AUITestSpyRendererBackend *rendererBackend = [[AUITestSpyRendererBackend alloc] initWithApplication: app];
+    AUITestSpyWindow *window = [[AUITestSpyWindow alloc] initWithApplication: app
+                                                                                       options: app.windowOptions];
     OFException *nillable caughtException = nilptr;
 
     root.bodyChildren = @[];
-    windowBackend.failOpen = true;
+    window.failOpen = true;
     app.providedRootComponent = root;
-    app.providedWindowBackend = windowBackend;
-    app.providedRendererBackend = rendererBackend;
+    app.providedWindow = window;
 
     @try {
         (void)[app applicationDidFinishLaunchingAsync: nilptr scope: rootScope];
@@ -1295,11 +1304,9 @@ static void application_launch_closes_backend_on_open_failure(AsyncScope *rootSc
     }
 
     [AsyncRuntimeTestSupport assertCondition: (caughtException != nilptr) message: @"application launch should surface the backend open failure"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.openCount == 1) message: @"application launch should attempt to open the window once"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.closeCount == 1) message: @"application launch should still close the backend in the failure cleanup path"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.renderCount == 0) message: @"a failed window open should not attempt to render"];
-    [AsyncRuntimeTestSupport assertCondition: (rendererBackend.prepareCount == 0) message: @"renderer preparation should not happen when the window fails to open"];
-    [AsyncRuntimeTestSupport assertCondition: (rendererBackend.renderCount == 0) message: @"renderer should not render after an open failure"];
+    [AsyncRuntimeTestSupport assertCondition: (window.openCount == 1) message: @"application launch should attempt to open the window once"];
+    [AsyncRuntimeTestSupport assertCondition: (window.closeCount == 1) message: @"application launch should still close the window in the failure cleanup path"];
+    [AsyncRuntimeTestSupport assertCondition: (window.renderCount == 0) message: @"a failed window open should not attempt to render"];
     [AsyncRuntimeTestSupport assertCondition: (root.mountCount == 0) message: @"the root component should not mount if opening the window fails first"];
     [AsyncRuntimeTestSupport assertCondition: (root.unmountCount == 0) message: @"cleanup should not fabricate an unmount for a component that never mounted"];
 }
@@ -1308,27 +1315,25 @@ static void application_launch_renders_first_frame_and_cleans_up(AsyncScope *roo
 {
     AUITestLifecycleApplication *app = [[AUITestLifecycleApplication alloc] init];
     AUITestGroupComponent *root = [[AUITestGroupComponent alloc] init];
-    AUITestSpyWindowBackend *windowBackend = [[AUITestSpyWindowBackend alloc] initWithApplication: app
-                                                                                           options: app.windowOptions];
-    AUICairoRendererBackend *rendererBackend = [[AUICairoRendererBackend alloc] initWithApplication: app];
+    AUITestSpyWindow *window = [[AUITestSpyWindow alloc] initWithApplication: app
+                                                                                        options: app.windowOptions];
     id value;
 
     root.bodyChildren = @[
         [AUILabel text: @"Hello"]
     ];
-    windowBackend.closeAfterNextRender = true;
+    window.closeAfterNextRender = true;
     app.providedRootComponent = root;
-    app.providedWindowBackend = windowBackend;
-    app.providedRendererBackend = rendererBackend;
+    app.providedWindow = window;
 
     value = [app applicationDidFinishLaunchingAsync: nilptr scope: rootScope];
 
     [AsyncRuntimeTestSupport assertCondition: ([value respondsToSelector: @selector(intValue)] and ((int)[value intValue]) == 0)
                                      message: @"application launch should resolve to a zero exit status when the window closes cleanly"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.openCount == 1) message: @"application launch should open the window once"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.pollCount == 1) message: @"the event loop should poll once before the first frame render"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.renderCount == 1) message: @"the startup render request should produce a first frame"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.closeCount == 1) message: @"the backend should close during cleanup after the window exits"];
+    [AsyncRuntimeTestSupport assertCondition: (window.openCount == 1) message: @"application launch should open the window once"];
+    [AsyncRuntimeTestSupport assertCondition: (window.pollCount == 1) message: @"the event loop should poll once before the first frame render"];
+    [AsyncRuntimeTestSupport assertCondition: (window.renderCount == 1) message: @"the startup render request should produce a first frame"];
+    [AsyncRuntimeTestSupport assertCondition: (window.closeCount == 1) message: @"the window should close during cleanup after the window exits"];
     [AsyncRuntimeTestSupport assertCondition: (root.mountCount == 1) message: @"the root component should mount during application launch"];
     [AsyncRuntimeTestSupport assertCondition: (root.unmountCount == 1) message: @"the root component should unmount during application cleanup"];
 }
@@ -1337,101 +1342,279 @@ static void application_launch_processes_multiple_async_render_requests(AsyncSco
 {
     AUITestLifecycleApplication *app = [[AUITestLifecycleApplication alloc] init];
     AUITestAsyncRenderLoopComponent *root = [[AUITestAsyncRenderLoopComponent alloc] init];
-    AUITestSpyWindowBackend *windowBackend = [[AUITestSpyWindowBackend alloc] initWithApplication: app
-                                                                                           options: app.windowOptions];
-    AUICairoRendererBackend *rendererBackend = [[AUICairoRendererBackend alloc] initWithApplication: app];
+    AUITestSpyWindow *window = [[AUITestSpyWindow alloc] initWithApplication: app
+                                                                                        options: app.windowOptions];
     id value;
 
-    windowBackend.closeAfterRenderCount = 3;
+    window.closeAfterRenderCount = 3;
     app.providedRootComponent = root;
-    app.providedWindowBackend = windowBackend;
-    app.providedRendererBackend = rendererBackend;
+    app.providedWindow = window;
 
     value = [app applicationDidFinishLaunchingAsync: nilptr scope: rootScope];
 
     [AsyncRuntimeTestSupport assertCondition: ([value respondsToSelector: @selector(intValue)] and ((int)[value intValue]) == 0)
                                      message: @"application launch should still resolve cleanly after multiple async-driven rerenders"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.openCount == 1) message: @"the window backend should still only open once"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.pollCount >= 3) message: @"the event loop should continue polling while async updates request more frames"];
-    [AsyncRuntimeTestSupport assertCondition: (windowBackend.renderCount == 3) message: @"async signal invalidations should drive multiple frame renders before shutdown"];
+    [AsyncRuntimeTestSupport assertCondition: (window.openCount == 1) message: @"the window should still only open once"];
+    [AsyncRuntimeTestSupport assertCondition: (window.pollCount >= 3) message: @"the event loop should continue polling while async updates request more frames"];
+    [AsyncRuntimeTestSupport assertCondition: (window.renderCount == 3) message: @"async signal invalidations should drive multiple frame renders before shutdown"];
     [AsyncRuntimeTestSupport assertCondition: (root.lastRenderedPhase == 2) message: @"the root component body should observe the final async-updated signal value before exit"];
+}
+
+static void application_launch_auto_resizes_window_to_root_component(AsyncScope *rootScope)
+{
+    AUITestLifecycleApplication *app = [[AUITestLifecycleApplication alloc] init];
+    AUITestFixedSizeRootComponent *root = [[AUITestFixedSizeRootComponent alloc] init];
+    AUIWindowOptions *options = [AUIWindowOptions title: @"Auto Resize Test"
+                                                   size: (AUISize){ 320, 240 }
+                                              resizable: true
+                            autoResizeToRootComponent: true];
+    AUITestSpyWindow *window = [[AUITestSpyWindow alloc] initWithApplication: app options: options];
+
+    window.closeAfterRenderCount = 2;
+    app.providedRootComponent = root;
+    app.providedWindow = window;
+
+    (void)[app applicationDidFinishLaunchingAsync: nilptr scope: rootScope];
+
+    [AsyncRuntimeTestSupport assertCondition: (window.resizeCount > 0)
+                                     message: @"auto-resize should ask the window to adopt the root component size"];
+    [AsyncRuntimeTestSupport assertCondition: (window.renderCount == 2)
+                                     message: @"auto-resize should schedule a follow-up frame after the viewport changes"];
+    [AsyncRuntimeTestSupport assertCondition: (window.viewportSize.width == 180 and window.viewportSize.height == 60)
+                                     message: @"auto-resize should shrink the window viewport to the laid-out root component bounds"];
+    [AsyncRuntimeTestSupport assertCondition: AUIWindowOptions.defaultOptions.automaticallyResizesToRootComponent
+                                     message: @"default window options should keep root-component auto-resize enabled"];
+}
+
+static void render_context_exposes_window_dark_mode_and_window_setter_requests_render(AsyncScope *rootScope)
+{
+    AUITestApplication *app = [[AUITestApplication alloc] init];
+    AUITestDarkModeComponent *root = [[AUITestDarkModeComponent alloc] init];
+    AUIWindow *window;
+
+    AUITestAttachAndMountRoot(app, root, rootScope);
+
+    @try {
+        window = [app ensureWindowWithWidth: 320 height: 240];
+        (void)[app _consumePendingRenderRequest];
+        window.isDarkMode = true;
+
+        [AsyncRuntimeTestSupport assertCondition: window.isDarkMode
+                                         message: @"window dark mode should be settable through AUIWindow"];
+        [AsyncRuntimeTestSupport assertCondition: [app _consumePendingRenderRequest]
+                                         message: @"setting window dark mode should request a rerender"];
+
+        [window renderFrame];
+        [AsyncRuntimeTestSupport assertCondition: root.observedDarkMode
+                                         message: @"render context should expose the window dark-mode state during rendering"];
+    } @finally {
+        AUITestDetachAndUnmountRoot(app, root);
+    }
 }
 
 static void objfw_bridge_string_round_trip(AsyncScope *rootScope)
 {
     (void)rootScope;
 
-#if defined(__APPLE__)
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
     AUIWindowOptions *options = AUIWindowOptions.defaultOptions;
     OFString *copiedTitle;
 
-    copiedTitle = [AUICocoaWindowBackend _roundTripBridgedStringForTesting: options.title];
+    copiedTitle = [AUICoreGraphicsWindow _roundTripBridgedStringForTesting: options.title];
     [AsyncRuntimeTestSupport assertCondition: (copiedTitle != nilptr)
-                                     message: @"ObjFWBridge should convert the default window title through the Cocoa backend at runtime"];
+                                     message: @"ObjFWBridge should convert the default window title through the CoreGraphics window at runtime"];
     [AsyncRuntimeTestSupport assertCondition: [copiedTitle isEqual: options.title]
-                                     message: @"OFString to NSString bridging should round-trip through the Cocoa backend without losing content"];
+                                     message: @"OFString to NSString bridging should round-trip through the CoreGraphics window without losing content"];
 #endif
 }
 
-static void cocoa_backend_prepares_foreground_application(AsyncScope *rootScope)
+static void core_graphics_window_prepares_foreground_application(AsyncScope *rootScope)
 {
     (void)rootScope;
 
-#if defined(__APPLE__)
-    bool prepared = [AUICocoaWindowBackend _prepareSharedApplicationForTesting];
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+    bool prepared = [AUICoreGraphicsWindow _prepareSharedApplicationForTesting];
 
     [AsyncRuntimeTestSupport assertCondition: prepared
-                                     message: @"the Cocoa backend should be able to create a shared NSApplication instance"];
-    [AsyncRuntimeTestSupport assertCondition: [AUICocoaWindowBackend _sharedApplicationIsForegroundForTesting]
-                                     message: @"the Cocoa backend should promote the process to a foreground app so windows can appear"];
-    [AsyncRuntimeTestSupport assertCondition: [AUICocoaWindowBackend _sharedApplicationHasMainMenuForTesting]
-                                     message: @"the Cocoa backend should install a main menu so the shared NSApplication behaves like a real Cocoa app"];
+                                     message: @"the CoreGraphics window should be able to create a shared NSApplication instance"];
+    [AsyncRuntimeTestSupport assertCondition: [AUICoreGraphicsWindow _sharedApplicationIsForegroundForTesting]
+                                     message: @"the CoreGraphics window should promote the process to a foreground app so windows can appear"];
+    [AsyncRuntimeTestSupport assertCondition: [AUICoreGraphicsWindow _sharedApplicationHasMainMenuForTesting]
+                                     message: @"the CoreGraphics window should install a main menu so the shared NSApplication behaves like a real Cocoa app"];
 #endif
 }
 
-static void cocoa_backend_open_perform_close_and_cleanup(AsyncScope *rootScope)
+static void core_graphics_window_open_perform_close_and_cleanup(AsyncScope *rootScope)
 {
     (void)rootScope;
 
-#if defined(__APPLE__)
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
     AUITestLifecycleApplication *application = [[AUITestLifecycleApplication alloc] init];
-    AUICocoaWindowBackend *backend = [[AUICocoaWindowBackend alloc]
+    AUICoreGraphicsWindow *backend = [[AUICoreGraphicsWindow alloc]
         initWithApplication: application
-                    options: [AUIWindowOptions title: @"Cocoa Backend Smoke"
+                    options: [AUIWindowOptions title: @"CoreGraphics Window Smoke"
                                               size: (AUISize){ 160, 96 }
                                          resizable: false]];
-    size_t windowCountBefore = [AUICocoaWindowBackend _sharedApplicationWindowCountForTesting];
 
     [backend openWindow];
     [backend pollEvents];
     [backend pollEvents];
     [AsyncRuntimeTestSupport assertCondition: backend.isOpen
-                                     message: @"opening the Cocoa backend should create a live window backend session"];
-    [AsyncRuntimeTestSupport assertCondition: ([AUICocoaWindowBackend _sharedApplicationWindowCountForTesting] == windowCountBefore + 1)
-                                     message: @"opening the Cocoa backend should add exactly one Cocoa window"];
+                                     message: @"opening the CoreGraphics window should create a live window session"];
     [AsyncRuntimeTestSupport assertCondition: [backend _windowIsVisibleForTesting]
-                                     message: @"opening the Cocoa backend should create a visible window"];
-    [AsyncRuntimeTestSupport assertCondition: [AUICocoaWindowBackend _sharedApplicationHasMainMenuForTesting]
-                                     message: @"opening the Cocoa backend should preserve the shared Cocoa main menu"];
+                                     message: @"opening the CoreGraphics window should create a visible window"];
+    [AsyncRuntimeTestSupport assertCondition: [AUICoreGraphicsWindow _sharedApplicationHasMainMenuForTesting]
+                                     message: @"opening the CoreGraphics window should preserve the shared Cocoa main menu"];
     [AsyncRuntimeTestSupport assertCondition: [backend _renderViewIsFirstResponderForTesting]
-                                     message: @"opening the Cocoa backend should make the render view first responder for keyboard input"];
+                                     message: @"opening the CoreGraphics window should make the render view first responder for keyboard input"];
+    {
+        double scaleFactor = backend.scaleFactor;
+        AUIInputState *inputState = [application _inputState];
+        OFString *message;
+
+        [backend _sendMouseDownForTestingWithViewX: 24 y: 18];
+        message = [OFString stringWithFormat:
+            @"CoreGraphics synthetic mouse events should translate view-space coordinates into the render view's backing-space input state (got x=%g y=%g scale=%g)",
+            inputState.pointerX,
+            inputState.pointerY,
+            scaleFactor];
+        [AsyncRuntimeTestSupport assertCondition: (fabs(inputState.pointerX - (24.0 * scaleFactor)) < 0.5 and
+                                                   fabs(inputState.pointerY - (18.0 * scaleFactor)) < 0.5 and
+                                                   inputState.primaryButtonPressedThisFrame)
+                                         message: message];
+        [inputState resetTransientState];
+    }
 
     [backend openWindow];
     [backend pollEvents];
-    [AsyncRuntimeTestSupport assertCondition: ([AUICocoaWindowBackend _sharedApplicationWindowCountForTesting] == windowCountBefore + 1)
-                                     message: @"opening the Cocoa backend twice should not create a second window"];
+    [AsyncRuntimeTestSupport assertCondition: backend.isOpen
+                                     message: @"opening the CoreGraphics window twice should remain in the open state"];
+
+    [backend _performCloseForTesting];
+    [backend pollEvents];
+    [backend pollEvents];
+    [AsyncRuntimeTestSupport assertCondition: (not backend.isOpen)
+                                     message: @"performClose should route through the CoreGraphics window delegate cleanup path without leaving the backend open"];
+
+    [backend openWindow];
+    [backend pollEvents];
+    [AsyncRuntimeTestSupport assertCondition: backend.isOpen
+                                     message: @"opening the CoreGraphics window after a native close should create a fresh live window session"];
 
     [backend closeWindow];
     [backend pollEvents];
     [backend pollEvents];
     [AsyncRuntimeTestSupport assertCondition: (not backend.isOpen)
-                                     message: @"closing the Cocoa backend directly should leave it out of the open state"];
-    [AsyncRuntimeTestSupport assertCondition: ([AUICocoaWindowBackend _sharedApplicationWindowCountForTesting] == windowCountBefore)
-                                     message: @"closing the Cocoa backend directly should release the Cocoa window reference from the shared application"];
+                                     message: @"closing the CoreGraphics window directly should leave it out of the open state"];
 
     [backend closeWindow];
     [AsyncRuntimeTestSupport assertCondition: (not backend.isOpen)
-                                     message: @"closing the Cocoa backend directly twice should remain idempotent"];
+                                     message: @"closing the CoreGraphics window directly twice should remain idempotent"];
+#endif
+}
+
+static void core_graphics_window_dispatches_pointer_interactions(AsyncScope *rootScope)
+{
+    (void)rootScope;
+
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+    AUITestApplication *application = [[AUITestApplication alloc] init];
+    AUITestButtonComponent *root = [[AUITestButtonComponent alloc] init];
+    AUICoreGraphicsWindow *backend = [[AUICoreGraphicsWindow alloc]
+        initWithApplication: application
+                    options: [AUIWindowOptions title: @"CoreGraphics Interaction Test"
+                                              size: (AUISize){ 320, 240 }
+                                         resizable: false]];
+
+    [application _setWindowForTesting: backend];
+    [application _setRootComponentForTesting: root];
+    [root _attachToApplication: application parent: nilptr];
+    [root _mountRecursivelyInScope: rootScope];
+
+    @try {
+        float viewClickX;
+        float viewClickY;
+
+        [backend openWindow];
+        [backend pollEvents];
+        [backend pollEvents];
+
+        viewClickX = (float)(32.0 / backend.scaleFactor);
+        viewClickY = (float)(32.0 / backend.scaleFactor);
+
+        [application setNeedsRender];
+        [backend renderFrame];
+        [backend _sendPointerMoveForTestingWithViewX: viewClickX y: viewClickY];
+        [application setNeedsRender];
+        [backend renderFrame];
+        [backend _sendMouseDownForTestingWithViewX: viewClickX y: viewClickY];
+        [application setNeedsRender];
+        [backend renderFrame];
+        [backend _sendMouseUpForTestingWithViewX: viewClickX y: viewClickY];
+        [application setNeedsRender];
+        [backend renderFrame];
+
+        OFString *message = [OFString stringWithFormat:
+            @"CoreGraphics window input should dispatch visible button clicks through the shared AUI interaction pipeline (pressCount=%zu)",
+            root.pressCount];
+        [AsyncRuntimeTestSupport assertCondition: (root.pressCount == 1)
+                                         message: message];
+    } @finally {
+        [root _unmountRecursively];
+        [root _detachFromApplication];
+        [application _setRootComponentForTesting: nilptr];
+        [backend closeWindow];
+        [application _setWindowForTesting: nilptr];
+    }
+#endif
+}
+
+static void application_make_window_selects_platform_default_backend(AsyncScope *rootScope)
+{
+    (void)rootScope;
+
+    AUITestApplication *application = [[AUITestApplication alloc] init];
+    AUIWindow *window = [application makeWindow];
+
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+    [AsyncRuntimeTestSupport assertCondition: [window isKindOfClass: AUICoreGraphicsWindow.class]
+                                     message: @"AUIApplication should default to AUICoreGraphicsWindow on macOS"];
+#elif AUI_HAS_CAIRO_X11_WINDOW
+    [AsyncRuntimeTestSupport assertCondition: [window isKindOfClass: AUICairoX11Window.class]
+                                     message: @"AUIApplication should default to AUICairoX11Window when X11 is the native backend"];
+#else
+    [AsyncRuntimeTestSupport assertCondition: [window isKindOfClass: AUIHeadlessWindow.class]
+                                     message: @"AUIApplication should default to AUIHeadlessWindow when no interactive backend is enabled"];
+#endif
+}
+
+static void cairo_x11_window_availability_and_smoke(AsyncScope *rootScope)
+{
+    (void)rootScope;
+
+#if AUI_HAS_CAIRO_X11_WINDOW
+    [AsyncRuntimeTestSupport assertCondition: true
+                                     message: @"AUICairoX11Window should be compiled when AUI_HAS_CAIRO_X11_WINDOW is enabled"];
+
+    if (getenv("DISPLAY") != nullptr) {
+        AUITestLifecycleApplication *application = [[AUITestLifecycleApplication alloc] init];
+        AUICairoX11Window *window = [[AUICairoX11Window alloc]
+            initWithApplication: application
+                        options: [AUIWindowOptions title: @"Cairo X11 Smoke"
+                                                  size: (AUISize){ 96, 64 }
+                                             resizable: false]];
+
+        [window openWindow];
+        [window pollEvents];
+        [AsyncRuntimeTestSupport assertCondition: window.isOpen
+                                         message: @"AUICairoX11Window should open successfully when DISPLAY is available"];
+        [window closeWindow];
+        [AsyncRuntimeTestSupport assertCondition: (not window.isOpen)
+                                         message: @"AUICairoX11Window should close cleanly after the smoke check"];
+    }
+#else
+    [AsyncRuntimeTestSupport assertCondition: true
+                                     message: @"AUICairoX11Window should be unavailable when AUI_HAS_CAIRO_X11_WINDOW is disabled"];
 #endif
 }
 
@@ -1449,7 +1632,7 @@ static void clipboard_shortcuts_round_trip_through_backend(AsyncScope *rootScope
     AUITestSendKey(app, AUIKeyTab, AUIModifierFlagNone);
     AUITestSendKey(app, AUIKeyV, AUIModifierFlagCommand);
 
-    [AsyncRuntimeTestSupport assertCondition: ([app.headlessWindowBackend.clipboardText isEqual: @"alpha"])
+    [AsyncRuntimeTestSupport assertCondition: ([app.headlessWindow.clipboardText isEqual: @"alpha"])
                                      message: @"copy should write the selected text through the backend clipboard abstraction"];
     [AsyncRuntimeTestSupport assertCondition: ([root.first isEqual: @""])
                                      message: @"cut should remove the selected text from the focused field"];
@@ -1769,9 +1952,9 @@ static void text_area_secure_mask_scroll_and_stable_focus(AsyncScope *rootScope)
     AUITestAttachAndMountRoot(app, scrollRoot, rootScope);
     AUITestRenderApplication(app, 320, 240);
     beforeData = [AUIClay elementDataForID: [AUIClay elementIDFromString: @"root/0/0/0"]];
-    [app ensureBackendWithWidth: 320 height: 240];
-    [app.headlessWindowBackend sendPointerMoveToX: 40 y: 40];
-    [app.headlessWindowBackend sendScrollByX: 0 y: -3];
+    [app ensureWindowWithWidth: 320 height: 240];
+    [app.headlessWindow sendPointerMoveToX: 40 y: 40];
+    [app.headlessWindow sendScrollByX: 0 y: -3];
     AUITestRenderApplication(app, 320, 240);
     AUITestRenderApplication(app, 320, 240);
     afterData = [AUIClay elementDataForID: [AUIClay elementIDFromString: @"root/0/0/0"]];
@@ -1801,9 +1984,14 @@ ASYNC_RUNTIME_ASYNC_TEST(component_catalog_renders_commands)
 ASYNC_RUNTIME_ASYNC_TEST(application_launch_closes_backend_on_open_failure)
 ASYNC_RUNTIME_ASYNC_TEST(application_launch_renders_first_frame_and_cleans_up)
 ASYNC_RUNTIME_ASYNC_TEST(application_launch_processes_multiple_async_render_requests)
+ASYNC_RUNTIME_ASYNC_TEST(application_launch_auto_resizes_window_to_root_component)
+ASYNC_RUNTIME_ASYNC_TEST(render_context_exposes_window_dark_mode_and_window_setter_requests_render)
 ASYNC_RUNTIME_ASYNC_TEST(objfw_bridge_string_round_trip)
-ASYNC_RUNTIME_ASYNC_TEST(cocoa_backend_prepares_foreground_application)
-ASYNC_RUNTIME_ASYNC_TEST(cocoa_backend_open_perform_close_and_cleanup)
+ASYNC_RUNTIME_ASYNC_TEST(core_graphics_window_prepares_foreground_application)
+ASYNC_RUNTIME_ASYNC_TEST(core_graphics_window_open_perform_close_and_cleanup)
+ASYNC_RUNTIME_ASYNC_TEST(core_graphics_window_dispatches_pointer_interactions)
+ASYNC_RUNTIME_ASYNC_TEST(application_make_window_selects_platform_default_backend)
+ASYNC_RUNTIME_ASYNC_TEST(cairo_x11_window_availability_and_smoke)
 ASYNC_RUNTIME_ASYNC_TEST(button_press_invokes_callback)
 ASYNC_RUNTIME_ASYNC_TEST(toggle_and_radio_controls_dispatch_controlled_changes)
 ASYNC_RUNTIME_ASYNC_TEST(text_fields_focus_edit_submit_and_tab_navigation)

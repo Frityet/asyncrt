@@ -1,11 +1,16 @@
 #include <stdlib.h>
 #import "UI/AUIApplication.h"
-#import "UI/AUIBackend.h"
 #import "UI/AUIClaySupport.h"
 #import "UI/AUIInternal.h"
-#import "UI/Backend/Renderer/AUICairoRendererBackend.h"
-#import "UI/Backend/Window/AUICocoaWindowBackend.h"
-#import "UI/Backend/Window/AUIX11WindowBackend.h"
+#import "UI/Backend/Window/AUIHeadlessWindow.h"
+
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+#   import "UI/Backend/Window/AUICoreGraphicsWindow.h"
+#endif
+
+#if AUI_HAS_CAIRO_X11_WINDOW
+#   import "UI/Backend/Window/AUICairoX11Window.h"
+#endif
 
 #pragma clang assume_nonnull begin
 
@@ -177,7 +182,7 @@
 
 @implementation AUIApplication {
     AUIComponent *nillable _rootComponent;
-    AUIBackend *nillable _backend;
+    AUIWindow *nillable _window;
     AUIRenderObserver *nillable _renderObserver;
     OFDate *nillable _startDate;
     AUIInputState *_inputState;
@@ -230,11 +235,7 @@
     _renderObserver = [[AUIRenderObserver alloc] initWithInvalidationHandler: ^{
         [self setNeedsRender];
     }];
-    AUIWindowBackend *windowBackend = [self makeWindowBackend];
-    AUIRendererBackend *rendererBackend = [self makeRendererBackend];
-    _backend = [[AUIBackend alloc] initWithApplication: self
-                                          windowBackend: windowBackend
-                                        rendererBackend: rendererBackend];
+    _window = [self makeWindow];
     _rootComponent = [self makeRootComponent];
 
     if (_rootComponent == nilptr)
@@ -243,20 +244,20 @@
     [_rootComponent _attachToApplication: self parent: nilptr];
 
     @try {
-        [_backend openWindow];
+        [_window openWindow];
         [_rootComponent _mountRecursivelyInScope: scope];
         [self setNeedsRender];
-        while (_backend.isOpen) {
+        while (_window.isOpen) {
             OFTimeInterval pollInterval;
             bool didRender = false;
             Promise<AsyncUnit *> *renderWakePromise = [self _renderWakePromise];
 
-            [_backend pollEvents];
-            if (not _backend.isOpen)
+            [_window pollEvents];
+            if (not _window.isOpen)
                 break;
 
             if ([self _consumePendingRenderRequest]) {
-                [_backend renderFrame];
+                [_window renderFrame];
                 didRender = true;
             }
 
@@ -279,8 +280,8 @@
         [self _resetInteractionState];
         [_rootComponent _unmountRecursively];
         [_rootComponent _detachFromApplication];
-        [_backend closeWindow];
-        _backend = nilptr;
+        [_window closeWindow];
+        _window = nilptr;
     }
 
     return @(0);
@@ -296,20 +297,15 @@
     return AUIWindowOptions.defaultOptions;
 }
 
-- (AUIWindowBackend *)makeWindowBackend
+- (AUIWindow *)makeWindow
 {
-#if defined(__APPLE__)
-    return [[AUICocoaWindowBackend alloc] initWithApplication: self options: self.windowOptions];
-#elif defined(__linux__)
-    return [[AUIX11WindowBackend alloc] initWithApplication: self options: self.windowOptions];
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+    return [[AUICoreGraphicsWindow alloc] initWithApplication: self options: self.windowOptions];
+#elif AUI_HAS_CAIRO_X11_WINDOW
+    return [[AUICairoX11Window alloc] initWithApplication: self options: self.windowOptions];
 #else
-    @throw [[AUIInitializationException alloc] initWithReason: @"AUI is only supported on macOS and Linux/X11"];
+    return [[AUIHeadlessWindow alloc] initWithApplication: self options: self.windowOptions];
 #endif
-}
-
-- (AUIRendererBackend *)makeRendererBackend
-{
-    return [[AUICairoRendererBackend alloc] initWithApplication: self];
 }
 
 - (void)setNeedsRender
@@ -665,6 +661,7 @@
 
     context = [[AUIRenderContext alloc]
         initWithApplication: self
+                     window: $assert_nonnil(_window)
                viewportSize: viewportSize
                   frameDate: frameDate
                 elapsedTime: elapsedTime];
@@ -776,19 +773,19 @@
 
 - (OFString *nillable)_clipboardText
 {
-    return (_backend != nilptr ? _backend.clipboardText : nilptr);
+    return (_window != nilptr ? _window.clipboardText : nilptr);
 }
 
 - (void)_setClipboardText: (OFString *nillable)text
 {
-    if (_backend != nilptr)
-        [_backend setClipboardText: text];
+    if (_window != nilptr)
+        [_window setClipboardText: text];
 }
 
 - (void)_setCursorStyle: (AUICursorStyle)cursorStyle
 {
-    if (_backend != nilptr)
-        [_backend setCursorStyle: cursorStyle];
+    if (_window != nilptr)
+        [_window setCursorStyle: cursorStyle];
 }
 
 - (AUIContextMenu *nillable)_activeContextMenuForTesting
@@ -796,9 +793,9 @@
     return _activeContextMenu;
 }
 
-- (void)_setBackendForTesting: (AUIBackend *nillable)backend
+- (void)_setWindowForTesting: (AUIWindow *nillable)window
 {
-    _backend = backend;
+    _window = window;
 }
 
 - (void)_setRootComponentForTesting: (AUIComponent *nillable)rootComponent

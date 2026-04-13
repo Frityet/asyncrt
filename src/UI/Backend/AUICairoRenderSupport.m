@@ -3,32 +3,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-#import "UI/Backend/Renderer/AUICairoRendererBackend.h"
-#import "UI/AUIBackend.h"
-#import "UI/AUIClaySupport.h"
-#import "UI/AUIInternal.h"
+#import "UI/Backend/AUICairoRenderSupport.h"
 
 #pragma clang assume_nonnull begin
 
-typedef enum AUIRendererCairoBorderSide {
-    AUIRendererCairoBorderTop,
-    AUIRendererCairoBorderRight,
-    AUIRendererCairoBorderBottom,
-    AUIRendererCairoBorderLeft
-} AUIRendererCairoBorderSide;
+typedef enum AUICairoBorderSide {
+    AUICairoBorderSideTop,
+    AUICairoBorderSideRight,
+    AUICairoBorderSideBottom,
+    AUICairoBorderSideLeft
+} AUICairoBorderSide;
 
-static cairo_t *nillable AUICairoRendererCurrentContext = nullptr;
-static char *_Nonnull async_ui_cairo_fonts[] = {
-    (char *)"Sans"
-};
-
-@namespace(AUICairoRendererSupport)
+@interface AUICairoRenderSupport ()
 
 + (double)channelForValue: (uint8_t)value;
 + (void)setSourceColor: (Clay_Color)color onContext: (cairo_t *)context;
 + (double)clampedRadius: (double)radius forBoundingBox: (Clay_BoundingBox)boundingBox;
 + (char *nillable)copyUTF8String: (Clay_StringSlice)text;
-+ (char *)fontFamilyInFonts: (char *const *)fonts fontID: (uint16_t)fontID;
++ (char *)fontFamilyInFonts: (char *const *nillable)fonts fontID: (uint16_t)fontID;
 + (void)addRoundedRectToContext: (cairo_t *)context
                     boundingBox: (Clay_BoundingBox)boundingBox
                          radius: (Clay_CornerRadius)radius;
@@ -36,30 +28,30 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
                             config: (Clay_RectangleRenderData *)config
                        boundingBox: (Clay_BoundingBox)boundingBox;
 + (void)renderBorderSideWithContext: (cairo_t *)context
-                           boundingBox: (Clay_BoundingBox)boundingBox
-                                config: (Clay_BorderRenderData *)config
-                               topLeft: (double)topLeft
-                              topRight: (double)topRight
-                           bottomRight: (double)bottomRight
-                            bottomLeft: (double)bottomLeft
-                                  side: (AUIRendererCairoBorderSide)side;
+                            boundingBox: (Clay_BoundingBox)boundingBox
+                                 config: (Clay_BorderRenderData *)config
+                                topLeft: (double)topLeft
+                               topRight: (double)topRight
+                            bottomRight: (double)bottomRight
+                             bottomLeft: (double)bottomLeft
+                                   side: (AUICairoBorderSide)side;
 + (void)renderBorderWithContext: (cairo_t *)context
                          config: (Clay_BorderRenderData *)config
                     boundingBox: (Clay_BoundingBox)boundingBox;
 + (void)renderTextWithContext: (cairo_t *)context
                        config: (Clay_TextRenderData *)config
                   boundingBox: (Clay_BoundingBox)boundingBox
-                        fonts: (char *const *)fonts;
+                        fonts: (char *const *nillable)fonts;
 + (void)renderImageWithContext: (cairo_t *)context
                         config: (Clay_ImageRenderData *)config
                    boundingBox: (Clay_BoundingBox)boundingBox;
 + (void)renderCommandWithContext: (cairo_t *)context
-                           command: (Clay_RenderCommand *)command
-                             fonts: (char *const *)fonts;
+                            command: (Clay_RenderCommand *)command
+                              fonts: (char *const *nillable)fonts;
 
 @end
 
-@namespace_implementation(AUICairoRendererSupport)
+@namespace_implementation(AUICairoRenderSupport)
 
 + (double)channelForValue: (uint8_t)value
 {
@@ -98,7 +90,7 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
     return copy;
 }
 
-+ (char *)fontFamilyInFonts: (char *const *)fonts fontID: (uint16_t)fontID
++ (char *)fontFamilyInFonts: (char *const *nillable)fonts fontID: (uint16_t)fontID
 {
     if (fonts == nullptr)
         return (char *)"Sans";
@@ -164,13 +156,13 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
                            topRight: (double)topRight
                         bottomRight: (double)bottomRight
                          bottomLeft: (double)bottomLeft
-                               side: (AUIRendererCairoBorderSide)side
+                               side: (AUICairoBorderSide)side
 {
     [self setSourceColor: config->color onContext: context];
     cairo_new_sub_path(context);
 
     switch (side) {
-        case AUIRendererCairoBorderTop:
+        case AUICairoBorderSideTop:
             cairo_move_to(context, boundingBox.x, boundingBox.y + topLeft);
             if (topLeft > 0.0)
                 cairo_arc(context, boundingBox.x + topLeft, boundingBox.y + topLeft, topLeft, M_PI, 3.0 * M_PI / 2.0);
@@ -182,7 +174,7 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
             else
                 cairo_line_to(context, boundingBox.x + boundingBox.width, boundingBox.y);
             break;
-        case AUIRendererCairoBorderRight:
+        case AUICairoBorderSideRight:
             cairo_move_to(context, boundingBox.x + boundingBox.width - topRight, boundingBox.y);
             if (topRight > 0.0)
                 cairo_arc(context, boundingBox.x + boundingBox.width - topRight, boundingBox.y + topRight, topRight, 3.0 * M_PI / 2.0, 2.0 * M_PI);
@@ -192,7 +184,7 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
             else
                 cairo_line_to(context, boundingBox.x + boundingBox.width, boundingBox.y + boundingBox.height);
             break;
-        case AUIRendererCairoBorderBottom:
+        case AUICairoBorderSideBottom:
             cairo_move_to(context, boundingBox.x + boundingBox.width, boundingBox.y + boundingBox.height - bottomRight);
             if (bottomRight > 0.0)
                 cairo_arc(context, boundingBox.x + boundingBox.width - bottomRight, boundingBox.y + boundingBox.height - bottomRight, bottomRight, 0.0, M_PI / 2.0);
@@ -202,7 +194,7 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
             else
                 cairo_line_to(context, boundingBox.x, boundingBox.y + boundingBox.height);
             break;
-        case AUIRendererCairoBorderLeft:
+        case AUICairoBorderSideLeft:
             cairo_move_to(context, boundingBox.x + bottomLeft, boundingBox.y + boundingBox.height);
             if (bottomLeft > 0.0)
                 cairo_arc(context, boundingBox.x + bottomLeft, boundingBox.y + boundingBox.height - bottomLeft, bottomLeft, M_PI / 2.0, M_PI);
@@ -230,26 +222,26 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
 
     if (config->width.top > 0.0) {
         cairo_set_line_width(context, config->width.top);
-        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUIRendererCairoBorderTop];
+        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUICairoBorderSideTop];
     }
     if (config->width.right > 0.0) {
         cairo_set_line_width(context, config->width.right);
-        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUIRendererCairoBorderRight];
+        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUICairoBorderSideRight];
     }
     if (config->width.bottom > 0.0) {
         cairo_set_line_width(context, config->width.bottom);
-        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUIRendererCairoBorderBottom];
+        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUICairoBorderSideBottom];
     }
     if (config->width.left > 0.0) {
         cairo_set_line_width(context, config->width.left);
-        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUIRendererCairoBorderLeft];
+        [self renderBorderSideWithContext: context boundingBox: boundingBox config: config topLeft: topLeft topRight: topRight bottomRight: bottomRight bottomLeft: bottomLeft side: AUICairoBorderSideLeft];
     }
 }
 
 + (void)renderTextWithContext: (cairo_t *)context
                        config: (Clay_TextRenderData *)config
                   boundingBox: (Clay_BoundingBox)boundingBox
-                        fonts: (char *const *)fonts
+                        fonts: (char *const *nillable)fonts
 {
     char *fontFamily = [self fontFamilyInFonts: fonts fontID: config->fontId];
     char *nillable text = [self copyUTF8String: config->stringContents];
@@ -356,7 +348,7 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
 
 + (void)renderCommandWithContext: (cairo_t *)context
                          command: (Clay_RenderCommand *)command
-                           fonts: (char *const *)fonts
+                           fonts: (char *const *nillable)fonts
 {
     switch (command->commandType) {
         case CLAY_RENDER_COMMAND_TYPE_RECTANGLE:
@@ -370,6 +362,7 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
             break;
         case CLAY_RENDER_COMMAND_TYPE_SCISSOR_START: {
             Clay_BoundingBox boundingBox = command->boundingBox;
+
             cairo_save(context);
             cairo_new_path(context);
             cairo_rectangle(context, boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height);
@@ -390,35 +383,48 @@ static char *_Nonnull async_ui_cairo_fonts[] = {
     }
 }
 
++ (void)renderCommands: (Clay_RenderCommandArray)commands
+              onContext: (cairo_t *)context
+                  fonts: (char *const *)fonts
+{
+    for (int32_t index = 0; index < commands.length; index++)
+        [self renderCommandWithContext: context
+                               command: Clay_RenderCommandArray_Get(&commands, index)
+                                 fonts: fonts];
+}
+
 @end
 
-static Clay_Dimensions AUICairoMeasureTextBridge(Clay_StringSlice text,
-                                                 Clay_TextElementConfig *config,
-                                                 void *userData)
+Clay_Dimensions AUICairoMeasureText(Clay_StringSlice text,
+                                    Clay_TextElementConfig *config,
+                                    void *nillable userData)
 {
-    char *const *fonts = (char *const *)userData;
-    cairo_t *cr = AUICairoRendererCurrentContext;
-    char *nillable textBuffer = [AUICairoRendererSupport copyUTF8String: text];
+    AUICairoTextMeasureContext *measureContext = userData;
+    cairo_t *nillable context = (measureContext != nullptr
+        ? measureContext->context
+        : (cairo_t *nillable)nullptr);
+    char *const *fonts = (measureContext != nullptr ? measureContext->fonts : nullptr);
+    char *nillable textBuffer = [AUICairoRenderSupport copyUTF8String: text];
 
-    if (cr == nullptr or textBuffer == nullptr) {
+    if (context == nullptr or textBuffer == nullptr) {
         free(textBuffer);
         return (Clay_Dimensions){ 0, 0 };
     }
 
-    cairo_save(cr);
-    cairo_identity_matrix(cr);
-    cairo_select_font_face(cr,
-                           [AUICairoRendererSupport fontFamilyInFonts: fonts fontID: config->fontId],
+    cairo_save($assert_nonnil(context));
+    cairo_identity_matrix($assert_nonnil(context));
+    cairo_select_font_face($assert_nonnil(context),
+                           [AUICairoRenderSupport fontFamilyInFonts: fonts fontID: config->fontId],
                            CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, config->fontSize);
+    cairo_set_font_size($assert_nonnil(context), config->fontSize);
 
     cairo_text_extents_t textExtents;
     cairo_font_extents_t fontExtents;
-    cairo_text_extents(cr, textBuffer, &textExtents);
-    cairo_font_extents(cr, &fontExtents);
-    cairo_restore(cr);
 
+    cairo_text_extents($assert_nonnil(context), textBuffer, &textExtents);
+    cairo_font_extents($assert_nonnil(context), &fontExtents);
+    cairo_restore($assert_nonnil(context));
     free(textBuffer);
 
     return (Clay_Dimensions){
@@ -431,84 +437,5 @@ static Clay_Dimensions AUICairoMeasureTextBridge(Clay_StringSlice text,
             : fmax(fontExtents.height, textExtents.height))
     };
 }
-
-@implementation AUICairoRendererBackend {
-    void *nillable _clayMemory;
-    size_t _clayMemorySize;
-    Clay_Context *nillable _clayContext;
-}
-
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-{
-    self = [super initWithApplication: application];
-    _clayMemory = nullptr;
-    _clayMemorySize = 0;
-    _clayContext = nullptr;
-    return self;
-}
-
-- (void)dealloc
-{
-    if (_clayMemory != nullptr) {
-        free(_clayMemory);
-        _clayMemory = nullptr;
-    }
-}
-
-- (void)_prepareForViewportSize: (AUISize)viewportSize
-{
-    OFString *nillable clayError = nilptr;
-
-    if (_clayMemory == nullptr) {
-        _clayMemorySize = [AUIClay minimumMemorySize];
-        _clayMemory = malloc(_clayMemorySize);
-        if (_clayMemory == nullptr)
-            @throw [[AUIInitializationException alloc] initWithReason: @"Failed to allocate the Clay arena"];
-
-        [AUIClay clearError];
-        _clayContext = [AUIClay initializeWithMemory: $assert_nonnil(_clayMemory)
-                                                size: _clayMemorySize
-                                          dimensions: viewportSize];
-        clayError = [AUIClay consumeError];
-        if (clayError != nilptr)
-            @throw [[AUIInitializationException alloc] initWithReason: $assert_nonnil(clayError)];
-    }
-
-    [AUIClay setCurrentContext: _clayContext];
-    [AUIClay setLayoutDimensions: viewportSize];
-}
-
-- (void)_renderApplication: (AUIApplication *)application
-                 inputState: (AUIInputState *)inputState
-               viewportSize: (AUISize)viewportSize
-                      cairo: (cairo_t *)cairo
-{
-    Clay_RenderCommandArray commands;
-    OFString *nillable clayError = nilptr;
-
-    [self _prepareForViewportSize: viewportSize];
-    AUICairoRendererCurrentContext = cairo;
-    Clay_SetMeasureTextFunction(AUICairoMeasureTextBridge, async_ui_cairo_fonts);
-    [AUIClay setPointerPositionX: inputState.pointerX
-                                y: inputState.pointerY
-                             down: inputState.isPrimaryButtonDown];
-    commands = [application _buildRenderCommandsWithViewportSize: viewportSize
-                                                       deltaTime: (1.0f / 60.0f)];
-
-    clayError = [AUIClay consumeError];
-    if (clayError != nilptr)
-        @throw [[AUIRenderException alloc] initWithReason: $assert_nonnil(clayError)];
-
-    for (int32_t index = 0; index < commands.length; index++)
-        [AUICairoRendererSupport renderCommandWithContext: cairo
-                                                  command: Clay_RenderCommandArray_Get(&commands, index)
-                                                    fonts: async_ui_cairo_fonts];
-
-    clayError = [AUIClay consumeError];
-    if (clayError != nilptr)
-        @throw [[AUIRenderException alloc] initWithReason: $assert_nonnil(clayError)];
-}
-
-@end
 
 #pragma clang assume_nonnull end

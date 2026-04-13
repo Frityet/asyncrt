@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUISection : OFObject<AUICompositeRenderable>
+@interface AUISection : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable title;
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;

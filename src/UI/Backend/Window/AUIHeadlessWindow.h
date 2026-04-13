@@ -1,11 +1,11 @@
 #pragma once
 
-#import "UI/Backend/AUIWindowBackend.h"
+#import "UI/Backend/AUIWindow.h"
 
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIHeadlessWindowBackend : AUIWindowBackend
+@interface AUIHeadlessWindow : AUIWindow
 
 - (void)setViewportSize: (AUISize)viewportSize;
 - (void)sendPointerMoveToX: (float)x y: (float)y;

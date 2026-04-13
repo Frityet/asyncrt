@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIScrollView : OFObject<AUICompositeRenderable>
+@interface AUIScrollView : OFObject<AUIRenderable>
 
 @property(readonly, nonatomic) AUIScrollAxis axis;
 @property(readonly, retain, nonatomic) id<AUIRenderable> child;

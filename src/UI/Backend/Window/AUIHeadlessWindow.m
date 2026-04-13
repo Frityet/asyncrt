@@ -1,13 +1,17 @@
 #include <cairo.h>
 #include <stdlib.h>
 
-#import "UI/Backend/Window/AUIHeadlessWindowBackend.h"
-#import "UI/AUIBackend.h"
+#import "UI/Backend/AUICairoRenderSupport.h"
+#import "UI/Backend/Window/AUIHeadlessWindow.h"
 #import "UI/AUIInternal.h"
 
 #pragma clang assume_nonnull begin
 
-@implementation AUIHeadlessWindowBackend {
+static char *_Nonnull AUIHeadlessWindowFonts[] = {
+    (char *)"Sans"
+};
+
+@implementation AUIHeadlessWindow {
     bool _open;
     AUISize _viewportSize;
     double _scaleFactor;
@@ -88,8 +92,13 @@
 
 - (void)setViewportSize: (AUISize)viewportSize
 {
-    _viewportSize = viewportSize;
+    [self _setViewportSize: viewportSize];
     [self.application setNeedsRender];
+}
+
+- (void)_setViewportSize: (AUISize)viewportSize
+{
+    _viewportSize = viewportSize;
 }
 
 - (void)setCursorStyle: (AUICursorStyle)cursorStyle
@@ -159,9 +168,12 @@
     return true;
 }
 
-- (void)_renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock
+- (void)renderFrame
 {
-    if (not _open or renderBlock == nilptr or not [self _ensureSurface])
+    AUICairoTextMeasureContext measureContext;
+    Clay_RenderCommandArray commands;
+
+    if (not _open or not [self _ensureSurface])
         return;
 
     cairo_save($assert_nonnil(_cairo));
@@ -169,7 +181,16 @@
         cairo_set_operator($assert_nonnil(_cairo), CAIRO_OPERATOR_SOURCE);
         cairo_set_source_rgba($assert_nonnil(_cairo), 0.0, 0.0, 0.0, 0.0);
         cairo_paint($assert_nonnil(_cairo));
-        renderBlock($assert_nonnil(_cairo), _viewportSize);
+        measureContext = (AUICairoTextMeasureContext){
+            .context = $assert_nonnil(_cairo),
+            .fonts = AUIHeadlessWindowFonts
+        };
+        commands = [self _buildRenderCommandsForViewportSize: _viewportSize
+                                         textMeasureFunction: AUICairoMeasureText
+                                                    userData: &measureContext];
+        [AUICairoRenderSupport renderCommands: commands
+                                    onContext: $assert_nonnil(_cairo)
+                                        fonts: AUIHeadlessWindowFonts];
         cairo_surface_flush($assert_nonnil(_surface));
     } @finally {
         cairo_restore($assert_nonnil(_cairo));
@@ -178,37 +199,37 @@
 
 - (void)sendPointerMoveToX: (float)x y: (float)y
 {
-    [[self.application _inputState] movePointerToX: x y: y];
+    [self.application._inputState movePointerToX: x y: y];
     [self.application setNeedsRender];
 }
 
 - (void)sendMouseDown: (AUIMouseButton)button
 {
-    [[self.application _inputState] pressMouseButton: button];
+    [self.application._inputState pressMouseButton: button];
     [self.application setNeedsRender];
 }
 
 - (void)sendMouseUp: (AUIMouseButton)button
 {
-    [[self.application _inputState] releaseMouseButton: button];
+    [self.application._inputState releaseMouseButton: button];
     [self.application setNeedsRender];
 }
 
 - (void)sendScrollByX: (float)deltaX y: (float)deltaY
 {
-    [[self.application _inputState] scrollByX: deltaX y: deltaY];
+    [self.application._inputState scrollByX: deltaX y: deltaY];
     [self.application setNeedsRender];
 }
 
 - (void)sendKey: (AUIKey)key modifiers: (AUIModifierFlags)modifiers repeat: (bool)repeat
 {
-    [[self.application _inputState] addKey: key modifiers: modifiers repeat: repeat];
+    [self.application._inputState addKey: key modifiers: modifiers repeat: repeat];
     [self.application setNeedsRender];
 }
 
 - (void)sendText: (OFString *nillable)text
 {
-    [[self.application _inputState] insertText: text];
+    [self.application._inputState insertText: text];
     [self.application setNeedsRender];
 }
 

@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIButton : OFObject<AUICompositeRenderable>
+@interface AUIButton : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *title;
 @property(readonly, nonatomic) AUIControlVariant variant;

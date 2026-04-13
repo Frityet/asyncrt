@@ -16,11 +16,10 @@
 #import <Carbon/Carbon.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-#include <cairo.h>
 #include <stdlib.h>
 
-#import "UI/Backend/Window/AUICocoaWindowBackend.h"
-#import "UI/AUIBackend.h"
+#import "UI/Backend/AUICoreGraphicsRenderSupport.h"
+#import "UI/Backend/Window/AUICoreGraphicsWindow.h"
 #import "UI/AUIInternal.h"
 
 
@@ -96,42 +95,106 @@
 
 @end
 
+@protocol AUINativeWindowDelegate <NSObject>
+
+- (void)nativeWindowWillClose: (NSWindow *)window;
+- (void)nativeWindowDidBecomeKey: (NSWindow *)window;
+- (void)nativeWindowDidBecomeMain: (NSWindow *)window;
+
+@end
+
 [[subclassing_restricted]]
-@interface AUICocoaRenderView : NSView {
+@interface AUICoreGraphicsNativeWindow : NSWindow<NSWindowDelegate>
+
+@property(nonatomic, assign) id<AUINativeWindowDelegate> nillable windowDelegate;
+
+@end
+
+@implementation AUICoreGraphicsNativeWindow {
+    unretained id<AUINativeWindowDelegate> nillable _windowDelegate;
+}
+
+@synthesize windowDelegate = _windowDelegate;
+
+- (instancetype)initWithContentRect: (NSRect)contentRect
+                          styleMask: (NSWindowStyleMask)style
+                            backing: (NSBackingStoreType)bufferingType
+                              defer: (BOOL)flag
+{
+    self = [super initWithContentRect: contentRect
+                            styleMask: style
+                              backing: bufferingType
+                                defer: flag];
+    if (self == nilptr)
+        return nilptr;
+
+    self.delegate = self;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    self.releasedWhenClosed = NO;
+#pragma clang diagnostic pop
+    return self;
+}
+
+- (void)windowWillClose: (NSNotification *)notification
+{
+    (void)notification;
+
+    if (_windowDelegate != nilptr)
+        [$assert_nonnil(_windowDelegate) nativeWindowWillClose: self];
+}
+
+- (void)windowDidBecomeKey: (NSNotification *)notification
+{
+    (void)notification;
+
+    if (_windowDelegate != nilptr)
+        [$assert_nonnil(_windowDelegate) nativeWindowDidBecomeKey: self];
+}
+
+- (void)windowDidBecomeMain: (NSNotification *)notification
+{
+    (void)notification;
+
+    if (_windowDelegate != nilptr)
+        [$assert_nonnil(_windowDelegate) nativeWindowDidBecomeMain: self];
+}
+
+@end
+
+[[subclassing_restricted]]
+@interface AUICoreGraphicsRenderView : NSView {
 @private
-    unretained AUICocoaWindowBackend *_backend;
+    unretained AUICoreGraphicsWindow *_backend;
     NSTrackingArea *nillable _trackingArea;
-    //TODO: decouple from cairo
-    cairo_surface_t *nillable _imageSurface;
-    cairo_t *nillable _imageContext;
+    CGContextRef nillable _bitmapContext;
     unsigned char *nillable _imageData;
     CGColorSpaceRef nillable _colorSpace;
-    CGDataProviderRef nillable _dataProvider;
     CGImageRef nillable _image;
     size_t _stride;
     int _pixelWidth;
     int _pixelHeight;
 }
 
-- (instancetype)initWithBackend: (AUICocoaWindowBackend *)backend frame: (NSRect)frameRect;
+- (instancetype)initWithBackend: (AUICoreGraphicsWindow *)backend frame: (NSRect)frameRect;
 - (void)disconnectBackend;
 - (AUISize)pixelSize;
-- (void)renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock;
+- (NSPoint)ui_backingPointForViewPoint: (NSPoint)point;
+- (void)ui_takeInputFocus;
+- (void)renderFrameWithBlock: (void (^)(CGContextRef context, AUISize viewportSize))renderBlock;
 
 @end
 
-@implementation AUICocoaRenderView
+@implementation AUICoreGraphicsRenderView
 
-- (instancetype)initWithBackend: (AUICocoaWindowBackend *)backend frame: (NSRect)frameRect
+- (instancetype)initWithBackend: (AUICoreGraphicsWindow *)backend frame: (NSRect)frameRect
 {
     self = [super initWithFrame: frameRect];
     _backend = backend;
     _trackingArea = nilptr;
-    _imageSurface = nullptr;
-    _imageContext = nullptr;
+    _bitmapContext = nullptr;
     _imageData = nullptr;
     _colorSpace = nullptr;
-    _dataProvider = nullptr;
     _image = nullptr;
     _stride = 0;
     _pixelWidth = 0;
@@ -184,7 +247,7 @@
 {
     AUIApplication *application;
 
-    [super setFrameSize: newSize];
+    super.frameSize = newSize;
     application = self.ui_application;
     if (application != nilptr)
         [application setNeedsRender];
@@ -193,11 +256,7 @@
 - (void)viewDidMoveToWindow
 {
     [super viewDidMoveToWindow];
-
-    if (self.window != nilptr) {
-        self.window.acceptsMouseMovedEvents = true;
-        [self.window makeFirstResponder: self];
-    }
+    [self ui_takeInputFocus];
 }
 
 - (void)updateTrackingAreas
@@ -231,16 +290,29 @@
     return [AUI sizeWithWidth: (float)backingBounds.size.width height: (float)backingBounds.size.height];
 }
 
+- (NSPoint)ui_backingPointForViewPoint: (NSPoint)point
+{
+    NSPoint backingPoint = [self convertPointToBacking: point];
+
+    // Flipped NSViews preserve the x scale in backing coordinates but report y
+    // as a negated value relative to the top-left render space used by AUI.
+    backingPoint.y = -backingPoint.y;
+    return backingPoint;
+}
+
 - (NSPoint)ui_backingPointForEvent: (NSEvent *)event
 {
     NSPoint point = [self convertPoint: event.locationInWindow fromView: nilptr];
-    NSPoint backingPoint = [self convertPointToBacking: point];
-    AUISize viewportSize = self.pixelSize;
 
-    if (viewportSize.height > 0)
-        backingPoint.y = viewportSize.height - backingPoint.y;
+    return [self ui_backingPointForViewPoint: point];
+}
 
-    return backingPoint;
+- (void)ui_takeInputFocus
+{
+    if (self.window != nilptr) {
+        self.window.acceptsMouseMovedEvents = true;
+        [self.window makeFirstResponder: self];
+    }
 }
 
 - (void)ui_updatePointerForEvent: (NSEvent *)event
@@ -291,24 +363,14 @@
         _image = nullptr;
     }
 
-    if (_dataProvider != nullptr) {
-        CGDataProviderRelease(_dataProvider);
-        _dataProvider = nullptr;
-    }
-
     if (_colorSpace != nullptr) {
         CGColorSpaceRelease(_colorSpace);
         _colorSpace = nullptr;
     }
 
-    if (_imageContext != nullptr) {
-        cairo_destroy(_imageContext);
-        _imageContext = nullptr;
-    }
-
-    if (_imageSurface != nullptr) {
-        cairo_surface_destroy(_imageSurface);
-        _imageSurface = nullptr;
+    if (_bitmapContext != nullptr) {
+        CGContextRelease(_bitmapContext);
+        _bitmapContext = nullptr;
     }
 
     if (_imageData != nullptr) {
@@ -326,7 +388,6 @@
     NSRect backingBounds = [self convertRectToBacking: self.bounds];
     int pixelWidth = (int)backingBounds.size.width;
     int pixelHeight = (int)backingBounds.size.height;
-    int stride;
     CGBitmapInfo bitmapInfo;
 
     if (pixelWidth <= 0 or pixelHeight <= 0) {
@@ -334,34 +395,18 @@
         return false;
     }
 
-    if (_image != nullptr and pixelWidth == _pixelWidth and pixelHeight == _pixelHeight)
+    if (_bitmapContext != nullptr and pixelWidth == _pixelWidth and pixelHeight == _pixelHeight)
         return true;
 
     [self ui_discardBackingStore];
 
-    stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, pixelWidth);
-    if (stride <= 0)
+    _stride = ((size_t)pixelWidth * 4u + 15u) & ~(size_t)15u;
+    if (_stride == 0)
         return false;
 
-    _imageData = calloc((size_t)pixelHeight, (size_t)stride);
+    _imageData = calloc((size_t)pixelHeight, _stride);
     if (_imageData == nullptr)
         return false;
-
-    _imageSurface = cairo_image_surface_create_for_data(_imageData,
-                                                        CAIRO_FORMAT_ARGB32,
-                                                        pixelWidth,
-                                                        pixelHeight,
-                                                        stride);
-    if (cairo_surface_status(_imageSurface) != CAIRO_STATUS_SUCCESS) {
-        [self ui_discardBackingStore];
-        return false;
-    }
-
-    _imageContext = cairo_create(_imageSurface);
-    if (cairo_status(_imageContext) != CAIRO_STATUS_SUCCESS) {
-        [self ui_discardBackingStore];
-        return false;
-    }
 
     _colorSpace = CGColorSpaceCreateDeviceRGB();
     if (_colorSpace == nullptr) {
@@ -369,56 +414,52 @@
         return false;
     }
 
-    _dataProvider = CGDataProviderCreateWithData(nullptr,
-                                                 _imageData,
-                                                 (size_t)stride * (size_t)pixelHeight,
-                                                 nullptr);
-    if (_dataProvider == nullptr) {
-        [self ui_discardBackingStore];
-        return false;
-    }
-
     bitmapInfo = kCGBitmapByteOrder32Host | (CGBitmapInfo)kCGImageAlphaPremultipliedFirst;
-    _image = CGImageCreate((size_t)pixelWidth,
-                           (size_t)pixelHeight,
-                           8,
-                           32,
-                           (size_t)stride,
-                           _colorSpace,
-                           bitmapInfo,
-                           _dataProvider,
-                           nullptr,
-                           false,
-                           kCGRenderingIntentDefault);
-    if (_image == nullptr) {
+    _bitmapContext = CGBitmapContextCreate(_imageData,
+                                           (size_t)pixelWidth,
+                                           (size_t)pixelHeight,
+                                           8,
+                                           _stride,
+                                           _colorSpace,
+                                           bitmapInfo);
+    if (_bitmapContext == nullptr) {
         [self ui_discardBackingStore];
         return false;
     }
 
-    _stride = (size_t)stride;
     _pixelWidth = pixelWidth;
     _pixelHeight = pixelHeight;
     return true;
 }
 
-- (void)renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock
+- (void)renderFrameWithBlock: (void (^)(CGContextRef context, AUISize viewportSize))renderBlock
 {
-    if (renderBlock == nilptr or not [self ui_ensureBackingStore] or _imageContext == nullptr)
+    AUISize viewportSize;
+
+    if (renderBlock == nilptr or not [self ui_ensureBackingStore] or _bitmapContext == nullptr)
         return;
 
-    cairo_save($assert_nonnil(_imageContext));
+    viewportSize = self.pixelSize;
+    CGContextSaveGState($assert_nonnil(_bitmapContext));
     @try {
-        cairo_reset_clip($assert_nonnil(_imageContext));
-        cairo_identity_matrix($assert_nonnil(_imageContext));
-        cairo_set_operator($assert_nonnil(_imageContext), CAIRO_OPERATOR_SOURCE);
-        cairo_set_source_rgba($assert_nonnil(_imageContext), 0.0, 0.0, 0.0, 0.0);
-        cairo_paint($assert_nonnil(_imageContext));
-        renderBlock($assert_nonnil(_imageContext), self.pixelSize);
+        CGContextResetClip($assert_nonnil(_bitmapContext));
+        CGContextSetBlendMode($assert_nonnil(_bitmapContext), kCGBlendModeCopy);
+        CGContextClearRect($assert_nonnil(_bitmapContext),
+                           CGRectMake(0.0, 0.0, viewportSize.width, viewportSize.height));
+        CGContextSetBlendMode($assert_nonnil(_bitmapContext), kCGBlendModeNormal);
+        CGContextTranslateCTM($assert_nonnil(_bitmapContext), 0.0, viewportSize.height);
+        CGContextScaleCTM($assert_nonnil(_bitmapContext), 1.0, -1.0);
+        renderBlock($assert_nonnil(_bitmapContext), viewportSize);
     } @finally {
-        cairo_restore($assert_nonnil(_imageContext));
+        CGContextRestoreGState($assert_nonnil(_bitmapContext));
     }
 
-    cairo_surface_flush($assert_nonnil(_imageSurface));
+    if (_image != nullptr) {
+        CGImageRelease(_image);
+        _image = nullptr;
+    }
+
+    _image = CGBitmapContextCreateImage($assert_nonnil(_bitmapContext));
     self.needsDisplay = true;
 }
 
@@ -542,7 +583,11 @@
 
 @end
 
-@interface AUICocoaWindowBackend ()<NSWindowDelegate>
+@interface AUICoreGraphicsWindow ()<AUINativeWindowDelegate>
+
+- (bool)ui_systemUsesDarkModeForApplication: (NSApplication *nillable)application;
+- (void)ui_applyAppearance;
+
 @end
 
 [[subclassing_restricted]]
@@ -671,10 +716,10 @@
 
 @end
 
-@implementation AUICocoaWindowBackend {
+@implementation AUICoreGraphicsWindow {
     bool _open;
-    NSWindow *nillable _window;
-    AUICocoaRenderView *nillable _renderView;
+    AUICoreGraphicsNativeWindow *nillable _window;
+    AUICoreGraphicsRenderView *nillable _renderView;
     AUICursorStyle _cursorStyle;
 }
 
@@ -780,17 +825,46 @@
     return $assert_nonnil(_window).backingScaleFactor;
 }
 
-- (void)ui_detachRenderView
+- (bool)ui_systemUsesDarkModeForApplication: (NSApplication *nillable)application
+{
+    NSString *nillable appearanceName = nilptr;
+
+    if (application == nilptr)
+        return false;
+
+    appearanceName = [$assert_nonnil(application).effectiveAppearance bestMatchFromAppearancesWithNames: @[
+        NSAppearanceNameAqua,
+        NSAppearanceNameDarkAqua
+    ]];
+
+    return (appearanceName != nilptr and [$assert_nonnil(appearanceName) isEqualToString: NSAppearanceNameDarkAqua]);
+}
+
+- (void)ui_applyAppearance
+{
+    NSString *appearanceName = (self.isDarkMode ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua);
+    NSAppearance *nillable appearance = [NSAppearance appearanceNamed: appearanceName];
+
+    if (_window != nilptr)
+        $assert_nonnil(_window).appearance = appearance;
+    if (_renderView != nilptr)
+        $assert_nonnil(_renderView).appearance = appearance;
+}
+
+- (void)ui_detachRenderViewFromWindow: (AUICoreGraphicsNativeWindow *nillable)window
 {
     if (_renderView == nilptr)
         return;
+
+    if (window != nilptr and [$assert_nonnil(window) firstResponder] == $assert_nonnil(_renderView))
+        [$assert_nonnil(window) makeFirstResponder: nilptr];
 
     [$assert_nonnil(_renderView) disconnectBackend];
     [$assert_nonnil(_renderView) removeFromSuperview];
     _renderView = nilptr;
 }
 
-- (void)ui_activateWindow: (NSWindow *nillable)window application: (NSApplication *nillable)application
+- (void)ui_activateWindow: (AUICoreGraphicsNativeWindow *nillable)window application: (NSApplication *nillable)application
 {
     NSRunningApplication *currentApplication;
 
@@ -811,6 +885,57 @@
     [application updateWindows];
 }
 
+- (void)ui_updateTestingPointerForViewX: (float)x y: (float)y
+{
+    if (_renderView == nilptr)
+        return;
+
+    NSPoint point = [$assert_nonnil(_renderView) ui_backingPointForViewPoint: NSMakePoint((CGFloat)x, (CGFloat)y)];
+
+    [self.application._inputState movePointerToX: (float)point.x y: (float)point.y];
+}
+
+- (void)_sendPointerMoveForTestingWithViewX: (float)x y: (float)y
+{
+    [self ui_updateTestingPointerForViewX: x y: y];
+    [self.application setNeedsRender];
+}
+
+- (void)_sendMouseDownForTestingWithViewX: (float)x y: (float)y
+{
+    if (_window != nilptr and _renderView != nilptr)
+        [$assert_nonnil(_window) makeFirstResponder: $assert_nonnil(_renderView)];
+
+    [self ui_updateTestingPointerForViewX: x y: y];
+    [self.application._inputState pressMouseButton: AUIMouseButtonPrimary];
+    [self.application setNeedsRender];
+}
+
+- (void)_sendMouseUpForTestingWithViewX: (float)x y: (float)y
+{
+    [self ui_updateTestingPointerForViewX: x y: y];
+    [self.application._inputState releaseMouseButton: AUIMouseButtonPrimary];
+    [self.application setNeedsRender];
+}
+
+- (void)ui_finishClosingWindow: (AUICoreGraphicsNativeWindow *nillable)window
+               performNativeClose: (bool)performNativeClose
+{
+    if (window == nilptr)
+        return;
+
+    [self ui_detachRenderViewFromWindow: $assert_nonnil(window)];
+    [$assert_nonnil(window) setWindowDelegate: nilptr];
+
+    if (_window == window)
+        _window = nilptr;
+
+    if (performNativeClose) {
+        [$assert_nonnil(window) orderOut: nilptr];
+        [$assert_nonnil(window) close];
+    }
+}
+
 - (void)openWindow
 {
     NSApplication *sharedApplication;
@@ -818,11 +943,14 @@
     NSRect frame;
 
     if (not NSThread.isMainThread)
-        @throw [[AUIInitializationException alloc] initWithReason: @"AUICocoaWindowBackend must be used on the main thread"];
+        @throw [[AUIInitializationException alloc] initWithReason: @"AUICoreGraphicsWindow must be used on the main thread"];
 
     sharedApplication = [AUICocoaApplicationSupport ensureCocoaApplication];
+    if (not self._hasExplicitDarkMode)
+        [self _setDarkMode: [self ui_systemUsesDarkModeForApplication: sharedApplication] explicitly: false];
 
     if (_window != nilptr) {
+        [self ui_applyAppearance];
         [self ui_activateWindow: $assert_nonnil(_window) application: sharedApplication];
         _open = true;
         return;
@@ -835,12 +963,12 @@
         NSWindow.allowsAutomaticWindowTabbing = NO;
 
     frame = NSMakeRect(0.0, 0.0, self.options.initialSize.width, self.options.initialSize.height);
-    _window = [[NSWindow alloc] initWithContentRect: frame
-                                          styleMask: styleMask
-                                            backing: NSBackingStoreBuffered
-                                              defer: NO];
+    _window = [[AUICoreGraphicsNativeWindow alloc] initWithContentRect: frame
+                                                             styleMask: styleMask
+                                                               backing: NSBackingStoreBuffered
+                                                                 defer: NO];
     if (_window == nilptr)
-        @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the Cocoa window"];
+        @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the CoreGraphics window"];
 
     {
         NSString *title = self.options.title.NSObject;
@@ -850,13 +978,14 @@
     }
     if ([_window respondsToSelector: @selector(setTabbingMode:)])
         _window.tabbingMode = NSWindowTabbingModeDisallowed;
-    _window.delegate = self;
-    _renderView = [[AUICocoaRenderView alloc] initWithBackend: self frame: _window.contentView.bounds];
+    _window.windowDelegate = self;
+    _renderView = [[AUICoreGraphicsRenderView alloc] initWithBackend: self frame: _window.contentView.bounds];
     if (_renderView == nilptr)
-        @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the Cocoa render view"];
+        @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the CoreGraphics render view"];
 
     $assert_nonnil(_renderView).autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     [$assert_nonnil(_window).contentView addSubview: $assert_nonnil(_renderView)];
+    [self ui_applyAppearance];
     [_window center];
     _open = true;
     [self ui_activateWindow: $assert_nonnil(_window) application: sharedApplication];
@@ -889,34 +1018,55 @@
 
 - (void)closeWindow
 {
-    __unsafe_unretained NSWindow *window = _window;
+    AUICoreGraphicsNativeWindow *window = _window;
 
     _open = false;
     [NSApplication.sharedApplication stop: nilptr];
-    [self ui_detachRenderView];
-
-    if (window != nilptr) {
-        [$assert_nonnil(window) setDelegate: nilptr];
-        if ([$assert_nonnil(window) isVisible] or [$assert_nonnil(window) isMiniaturized])
-            [$assert_nonnil(window) close];
-    }
-
-    _window = nilptr;
+    [self ui_finishClosingWindow: window performNativeClose: true];
 }
 
-- (void)windowWillClose: (NSNotification *)notification
+- (void)nativeWindowWillClose: (NSWindow *)window
 {
-    __unsafe_unretained NSWindow *closingWindow = notification.object;
-
     _open = false;
     [NSApplication.sharedApplication stop: nilptr];
-    [self ui_detachRenderView];
 
-    if (closingWindow != nilptr) {
-        [$assert_nonnil(closingWindow) setDelegate: nilptr];
-        if (_window == closingWindow)
-            _window = nilptr;
-    }
+    [self ui_finishClosingWindow: (AUICoreGraphicsNativeWindow *)window performNativeClose: false];
+}
+
+- (void)nativeWindowDidBecomeKey: (NSWindow *)window
+{
+    if (_renderView != nilptr and _window != nilptr and window == $assert_nonnil(_window))
+        [$assert_nonnil(_renderView) ui_takeInputFocus];
+}
+
+- (void)nativeWindowDidBecomeMain: (NSWindow *)window
+{
+    [self nativeWindowDidBecomeKey: window];
+}
+
+- (void)_setViewportSize: (AUISize)viewportSize
+{
+    CGFloat scaleFactor;
+    NSSize contentSize;
+
+    if (_window == nilptr)
+        return;
+
+    scaleFactor = (CGFloat)self.scaleFactor;
+    if (scaleFactor <= 0.0)
+        scaleFactor = 1.0;
+
+    contentSize = NSMakeSize((CGFloat)viewportSize.width / scaleFactor,
+                             (CGFloat)viewportSize.height / scaleFactor);
+    _window.contentSize = contentSize;
+    if (_renderView != nilptr)
+        _renderView.frame = _window.contentView.bounds;
+}
+
+- (void)setDarkMode: (bool)darkMode
+{
+    super.isDarkMode = darkMode;
+    [self ui_applyAppearance];
 }
 
 - (void)setCursorStyle: (AUICursorStyle)cursorStyle
@@ -961,12 +1111,24 @@
     }
 }
 
-- (void)_renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock
+- (void)renderFrame
 {
     if (not _open or _renderView == nilptr)
         return;
 
-    [$assert_nonnil(_renderView) renderFrameWithBlock: renderBlock];
+    [$assert_nonnil(_renderView) renderFrameWithBlock: ^(CGContextRef context, AUISize viewportSize) {
+        AUICoreGraphicsTextMeasureContext measureContext = {
+            .fontFamilies = nullptr
+        };
+        Clay_RenderCommandArray commands = [self _buildRenderCommandsForViewportSize: viewportSize
+                                                                 textMeasureFunction: AUICoreGraphicsMeasureText
+                                                                            userData: &measureContext];
+
+        [AUICoreGraphicsRenderSupport renderCommands: commands
+                                           onContext: context
+                                        viewportSize: viewportSize
+                                        fontFamilies: nullptr];
+    }];
     [_window displayIfNeeded];
 }
 

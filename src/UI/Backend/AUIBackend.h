@@ -1,12 +1,25 @@
 #pragma once
 
 #import "UI/Backend/AUIInput.h"
-#import "UI/Backend/AUIRendererBackend.h"
-#import "UI/Backend/AUIWindowBackend.h"
+#import "UI/Backend/AUIWindow.h"
 #import "UI/Backend/AUIWindowOptions.h"
-#import "UI/Backend/Renderer/AUICairoRendererBackend.h"
-#import "UI/Backend/Window/AUICocoaWindowBackend.h"
-#import "UI/Backend/Window/AUIX11WindowBackend.h"
+#import "UI/Backend/Window/AUIHeadlessWindow.h"
+
+#if !defined(AUI_HAS_CORE_GRAPHICS_WINDOW)
+#   define AUI_HAS_CORE_GRAPHICS_WINDOW 0
+#endif
+
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+#   import "UI/Backend/Window/AUICoreGraphicsWindow.h"
+#endif
+
+#if !defined(AUI_HAS_CAIRO_X11_WINDOW)
+#   define AUI_HAS_CAIRO_X11_WINDOW 0
+#endif
+
+#if AUI_HAS_CAIRO_X11_WINDOW
+#   import "UI/Backend/Window/AUICairoX11Window.h"
+#endif
 
 #pragma clang assume_nonnull begin
 

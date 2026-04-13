@@ -54,15 +54,17 @@
 }
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
+                             window: (AUIWindow *nillable)window
                        viewportSize: (AUISize)viewportSize
                           frameDate: (OFDate *nillable)frameDate
                         elapsedTime: (OFTimeInterval)elapsedTime
 {
-    if (application == nilptr or frameDate == nilptr)
+    if (application == nilptr or window == nilptr or frameDate == nilptr)
         @throw [OFInvalidArgumentException exception];
 
     self = [super init];
     _application = $assert_nonnil(application);
+    _window = $assert_nonnil(window);
     _viewportSize = viewportSize;
     _frameDate = [$assert_nonnil(frameDate) copy];
     _elapsedTime = elapsedTime;

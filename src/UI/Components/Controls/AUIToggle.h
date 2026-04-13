@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIToggle : OFObject<AUICompositeRenderable>
+@interface AUIToggle : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *label;
 @property(readonly, nonatomic) bool isChecked;

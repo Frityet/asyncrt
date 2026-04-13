@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIBadge : OFObject<AUICompositeRenderable>
+@interface AUIBadge : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *text;
 @property(readonly, nonatomic) AUIControlVariant variant;

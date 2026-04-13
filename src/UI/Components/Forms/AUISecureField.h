@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUISecureField : OFObject<AUICompositeRenderable>
+@interface AUISecureField : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable text;
 @property(readonly, copy, nonatomic) OFString *placeholder;

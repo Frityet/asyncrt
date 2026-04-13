@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIHStack : OFObject<AUICompositeRenderable>
+@interface AUIHStack : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;
 @property(readonly, nonatomic) uint16_t gap;

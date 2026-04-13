@@ -13,8 +13,7 @@
 
 - (AUIComponent *)makeRootComponent;
 - (AUIWindowOptions *)windowOptions;
-- (AUIWindowBackend *)makeWindowBackend;
-- (AUIRendererBackend *)makeRendererBackend;
+- (AUIWindow *)makeWindow;
 - (void)setNeedsRender;
 
 @end

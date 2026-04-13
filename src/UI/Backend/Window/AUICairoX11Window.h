@@ -1,11 +1,11 @@
 #pragma once
 
-#import "UI/Backend/AUIWindowBackend.h"
+#import "UI/Backend/AUIWindow.h"
 
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIX11WindowBackend : AUIWindowBackend
+@interface AUICairoX11Window : AUIWindow
 @end
 
 #pragma clang assume_nonnull end

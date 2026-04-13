@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIProgressBar : OFObject<AUICompositeRenderable>
+@interface AUIProgressBar : OFObject<AUIRenderable>
 
 @property(readonly, nonatomic) float progress;
 @property(readonly, nonatomic) AUIControlVariant variant;

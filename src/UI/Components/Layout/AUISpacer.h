@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUISpacer : OFObject<AUICompositeRenderable>
+@interface AUISpacer : OFObject<AUIRenderable>
 
 @property(readonly, nonatomic) AUILayoutAxis width;
 @property(readonly, nonatomic) AUILayoutAxis height;

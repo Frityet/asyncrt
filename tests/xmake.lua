@@ -1,0 +1,157 @@
+local common = asyncrt_build
+
+local async_runtime_test_cases = {
+    {name = "default_scheduler_lifecycle", group = "sync/scheduler"},
+    {name = "coroutine_roundtrip_states", group = "sync/coroutine"},
+    {name = "coroutine_return_short_circuits", group = "sync/coroutine"},
+    {name = "coroutine_exception_propagation", group = "sync/coroutine"},
+    {name = "coroutine_fast_enumeration", group = "sync/coroutine"},
+    {name = "coroutine_default_stack_size", group = "sync/coroutine"},
+    {name = "coroutine_guard_and_common_coverage", group = "sync/coroutine"},
+    {name = "runtime_internal_description_coverage", group = "sync/runtime"},
+    {name = "scheduler_channel_private_branches", group = "sync/runtime"},
+    {name = "utility_internal_branch_coverage", group = "sync/runtime"},
+    {name = "promise_await_outside_task", group = "sync/promise"},
+    {name = "promise_resolution_guards", group = "sync/promise"},
+    {name = "promise_state_access_guards", group = "sync/promise"},
+    {name = "promise_nil_resolution_and_rejection", group = "sync/promise"},
+    {name = "promise_continuation_scheduler_requirements", group = "sync/promise"},
+    {name = "async_unit_singleton", group = "sync/runtime"},
+    {name = "async_scheduler_invalid_initialization", group = "sync/scheduler"},
+    {name = "signal_change_notifications", group = "utilities/signal"},
+    {name = "signal_equal_objects_suppress_notifications", group = "utilities/signal"},
+    {name = "signal_subscription_cleanup_stops_notifications", group = "utilities/signal"},
+    {name = "computed_caches_until_dependencies_change", group = "utilities/signal"},
+    {name = "effect_tracks_dependencies_and_cleanup", group = "utilities/signal"},
+    {name = "pointer_basic_data_view", group = "utilities/pointer"},
+    {name = "pointer_nullptr_roundtrip", group = "utilities/pointer"},
+    {name = "pointer_ordering_and_copying", group = "utilities/pointer"},
+    {name = "pointer_compare_against_plain_data", group = "utilities/pointer"},
+    {name = "pointer_string_encoding_and_description", group = "utilities/pointer"},
+    {name = "optional_from_nillable_nil_is_none", group = "utilities/optional"},
+    {name = "optional_roundtrip_equality_and_description", group = "utilities/optional"},
+    {name = "optional_some_retains_payload_across_autorelease_pool", group = "utilities/optional"},
+    {name = "optional_some_accepts_tagged_payloads", group = "utilities/optional"},
+    {name = "component_mount_unmount_recursion_and_child_replacement", group = "ui"},
+    {name = "set_needs_render_bubbles_to_application", group = "ui"},
+    {name = "render_dependency_tracking_for_signal", group = "ui"},
+    {name = "render_dependency_tracking_for_async_signal", group = "ui"},
+    {name = "duplicate_child_component_references_are_rejected", group = "ui"},
+    {name = "shared_child_component_under_multiple_parents_is_rejected", group = "ui"},
+    {name = "component_catalog_renders_commands", group = "ui"},
+    {name = "application_launch_closes_backend_on_open_failure", group = "ui"},
+    {name = "application_launch_renders_first_frame_and_cleans_up", group = "ui"},
+    {name = "application_launch_processes_multiple_async_render_requests", group = "ui"},
+    {name = "application_launch_auto_resizes_window_to_root_component", group = "ui"},
+    {name = "render_context_exposes_window_dark_mode_and_window_setter_requests_render", group = "ui"},
+    {name = "objfw_bridge_string_round_trip", group = "ui"},
+    {name = "core_graphics_window_prepares_foreground_application", group = "ui"},
+    {name = "core_graphics_window_open_perform_close_and_cleanup", group = "ui"},
+    {name = "application_make_window_selects_platform_default_backend", group = "ui"},
+    {name = "cairo_x11_window_availability_and_smoke", group = "ui"},
+    {name = "button_press_invokes_callback", group = "ui"},
+    {name = "toggle_and_radio_controls_dispatch_controlled_changes", group = "ui"},
+    {name = "text_fields_focus_edit_submit_and_tab_navigation", group = "ui"},
+    {name = "text_area_secure_mask_scroll_and_stable_focus", group = "ui"},
+    {name = "clipboard_shortcuts_round_trip_through_backend", group = "ui"},
+    {name = "context_menu_opens_activates_and_dismisses", group = "ui"},
+    {name = "argument_parser_binds_nested_command_instances", group = "utilities/argument-parser"},
+    {name = "argument_parser_renders_help_text", group = "utilities/argument-parser"},
+    {name = "argument_parser_reports_missing_required_positional", group = "utilities/argument-parser"},
+    {name = "argument_parser_requires_initialized_cli_nodes", group = "utilities/argument-parser"},
+    {name = "argument_parser_internal_helpers", group = "utilities/argument-parser"},
+    {name = "argument_parser_error_branches", group = "utilities/argument-parser"},
+    {name = "argument_parser_schema_validation", group = "utilities/argument-parser"},
+    {name = "promise_await_and_protocol", group = "async/promise"},
+    {name = "promise_rejection_paths", group = "async/promise"},
+    {name = "promise_combinators", group = "async/promise"},
+    {name = "promise_continuation_scheduler_capture", group = "async/promise"},
+    {name = "promise_collection_helpers", group = "async/promise"},
+    {name = "promise_continuation_and_scope_internal_branches", group = "async/promise"},
+    {name = "task_metadata_and_resolution", group = "async/task"},
+    {name = "task_returned_nil_exception", group = "async/task"},
+    {name = "cross_thread_promise_resolution", group = "async/promise"},
+    {name = "self_await_rejected", group = "async/task"},
+    {name = "scope_waits_for_children", group = "async/scope"},
+    {name = "scope_failure_cancels_siblings", group = "async/scope"},
+    {name = "scope_spawn_all", group = "async/scope"},
+    {name = "task_cancellation_checkpoint", group = "async/task"},
+    {name = "timeout_cancels_children", group = "async/scope"},
+    {name = "past_deadline_fails_immediately", group = "async/scope"},
+    {name = "parent_scope_cancellation_propagates", group = "async/scope"},
+    {name = "scheduler_offload_roundtrip", group = "async/scheduler"},
+    {name = "scheduler_snapshot_waiting_task", group = "async/scheduler"},
+    {name = "scheduler_shutdown_rejects_offload", group = "async/scheduler"},
+    {name = "scheduler_cancellation_counter", group = "async/scheduler"},
+    {name = "scheduler_offload_failure_paths", group = "async/scheduler"},
+    {name = "scheduler_sleep_shortcuts", group = "async/scheduler"},
+    {name = "async_signal_next_waits_for_change", group = "async/signal"},
+    {name = "async_signal_nil_values_and_cancellation", group = "async/signal"},
+    {name = "async_computed_caches_until_signal_changes", group = "async/signal"},
+    {name = "channel_rendezvous", group = "async/channel"},
+    {name = "channel_buffer_backpressure_and_snapshot", group = "async/channel"},
+    {name = "channel_close_semantics", group = "async/channel"},
+    {name = "channel_close_unblocks_waiters", group = "async/channel"},
+    {name = "channel_send_cancellation", group = "async/channel"},
+    {name = "channel_receive_cancellation", group = "async/channel"},
+    {name = "channel_multi_producer_consumer", group = "async/channel"},
+    {name = "objfw_tcp_stream_wrappers", group = "async/objfw"},
+    {name = "objfw_stream_eof_optionals", group = "async/objfw"},
+    {name = "objfw_datagram_send_receive", group = "async/objfw"},
+    {name = "objfw_stream_buffer_selector_coverage", group = "async/objfw"},
+    {name = "objfw_stream_string_cancel_selector_coverage", group = "async/objfw"},
+    {name = "objfw_stream_string_encoding_selector_coverage", group = "async/objfw"},
+    {name = "objfw_stream_string_encoding_cancel_selector_coverage", group = "async/objfw"},
+    {name = "objfw_stream_line_selector_coverage", group = "async/objfw"},
+    {name = "objfw_iri_handler_wrappers", group = "async/objfw"},
+    {name = "objfw_dns_static_host_resolution", group = "async/objfw"},
+    {name = "objfw_tls_client_handshake_failure", group = "async/objfw"},
+    {name = "objfw_tls_server_handshake_failure", group = "async/objfw"},
+    {name = "objfw_unix_sequenced_packet_wrappers", group = "async/objfw"},
+    {name = "objfw_unix_sequenced_packet_cancel_overloads", group = "async/objfw"},
+    {name = "objfw_dns_query_local_stub", group = "async/objfw"},
+    {name = "objfw_support_and_dns_internal_branches", group = "async/objfw"},
+    {name = "objfw_tls_and_http_internal_branches", group = "async/objfw"},
+    {name = "objfw_socket_and_stream_wrapper_error_branches", group = "async/objfw"},
+    {name = "objfw_wrapper_cancellation_branches", group = "async/objfw"},
+    {name = "objfw_spx_socket_connect_wrappers", group = "async/objfw"},
+    {name = "objfw_spx_stream_socket_connect_wrappers", group = "async/objfw"},
+    {name = "objfw_sctp_wrapper_methods", group = "async/objfw"},
+    {name = "http_concurrent_requests", group = "async/http", timeout = 10},
+    {name = "http_timeout_cancellation_and_reuse", group = "async/http", timeout = 10},
+    {name = "stress_timeout_repetitions", group = "stress", timeout = 10},
+    {name = "stress_channel_repetitions", group = "stress", timeout = 10}
+}
+
+target("async-runtime-tests")
+    set_kind("binary")
+    set_group("tests")
+    add_deps("AsyncRTUITest")
+    set_pmheader("../src/Utilities/common.h")
+    add_defines("ASYNC_RUNTIME_TEST_BUILD")
+    if is_plat("macosx") then
+        add_ldflags("-ObjC", {force = true})
+    end
+    add_cxflags(
+        "-Wno-nonnull",
+        "-Wno-nullability-completeness",
+        "-Wno-nullable-to-nonnull-conversion"
+    )
+    add_mflags(
+        "-Wno-nonnull",
+        "-Wno-nullability-completeness",
+        "-Wno-nullable-to-nonnull-conversion"
+    )
+    add_links("objfwtest", "objfwhid")
+    add_files("../src/App/ArgumentParser.m")
+    add_files("*.m")
+    for _, test_case in ipairs(async_runtime_test_cases) do
+        add_tests(test_case.name, {
+            group = test_case.group,
+            runargs = {"test_" .. test_case.name},
+            timeout = test_case.timeout or 5
+        })
+    end
+    after_config(function (target)
+        common.strip_default_macos_frameworks(target)
+    end)

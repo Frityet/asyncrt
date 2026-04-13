@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUILabel : OFObject<AUICompositeRenderable>
+@interface AUILabel : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable text;
 @property(readonly, nonatomic) AUITextStyle style;

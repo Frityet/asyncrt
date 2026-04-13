@@ -481,11 +481,11 @@
         return;
     }
 
-    if ([renderableObject conformsToProtocol: @protocol(AUICompositeRenderable)]) {
-        id<AUIRenderable> expanded = [(id<AUICompositeRenderable>)renderable renderableBody];
+    if ([renderableObject respondsToSelector: @selector(renderableBody)]) {
+        id<AUIRenderable> expanded = [renderable renderableBody];
 
         if (expanded == nilptr)
-            @throw [self validationExceptionWithReason: @"Composite renderables must return a nonnil renderable body"];
+            @throw [self validationExceptionWithReason: @"Renderable expansion hooks must return a nonnil renderable body"];
 
         [self renderRenderable: expanded
                          owner: owner

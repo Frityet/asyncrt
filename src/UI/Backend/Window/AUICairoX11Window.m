@@ -7,11 +7,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#import "UI/Backend/Window/AUIX11WindowBackend.h"
-#import "UI/AUIBackend.h"
+#import "UI/Backend/AUICairoRenderSupport.h"
+#import "UI/Backend/Window/AUICairoX11Window.h"
 #import "UI/AUIInternal.h"
 
 #pragma clang assume_nonnull begin
+
+static char *_Nonnull AUICairoX11WindowFonts[] = {
+    (char *)"Sans"
+};
 
 @namespace(AUIX11EventSupport)
 
@@ -88,7 +92,7 @@
 
 @end
 
-@implementation AUIX11WindowBackend {
+@implementation AUICairoX11Window {
     bool _open;
     Display *nillable _display;
     int _screen;
@@ -313,6 +317,22 @@
     }
 }
 
+- (void)_setViewportSize: (AUISize)viewportSize
+{
+    int width = (int)viewportSize.width;
+    int height = (int)viewportSize.height;
+
+    _viewportSize = viewportSize;
+
+    if (_display != nullptr and _window != 0) {
+        XResizeWindow($assert_nonnil(_display), _window, (unsigned int)width, (unsigned int)height);
+        XFlush($assert_nonnil(_display));
+    }
+
+    if (_surface != nullptr)
+        cairo_xlib_surface_set_size($assert_nonnil(_surface), width, height);
+}
+
 - (OFString *nillable)clipboardText
 {
     return _clipboardText;
@@ -323,11 +343,13 @@
     _clipboardText = [text copy];
 }
 
-- (void)_renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock
+- (void)renderFrame
 {
     cairo_t *cairo;
+    AUICairoTextMeasureContext measureContext;
+    Clay_RenderCommandArray commands;
 
-    if (not _open or _surface == nullptr or renderBlock == nilptr)
+    if (not _open or _surface == nullptr)
         return;
 
     cairo = cairo_create($assert_nonnil(_surface));
@@ -337,7 +359,16 @@
     }
 
     @try {
-        renderBlock(cairo, _viewportSize);
+        measureContext = (AUICairoTextMeasureContext){
+            .context = cairo,
+            .fonts = AUICairoX11WindowFonts
+        };
+        commands = [self _buildRenderCommandsForViewportSize: _viewportSize
+                                         textMeasureFunction: AUICairoMeasureText
+                                                    userData: &measureContext];
+        [AUICairoRenderSupport renderCommands: commands
+                                    onContext: cairo
+                                        fonts: AUICairoX11WindowFonts];
     } @finally {
         cairo_destroy(cairo);
     }

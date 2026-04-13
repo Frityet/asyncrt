@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIRadioGroup : OFObject<AUICompositeRenderable>
+@interface AUIRadioGroup : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFArray<OFString *> *options;
 @property(readonly, nonatomic) size_t selectedIndex;

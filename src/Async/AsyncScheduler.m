@@ -436,7 +436,9 @@ static void async_link_support_categories(void)
         return [Promise resolved: AsyncUnit.unit];
 
     auto resolver = [[PromiseResolver alloc] init];
-    auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: timeInterval] interval: 0 target: resolver selector: @selector(resolve:) object: AsyncUnit.unit repeats: false];
+    auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: timeInterval] interval: 0 repeats: false block: ^(OFTimer *) {
+        [resolver resolve: AsyncUnit.unit];
+    }];
     [self.runLoop addTimer: timer forMode: self.mode];
     return resolver.promise;
 }
@@ -447,7 +449,9 @@ static void async_link_support_categories(void)
         return [Promise resolved: AsyncUnit.unit];
 
     auto resolver = [[PromiseResolver alloc] init];
-    auto timer = [[OFTimer alloc] initWithFireDate: date interval: 0 target: resolver selector: @selector(resolve:) object: AsyncUnit.unit repeats: false];
+    auto timer = [[OFTimer alloc] initWithFireDate: date interval: 0 repeats: false block: ^(OFTimer *) {
+        [resolver resolve: AsyncUnit.unit];
+    }];
     [self.runLoop addTimer: timer forMode: self.mode];
     return resolver.promise;
 }

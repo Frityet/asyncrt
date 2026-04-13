@@ -5,6 +5,7 @@
 #pragma clang assume_nonnull begin
 
 @class AUIApplication;
+@class AUIWindow;
 
 typedef struct AUISize {
     float width;
@@ -16,12 +17,14 @@ typedef struct AUISize {
 
 @property(class, readonly, nonatomic) AUIRenderContext *nillable currentContext;
 @property(readonly, nonatomic) AUIApplication *application;
+@property(readonly, nonatomic) AUIWindow *window;
 @property(readonly, nonatomic) AUISize viewportSize;
 @property(readonly, nonatomic) OFDate *frameDate;
 @property(readonly, nonatomic) OFTimeInterval elapsedTime;
 
 + (AUIRenderContext *nillable)currentContext;
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
+                             window: (AUIWindow *nillable)window
                        viewportSize: (AUISize)viewportSize
                           frameDate: (OFDate *nillable)frameDate
                         elapsedTime: (OFTimeInterval)elapsedTime [[designated_initailiser]];

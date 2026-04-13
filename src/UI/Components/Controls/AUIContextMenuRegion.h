@@ -6,7 +6,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AUIContextMenuRegion : OFObject<AUICompositeRenderable>
+@interface AUIContextMenuRegion : OFObject<AUIRenderable>
 
 @property(readonly, nonatomic) id<AUIRenderable> child;
 @property(readonly, nonatomic) AUIContextMenu *menu;

@@ -123,7 +123,7 @@ enum [[clang::enum_extensibility(closed)]] PromiseStatus {
 
 @property(readonly, nonatomic) Promise<T> *promise;
 
-- (instancetype)init [[designated_initailiser]];
+// - (instancetype)init [[designated_initailiser]];
 - (void)resolve: (T)value;
 - (void)reject: (OFException *)exception;
 
