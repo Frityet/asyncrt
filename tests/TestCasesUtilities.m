@@ -8,117 +8,6 @@
 
 #pragma clang assume_nonnull begin
 
-static void signal_change_notifications(void)
-{
-    auto signal = [Signal withValue: nilptr];
-    auto events = [OFMutableArray<OFString *> array];
-
-    [signal subscribe: ^(OFString *value) {
-        OFString *nillable maybe_value = value;
-        OFString *event_value = @"<nil>";
-        if (maybe_value != nilptr)
-            event_value = $assert_nonnil(maybe_value);
-        [events addObject: event_value];
-    }];
-    [signal subscribe: ^(OFString *value) {
-        OFString *nillable maybe_value = value;
-        OFString *event_value = @"<nil>";
-        if (maybe_value != nilptr)
-            event_value = $assert_nonnil(maybe_value);
-        [events addObject: [OFString stringWithFormat: @"second:%@", event_value]];
-    }];
-
-    signal.value = nilptr;
-    signal.value = @"alpha";
-    signal.value = @"alpha";
-    signal.value = @"beta";
-
-    [AsyncRuntimeTestSupport assertCondition: (events.count == 4) message: (@"Signal should only notify subscribers when the value actually changes")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[0] isEqual: @"alpha"]) message: (@"Signal should publish the changed value to the first subscriber")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[1] isEqual: @"second:alpha"]) message: (@"Signal should notify subscribers in subscription order")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[2] isEqual: @"beta"]) message: (@"Signal should publish later value changes")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[3] isEqual: @"second:beta"]) message: (@"Signal should notify every subscriber for later changes")];
-}
-
-static void signal_equal_objects_suppress_notifications(void)
-{
-    auto signal = [Signal withValue: nilptr];
-    block_reference size_t change_count = 0;
-    auto first_value = [[OFString alloc] initWithUTF8String: "same"];
-    auto second_value = [[OFString alloc] initWithUTF8String: "same"];
-
-    [signal subscribe: ^(OFString *value) {
-        (void)value;
-        change_count++;
-    }];
-
-    signal.value = first_value;
-    signal.value = second_value;
-
-    [AsyncRuntimeTestSupport assertCondition: ([first_value isEqual: second_value]) message: (@"the signal equality test needs two distinct but equal values")];
-    [AsyncRuntimeTestSupport assertCondition: (change_count == 1) message: (@"Signal should suppress notifications when the new value compares equal to the old value")];
-}
-
-static void signal_subscription_cleanup_stops_notifications(void)
-{
-    auto signal = [Signal withValue: @"seed"];
-    auto events = [OFMutableArray<OFString *> array];
-    SignalCleanupBlock cleanup;
-
-    cleanup = [signal subscribe: ^(OFString *value) {
-        [events addObject: (value != nilptr ? value : @"<nil>")];
-    }];
-
-    signal.value = @"alpha";
-    cleanup();
-    signal.value = @"beta";
-
-    [AsyncRuntimeTestSupport assertCondition: (events.count == 1) message: (@"Signal cleanup blocks should unsubscribe future notifications")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[0] isEqual: @"alpha"]) message: (@"Signal cleanup should keep prior notifications intact")];
-}
-
-static void computed_caches_until_dependencies_change(void)
-{
-    block_reference size_t computeCount = 0;
-    auto signal = [Signal withValue: @"alpha"];
-    Computed<OFString *> *computed = [Computed withBlock: ^OFString * {
-        computeCount++;
-        OFString *firstRead = signal.value;
-        OFString *secondRead = signal.value;
-        return [OFString stringWithFormat: @"%@/%@", firstRead, secondRead];
-    }];
-
-    [AsyncRuntimeTestSupport assertCondition: ([computed.value isEqual: @"alpha/alpha"]) message: (@"Computed should evaluate its block on the first access")];
-    [AsyncRuntimeTestSupport assertCondition: ([computed.value isEqual: @"alpha/alpha"]) message: (@"Computed should return the cached value while dependencies remain unchanged")];
-    [AsyncRuntimeTestSupport assertCondition: (computeCount == 1) message: (@"Computed should cache repeated accesses until a dependency changes")];
-
-    signal.value = @"beta";
-
-    [AsyncRuntimeTestSupport assertCondition: (computeCount == 1) message: (@"Computed invalidation should stay lazy until the next read")];
-    [AsyncRuntimeTestSupport assertCondition: ([computed.value isEqual: @"beta/beta"]) message: (@"Computed should recompute after a dependency change")];
-    [AsyncRuntimeTestSupport assertCondition: (computeCount == 2) message: (@"Computed should only recompute once for a dependency change even if it read that dependency multiple times")];
-}
-
-static void effect_tracks_dependencies_and_cleanup(void)
-{
-    auto first = [Signal withValue: @"alpha"];
-    auto second = [Signal withValue: @"one"];
-    auto events = [OFMutableArray<OFString *> array];
-    Effect *effect = [Effect withBlock: ^{
-        [events addObject: [OFString stringWithFormat: @"%@-%@", first.value, second.value]];
-    }];
-
-    first.value = @"beta";
-    second.value = @"two";
-    [effect invalidate];
-    first.value = @"gamma";
-
-    [AsyncRuntimeTestSupport assertCondition: (events.count == 3) message: (@"Effect should run once initially and once per dependency change while active")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[0] isEqual: @"alpha-one"]) message: (@"Effect should capture the initial dependency values")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[1] isEqual: @"beta-one"]) message: (@"Effect should rerun when the first dependency changes")];
-    [AsyncRuntimeTestSupport assertCondition: ([events[2] isEqual: @"beta-two"]) message: (@"Effect should rerun when the second dependency changes")];
-}
-
 static void pointer_basic_data_view(void)
 {
     int stackValue = 42;
@@ -317,11 +206,6 @@ static void optional_some_accepts_tagged_payloads(void)
     // [AsyncRuntimeTestSupport assertCondition: (optional.copy == optional) message: (@"Optional.copy should preserve heap-backed optional identity for immutable payload wrappers")];
 }
 
-ASYNC_RUNTIME_SYNC_TEST(signal_change_notifications)
-ASYNC_RUNTIME_SYNC_TEST(signal_equal_objects_suppress_notifications)
-ASYNC_RUNTIME_SYNC_TEST(signal_subscription_cleanup_stops_notifications)
-ASYNC_RUNTIME_SYNC_TEST(computed_caches_until_dependencies_change)
-ASYNC_RUNTIME_SYNC_TEST(effect_tracks_dependencies_and_cleanup)
 ASYNC_RUNTIME_SYNC_TEST(pointer_basic_data_view)
 ASYNC_RUNTIME_SYNC_TEST(pointer_nullptr_roundtrip)
 ASYNC_RUNTIME_SYNC_TEST(pointer_ordering_and_copying)

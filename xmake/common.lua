@@ -27,7 +27,9 @@ function asyncrt_build.conservative_async_mflags(extra_flags)
             "-Oz",
             "-fno-omit-frame-pointer",
             "-fno-optimize-sibling-calls",
-            "-fno-lto"
+            "-fno-lto",
+            "-fvisibility=hidden",
+            "-Wl,-dead_strip" 
         })
     end
 

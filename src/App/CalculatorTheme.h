@@ -37,20 +37,6 @@
 + (AUIBoxProps)metricTileProps;
 + (AUIBoxProps)historyTileProps;
 
-+ (id<AUIRenderable>)keypadButtonWithTitle: (OFString *nillable)title
-                                   variant: (AUIControlVariant)variant
-                                    enable: (bool)enabled
-                                   onPress: (void (^nillable)(void))onPress;
-+ (id<AUIRenderable>)compactButtonWithTitle: (OFString *nillable)title
-                                    variant: (AUIControlVariant)variant
-                                     enable: (bool)enabled
-                                    onPress: (void (^nillable)(void))onPress;
-+ (id<AUIRenderable>)fullWidthButtonWithTitle: (OFString *nillable)title
-                                      variant: (AUIControlVariant)variant
-                                       enable: (bool)enabled
-                                      onPress: (void (^nillable)(void))onPress;
-+ (id<AUIRenderable>)metricTileWithLabel: (OFString *nillable)label value: (OFString *nillable)value;
-
 @end
 
 #pragma clang assume_nonnull end

@@ -1,6 +1,5 @@
 #pragma once
 
-#import "Async/Promise.h"
 #import "Async/Task.h"
 #include "Utilities/common.h"
 
@@ -51,9 +50,9 @@
 @property(readonly, nonatomic) enum AsyncTaskExecutionState executionState;
 @property(readonly, nonatomic) OFString *nillable waitReason;
 @property(readonly, nonatomic) bool isCancellationRequested;
-@property(readonly, nonatomic) OFString *nillable scopeName;
+@property(readonly, nonatomic) OFString *nillable taskGroupName;
 
-- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested scopeName: (OFString *nillable)scopeName [[designated_initailiser]];
+- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested taskGroupName: (OFString *nillable)taskGroupName [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -87,9 +86,9 @@
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode;
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop;
 - (OFString *)describe;
-- (Promise<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
-- (Promise<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
-- (Promise<id> *)offload: (id (^)(void))block;
+- (Task<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
+- (Task<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
+- (Task<id> *)offload: (id (^)(void))block;
 - (AsyncSchedulerSnapshot *)snapshot;
 - (void)shutdown;
 - (instancetype)init OF_UNAVAILABLE;

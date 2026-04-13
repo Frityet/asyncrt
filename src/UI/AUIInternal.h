@@ -1,16 +1,19 @@
 #pragma once
 
 #import "UI/AUIApplication.h"
+#import "UI/AUIViewComponent.h"
 #import "UI/Backend/AUIInput.h"
 #import "UI/AUIPrimitives.h"
 #import "UI/AUIRenderContext.h"
 #import "UI/Components/Controls/AUIContextMenu.h"
-#import "Utilities/DependencyTracking.h"
 #import "extern/clay.h"
 
 #pragma clang assume_nonnull begin
 
 @class AUIWindow;
+@class AUIInteractionController;
+@class AUITextEditingController;
+@class AUIRenderHost;
 
 typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
                                                   Clay_TextElementConfig *config,
@@ -106,44 +109,48 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 
 @end
 
-@interface AUIComponent ()
+@interface AUIViewComponent ()
 
-@property(readonly, nonatomic) AUIApplication *nillable application;
-@property(readonly, nonatomic) AUIComponent *nillable parent;
-@property(readonly, nonatomic) OFArray<AUIComponent *> *renderedChildren;
-@property(readonly, nonatomic) bool _isMounted;
+@property(readwrite, nonatomic) AUIApplication *nillable application;
+@property(readwrite, nonatomic) AUIViewComponent *nillable parentViewComponent;
+@property(readwrite, nonatomic) AsyncTaskGroup *nillable mountedTaskGroup;
+@property(readwrite, nonatomic) bool isMounted;
 
 - (void)_attachToApplication: (AUIApplication *nillable)application
-                      parent: (AUIComponent *nillable)parent;
+         parentViewComponent: (AUIViewComponent *nillable)parentViewComponent
+                   taskGroup: (AsyncTaskGroup *nillable)taskGroup;
 - (void)_detachFromApplication;
-- (void)_mountRecursivelyInScope: (AsyncScope *nillable)scope;
+- (void)_ensureMountedInTaskGroup: (AsyncTaskGroup *nillable)taskGroup;
 - (void)_unmountRecursively;
-- (void)_renderRecursively;
+- (AUIViewNode *)_resolvedRenderedViewNode;
+
+@end
+
+@interface AUIViewNode ()
+
+- (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
+                          stableKey: (OFString *nillable)stableKey;
 
 @end
 
 [[subclassing_restricted]]
-@interface AUIRenderObserver : OFObject<DependencyTrackingObserver>
+@interface AUIRetainedChildViewComponentNode : AUIViewNode
 
-- (instancetype)initWithInvalidationHandler: (void (^nillable)(void))invalidationHandler [[designated_initailiser]];
-- (void)beginTracking [[direct]];
-- (void)endTracking [[direct]];
-- (void)invalidate [[direct]];
+@property(readonly, nonatomic) AUIViewComponent *childViewComponent;
+@property(readonly, copy, nonatomic) OFString *componentKey;
+
+- (instancetype)initWithChildViewComponent: (AUIViewComponent *nillable)childViewComponent
+                               componentKey: (OFString *nillable)componentKey [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 @interface AUIApplication ()
 
 - (AUIInputState *)_inputState;
-- (void)_beginInteractionFrame;
-- (void)_registerInteraction: (AUIInteractionRegistration *nillable)registration;
-- (void)_completeInteractionFrame;
-- (AUITextEditingState *)_editingStateForIdentifier: (OFString *nillable)identifier
-                                         textLength: (size_t)textLength;
-- (bool)_identifierIsFocused: (OFString *nillable)identifier;
-- (bool)_identifierIsPressed: (OFString *nillable)identifier;
-- (bool)_identifierIsHovered: (OFString *nillable)identifier;
-- (bool)_updateHoverStateFromCurrentLayout;
+- (AUIInteractionController *)_interactionController;
+- (AUITextEditingController *)_textEditingController;
+- (AUIRenderHost *)_renderHost;
 - (Clay_RenderCommandArray)_buildRenderCommandsWithViewportSize: (AUISize)viewportSize
                                                        deltaTime: (float)deltaTime;
 - (OFString *nillable)_clipboardText;
@@ -151,7 +158,8 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 - (void)_setCursorStyle: (AUICursorStyle)cursorStyle;
 - (AUIContextMenu *nillable)_activeContextMenuForTesting;
 - (void)_setWindowForTesting: (AUIWindow *nillable)window;
-- (void)_setRootComponentForTesting: (AUIComponent *nillable)rootComponent;
+- (void)_setRootViewComponentForTesting: (AUIViewComponent *nillable)rootViewComponent;
+- (bool)_updateHoverStateFromCurrentLayout;
 - (bool)_consumePendingRenderRequest;
 - (bool)_hasPendingRenderRequest;
 

@@ -1,8 +1,8 @@
 #pragma once
 
 #import "UI/AUIExceptions.h"
-#import "UI/AUIRenderContext.h"
-#import "UI/AUIComponent.h"
+#import "UI/AUIViewNode.h"
+#import "UI/AUIViewComponent.h"
 #import "UI/AUIPrimitives.h"
 #import "UI/AUIApplication.h"
 #import "UI/Backend/AUIBackend.h"

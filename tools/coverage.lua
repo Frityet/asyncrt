@@ -38,9 +38,6 @@ end
 
 local function _source_files(projectdir)
     local files = {}
-    local excluded = {
-        [path.join("src", "Async", "ObjFWAsync", "OFSequencedPacketSocket+Promise.m")] = true
-    }
 
     for _, pattern in ipairs({
         path.join(projectdir, "src", "Async", "**.m"),
@@ -48,9 +45,7 @@ local function _source_files(projectdir)
     }) do
         for _, file in ipairs(os.files(pattern)) do
             local relative = path.relative(file, projectdir)
-            if not excluded[relative] then
-                table.insert(files, relative)
-            end
+            table.insert(files, relative)
         end
     end
 

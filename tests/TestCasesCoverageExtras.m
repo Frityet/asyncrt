@@ -6,11 +6,11 @@
 @class AsyncChannelReceiveWaitRegistration;
 
 @interface AsyncScheduler (CoverageExtras)
-- (void)_drainReadyTasks;
+- (void)_drainReadyQueue;
 - (void)_resumeTask: (Task *)task [[direct]];
 @end
 
-@interface AsyncScope (CoverageExtras)
+@interface AsyncTaskGroup (CoverageExtras)
 - (void)_installDeadlineTimerIfNeeded [[direct]];
 - (void)_invalidateDeadlineTimerIfNeeded [[direct]];
 @end
@@ -46,11 +46,11 @@
 [[subclassing_restricted]]
 @interface CoverageSchedulerTaskHarness : OFObject
 
-@property(nonatomic) bool isResolved;
+@property(nonatomic) bool isCompleted;
 @property(retain, nonatomic) id coroutine;
-@property(retain, nonatomic) AsyncScope *nillable resumedScope;
-@property(nonatomic) enum PromiseStatus status;
-@property(retain, nonatomic) OFException *nillable rejectionException;
+@property(retain, nonatomic) AsyncTaskGroup *nillable resumedTaskGroup;
+@property(nonatomic) enum AsyncTaskStatus status;
+@property(retain, nonatomic) OFException *nillable failureException;
 @property(nonatomic) enum AsyncTaskExecutionState executionState;
 @property(copy, nonatomic) OFString *nillable waitReason;
 @property(readonly, nonatomic) size_t captureCount;
@@ -58,33 +58,36 @@
 @property(readonly, nonatomic) size_t resolveCount;
 
 - (id)_coroutineObject;
-- (AsyncScope *nillable)_resumeScopeContext;
+- (AsyncTaskGroup *nillable)_resumeTaskGroupContext;
 - (void)_setExecutionState: (enum AsyncTaskExecutionState)executionState
                  waitReason: (OFString *nillable)waitReason;
 - (void)_captureCurrentScopeContext;
 - (void)_rejectTaskWithException: (OFException *)exception;
-- (void)_resolveFromCompletion: (AsyncPromiseCompletion *)completion;
+- (void)_resolveFromCompletion: (AsyncTaskExecutionCompletion *)completion;
+- (bool)_markReadyQueued;
+- (void)_clearReadyQueued;
 
 @end
 
 @implementation CoverageSchedulerTaskHarness {
     bool _resolved;
     id _coroutine;
-    AsyncScope *_resumedScope;
-    enum PromiseStatus _status;
+    AsyncTaskGroup *_resumedTaskGroup;
+    enum AsyncTaskStatus _status;
     OFException *_rejectionException;
     enum AsyncTaskExecutionState _executionState;
     OFString *_waitReason;
     size_t _captureCount;
     size_t _rejectCount;
     size_t _resolveCount;
+    bool _readyQueued;
 }
 
-@synthesize isResolved = _resolved;
+@synthesize isCompleted = _resolved;
 @synthesize coroutine = _coroutine;
-@synthesize resumedScope = _resumedScope;
+@synthesize resumedTaskGroup = _resumedTaskGroup;
 @synthesize status = _status;
-@synthesize rejectionException = _rejectionException;
+@synthesize failureException = _rejectionException;
 @synthesize executionState = _executionState;
 @synthesize waitReason = _waitReason;
 @synthesize captureCount = _captureCount;
@@ -96,9 +99,9 @@
     return _coroutine;
 }
 
-- (AsyncScope *nillable)_resumeScopeContext
+- (AsyncTaskGroup *nillable)_resumeTaskGroupContext
 {
-    return _resumedScope;
+    return _resumedTaskGroup;
 }
 
 - (void)_setExecutionState: (enum AsyncTaskExecutionState)executionState
@@ -117,20 +120,34 @@
 {
     _rejectCount++;
     _resolved = true;
-    _status = PromiseStatus_REJECTED;
+    _status = AsyncTaskStatus_REJECTED;
     _rejectionException = exception;
 }
 
-- (void)_resolveFromCompletion: (AsyncPromiseCompletion *)completion
+- (void)_resolveFromCompletion: (AsyncTaskExecutionCompletion *)completion
 {
     _resolveCount++;
     _resolved = true;
     if (completion.exception != nilptr) {
-        _status = PromiseStatus_REJECTED;
+        _status = AsyncTaskStatus_REJECTED;
         _rejectionException = completion.exception;
     } else {
-        _status = PromiseStatus_FULFILLED;
+        _status = AsyncTaskStatus_FULFILLED;
     }
+}
+
+- (bool)_markReadyQueued
+{
+    if (_readyQueued)
+        return false;
+
+    _readyQueued = true;
+    return true;
+}
+
+- (void)_clearReadyQueued
+{
+    _readyQueued = false;
 }
 
 @end
@@ -278,60 +295,57 @@ static void runtime_internal_description_coverage(void)
     auto ownerTask = [[CoverageScopeOwnerTaskHarness alloc] init];
     ownerTask.scheduler = scheduler;
     auto channel = [[AsyncChannel alloc] initWithCapacity: 1];
-    auto unnamedScope = [[AsyncScope alloc] initWithScheduler: scheduler
-                                                    ownerTask: (Task *)ownerTask
-                                                  parentScope: nilptr
-                                                         name: nilptr
-                                                     deadline: nilptr];
-    auto namedScope = [[AsyncScope alloc] initWithScheduler: scheduler
-                                                  ownerTask: (Task *)ownerTask
-                                                parentScope: nilptr
-                                                       name: @"named-scope"
-                                                   deadline: nilptr];
+    auto unnamedTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler
+                                                            ownerTask: (Task *)ownerTask
+                                                      parentTaskGroup: nilptr
+                                                                 name: nilptr
+                                                             deadline: nilptr];
+    auto namedTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler
+                                                          ownerTask: (Task *)ownerTask
+                                                    parentTaskGroup: nilptr
+                                                               name: @"named-scope"
+                                                           deadline: nilptr];
     auto namedTask = [[Task alloc] initWithScheduler: scheduler
-                                               scope: nilptr
+                                           taskGroup: nilptr
                                                 name: @"named-task"
                                                block: ^id {
                                                    return @"unused";
                                                }];
     auto unnamedTask = [[Task alloc] initWithScheduler: scheduler
-                                                 scope: nilptr
+                                             taskGroup: nilptr
                                                   name: nilptr
                                                  block: ^id {
                                                      return @"unused";
                                                  }];
-    auto promise = [Promise resolved: @"ready"];
-    auto runtimeTask = [AsyncRuntime run: ^id(AsyncScope *) {
+    auto task = [Task resolved: @"ready"];
+    auto runtimeTask = [AsyncRuntime run: ^id(AsyncTaskGroup *) {
         return @"runtime-run";
     }];
     auto waitRegistration = [[AsyncTaskWaitRegistration alloc]
         initWithScheduler: scheduler
                      task: (Task *)ownerTask];
-    auto promiseException = [[PromiseException alloc] initWithPromise: promise];
-    auto alreadyResolvedException = [[PromiseAlreadyResolvedException alloc]
-        initWithPromise: promise
-          currentStatus: PromiseStatus_FULFILLED
-        attemptedStatus: PromiseStatus_REJECTED];
-    auto nilResolutionException = [[PromiseNilResolutionValueException alloc] initWithPromise: promise];
-    auto nilRejectionException = [[PromiseNilRejectionException alloc] initWithPromise: promise];
-    auto invalidStateException = [[PromiseInvalidStateAccessException alloc]
-        initWithPromise: promise
+    auto taskException = [[AsyncTaskException alloc] initWithTask: task];
+    auto alreadyResolvedException = [[AsyncTaskAlreadyResolvedException alloc]
+        initWithTask: task
+          currentStatus: AsyncTaskStatus_FULFILLED
+        attemptedStatus: AsyncTaskStatus_REJECTED];
+    auto nilResolutionException = [[AsyncTaskNilResolutionValueException alloc] initWithTask: task];
+    auto nilRejectionException = [[AsyncTaskNilRejectionException alloc] initWithTask: task];
+    auto invalidStateException = [[AsyncTaskInvalidStateAccessException alloc]
+        initWithTask: task
               operation: @"read value"
-                  status: PromiseStatus_PENDING];
-    auto awaitOutsideTaskException = [[PromiseAwaitOutsideTaskException alloc] initWithPromise: promise];
-    auto selfAwaitException = [[PromiseSelfAwaitException alloc] initWithPromise: promise];
-    auto continuationOutsideTaskException = [[PromiseContinuationOutsideTaskException alloc] initWithPromise: promise];
+                  status: AsyncTaskStatus_PENDING];
+    auto awaitOutsideTaskException = [[AsyncTaskAwaitOutsideTaskException alloc] initWithTask: task];
+    auto selfAwaitException = [[AsyncTaskSelfAwaitException alloc] initWithTask: task];
+    auto continuationOutsideTaskException = [[AsyncTaskContinuationOutsideTaskException alloc] initWithTask: task];
     auto schedulerException = [[AsyncSchedulerException alloc] initWithScheduler: scheduler];
     auto schedulerInitException = [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"invalid"];
     auto unsupportedYieldException = [[AsyncSchedulerUnsupportedYieldException alloc]
         initWithScheduler: scheduler
                       task: namedTask
              yieldedObject: @"yielded"];
-    auto scopeException = [[AsyncScopeException alloc]
-        initWithScope: namedScope
-           exceptions: @[[[TestRejectionException alloc] init]]];
-    auto timeoutException = [[AsyncTimeoutException alloc]
-        initWithScope: namedScope
+    auto timeoutException = [[AsyncTaskGroupTimeoutException alloc]
+        initWithTaskGroup: namedTaskGroup
                   deadline: [OFDate dateWithTimeIntervalSinceNow: 0.05]];
     auto taskReturnedNilException = [[TaskReturnedNilException alloc] initWithTask: namedTask];
     auto taskCancelledException = [[TaskCancelledException alloc] initWithTask: namedTask];
@@ -340,7 +354,6 @@ static void runtime_internal_description_coverage(void)
               operation: @"send"];
     bool caughtArm = false;
     bool caughtCancel = false;
-    bool caughtScopeInit = false;
     bool caughtTaskSuppressionUnderflow = false;
 
     [Task checkCancellation];
@@ -348,7 +361,7 @@ static void runtime_internal_description_coverage(void)
     [unnamedTask _setExecutionState: AsyncTaskExecutionState_READY waitReason: nilptr];
 
     pump_scheduler_until(AsyncScheduler.defaultScheduler, ^bool {
-        return runtimeTask.isResolved;
+        return runtimeTask.isCompleted;
     });
 
     @try {
@@ -364,12 +377,6 @@ static void runtime_internal_description_coverage(void)
     }
 
     @try {
-        (void)[[AsyncScopeException alloc] initWithScope: unnamedScope exceptions: @[]];
-    } @catch (OFInvalidArgumentException *) {
-        caughtScopeInit = true;
-    }
-
-    @try {
         [unnamedTask _popCancellationSuppression];
     } @catch (OFOutOfRangeException *) {
         caughtTaskSuppressionUnderflow = true;
@@ -377,39 +384,37 @@ static void runtime_internal_description_coverage(void)
 
     [AsyncRuntimeTestSupport assertCondition: (caughtArm and caughtCancel)
                                      message: (@"Base wait registrations should throw until subclasses override arm/cancel")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtScopeInit)
-                                     message: (@"AsyncScopeException should reject empty exception lists")];
     [AsyncRuntimeTestSupport assertCondition: (caughtTaskSuppressionUnderflow)
                                      message: (@"Tasks should reject cancellation suppression underflow")];
     [AsyncRuntimeTestSupport assertCondition: ([runtimeTask.value isEqual: @"runtime-run"])
                                      message: (@"AsyncRuntime +run: should schedule work on the default scheduler")];
 
-    [AsyncRuntimeTestSupport assertCondition: ([[Promise describeStatus: PromiseStatus_REJECTED] isEqual: @"REJECTED"])
-                                     message: (@"Promises should describe rejected state explicitly")];
+    [AsyncRuntimeTestSupport assertCondition: ([[Task describeStatus: AsyncTaskStatus_REJECTED] isEqual: @"REJECTED"])
+                                     message: (@"Tasks should describe rejected state explicitly")];
     [AsyncRuntimeTestSupport assertCondition: ([[Task describeExecutionState: AsyncTaskExecutionState_READY] isEqual: @"READY"]
         and [[Task describeExecutionState: AsyncTaskExecutionState_RUNNING] isEqual: @"RUNNING"]
         and [[Task describeExecutionState: AsyncTaskExecutionState_WAITING] isEqual: @"WAITING"]
         and [[Task describeExecutionState: AsyncTaskExecutionState_RESOLVED] isEqual: @"RESOLVED"])
                                      message: (@"Tasks should describe every execution state explicitly")];
 
-    [AsyncRuntimeTestSupport assertCondition: ([promise.description containsString: @"FULFILLED"])
-                                     message: (@"Promises should describe their current status")];
-    [AsyncRuntimeTestSupport assertCondition: ([promiseException.description containsString: @"PromiseException"])
-                                     message: (@"PromiseException should describe the wrapped promise")];
+    [AsyncRuntimeTestSupport assertCondition: ([task.description containsString: @"FULFILLED"])
+                                     message: (@"Tasks should describe their current status")];
+    [AsyncRuntimeTestSupport assertCondition: ([taskException.description containsString: @"AsyncTaskException"])
+                                     message: (@"AsyncTaskException should describe the wrapped task")];
     [AsyncRuntimeTestSupport assertCondition: ([alreadyResolvedException.description containsString: @"cannot transition"])
-                                     message: (@"PromiseAlreadyResolvedException should mention the attempted transition")];
+                                     message: (@"AsyncTaskAlreadyResolvedException should mention the attempted transition")];
     [AsyncRuntimeTestSupport assertCondition: ([nilResolutionException.description containsString: @"fulfilled with nilptr"])
-                                     message: (@"PromiseNilResolutionValueException should describe nil resolution failures")];
+                                     message: (@"AsyncTaskNilResolutionValueException should describe nil resolution failures")];
     [AsyncRuntimeTestSupport assertCondition: ([nilRejectionException.description containsString: @"rejected with nilptr"])
-                                     message: (@"PromiseNilRejectionException should describe nil rejection failures")];
+                                     message: (@"AsyncTaskNilRejectionException should describe nil rejection failures")];
     [AsyncRuntimeTestSupport assertCondition: ([invalidStateException.description containsString: @"read value"])
-                                     message: (@"PromiseInvalidStateAccessException should describe the invalid operation")];
+                                     message: (@"AsyncTaskInvalidStateAccessException should describe the invalid operation")];
     [AsyncRuntimeTestSupport assertCondition: ([awaitOutsideTaskException.description containsString: @"outside a Task"])
-                                     message: (@"PromiseAwaitOutsideTaskException should describe the task requirement")];
+                                     message: (@"AsyncTaskAwaitOutsideTaskException should describe the task requirement")];
     [AsyncRuntimeTestSupport assertCondition: ([selfAwaitException.description containsString: @"await itself"])
-                                     message: (@"PromiseSelfAwaitException should describe the self-await guard")];
+                                     message: (@"AsyncTaskSelfAwaitException should describe the self-await guard")];
     [AsyncRuntimeTestSupport assertCondition: ([continuationOutsideTaskException.description containsString: @"explicit scheduler"])
-                                     message: (@"PromiseContinuationOutsideTaskException should describe the scheduler requirement")];
+                                     message: (@"AsyncTaskContinuationOutsideTaskException should describe the scheduler requirement")];
 
     [AsyncRuntimeTestSupport assertCondition: ([schedulerException.description containsString: @"AsyncSchedulerException"])
                                      message: (@"AsyncSchedulerException should describe the offending scheduler")];
@@ -421,15 +426,13 @@ static void runtime_internal_description_coverage(void)
         and [scheduler.describe containsString: scheduler.mode])
                                      message: (@"Schedulers should describe their current run loop mode")];
 
-    [AsyncRuntimeTestSupport assertCondition: ([scopeException.description containsString: @"primary"])
-                                     message: (@"AsyncScopeException should describe the primary failure")];
     [AsyncRuntimeTestSupport assertCondition: ([timeoutException.description containsString: @"exceeded deadline"])
-                                     message: (@"AsyncTimeoutException should describe the expired deadline")];
-    [AsyncRuntimeTestSupport assertCondition: ([namedScope.description containsString: @"named-scope"])
-                                     message: (@"Named scopes should include their debug name in descriptions")];
-    [AsyncRuntimeTestSupport assertCondition: ([unnamedScope.description containsString: @"AsyncScope"]
-        and unnamedScope._debugName == nilptr)
-                                     message: (@"Unnamed scopes should still render a stable description")];
+                                     message: (@"AsyncTaskGroupTimeoutException should describe the expired deadline")];
+    [AsyncRuntimeTestSupport assertCondition: ([namedTaskGroup.description containsString: @"named-scope"])
+                                     message: (@"Named task groups should include their debug name in descriptions")];
+    [AsyncRuntimeTestSupport assertCondition: ([unnamedTaskGroup.description containsString: @"AsyncTaskGroup"]
+        and unnamedTaskGroup._taskGroupNameForSnapshots == nilptr)
+                                     message: (@"Unnamed task groups should still render a stable description")];
 
     [AsyncRuntimeTestSupport assertCondition: ([taskReturnedNilException.description containsString: @"returned nilptr"])
                                      message: (@"TaskReturnedNilException should describe nil return failures")];
@@ -452,9 +455,9 @@ static void runtime_internal_description_coverage(void)
     [scheduler shutdown];
 }
 
-static void promise_continuation_and_scope_internal_branches(AsyncScope *rootScope)
+static void task_continuation_and_scope_internal_branches(AsyncTaskGroup *rootTaskGroup)
 {
-    AsyncScheduler *scheduler = rootScope.scheduler;
+    AsyncScheduler *scheduler = rootTaskGroup.scheduler;
     OFDate *earlierDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.10];
     OFDate *laterDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.20];
     bool caughtMappedReject = false;
@@ -462,33 +465,33 @@ static void promise_continuation_and_scope_internal_branches(AsyncScope *rootSco
     bool caughtInvalidAll = false;
     bool caughtInvalidRace = false;
     bool caughtThrownTask = false;
-    bool caughtScopeFailure = false;
+    bool caughtTaskGroupFailure = false;
     block_reference bool inheritedParentDeadline = false;
-    auto mappedRejected = [[Promise rejected: [[TestRejectionException alloc] init]]
+    auto mappedRejected = [[Task rejected: [[TestRejectionException alloc] init]]
         mapOnScheduler: scheduler
               transform: ^id(id) {
                   return @"unreachable";
               }];
-    auto flatMappedRejected = [[Promise rejected: [[TestRejectionException alloc] init]]
+    auto flatMappedRejected = [[Task rejected: [[TestRejectionException alloc] init]]
         flatMapOnScheduler: scheduler
-                     transform: ^id<PromiseLike>(id) {
-                         return [Promise resolved: @"unreachable"];
+                     transform: ^Task *(id) {
+                         return [Task resolved: @"unreachable"];
                      }];
-    auto recoveredResolved = [[Promise resolved: @"kept"]
+    auto recoveredResolved = [[Task resolved: @"kept"]
         recoverOnScheduler: scheduler
                    handler: ^id(OFException *) {
                        return @"changed";
                    }];
-    auto flatRecoveredResolved = [[Promise resolved: @"still-kept"]
+    auto flatRecoveredResolved = [[Task resolved: @"still-kept"]
         flatRecoverOnScheduler: scheduler
-                       handler: ^id<PromiseLike>(OFException *) {
-                           return [Promise resolved: @"changed"];
+                       handler: ^Task *(OFException *) {
+                           return [Task resolved: @"changed"];
                        }];
-    auto spawnedWithoutName = [rootScope spawn: ^id {
+    auto spawnedWithoutName = [rootTaskGroup spawnTask: ^id {
         return @"spawned";
     }];
     auto throwingTask = [[Task alloc] initWithScheduler: scheduler
-                                                  scope: nilptr
+                                              taskGroup: nilptr
                                                    name: @"throws"
                                                   block: ^id {
         @throw [[TestRejectionException alloc] init];
@@ -508,13 +511,13 @@ static void promise_continuation_and_scope_internal_branches(AsyncScope *rootSco
     }
 
     @try {
-        (void)[Promise all: (OFArray<id<PromiseLike>> *)@[@"bad"]];
+        (void)[Task all: (OFArray<Task *> *)@[@"bad"]];
     } @catch (OFInvalidArgumentException *) {
         caughtInvalidAll = true;
     }
 
     @try {
-        (void)[Promise race: (OFArray<id<PromiseLike>> *)@[@"bad"]];
+        (void)[Task race: (OFArray<Task *> *)@[@"bad"]];
     } @catch (OFInvalidArgumentException *) {
         caughtInvalidRace = true;
     }
@@ -526,40 +529,40 @@ static void promise_continuation_and_scope_internal_branches(AsyncScope *rootSco
     }
 
     @try {
-        (void)[rootScope withChildScopeNamed: @"body-failure" block: ^id(AsyncScope *) {
+        (void)[rootTaskGroup performInChildTaskGroupNamed: @"body-failure" block: ^id(AsyncTaskGroup *) {
             @throw [[TestRejectionException alloc] init];
         }];
-    } @catch (AsyncScopeException *exception) {
-        caughtScopeFailure = [exception.primaryException isKindOfClass: TestRejectionException.class];
+    } @catch (TestRejectionException *) {
+        caughtTaskGroupFailure = true;
     }
 
-    (void)[rootScope withDeadline: earlierDeadline block: ^id(AsyncScope *deadlineScope) {
-        (void)[deadlineScope withDeadline: laterDeadline block: ^id(AsyncScope *childScope) {
-            inheritedParentDeadline = ([childScope.deadline compare: $assert_nonnil(deadlineScope.deadline)] == OFOrderedSame);
+    (void)[rootTaskGroup performWithDeadline: earlierDeadline block: ^id(AsyncTaskGroup *deadlineTaskGroup) {
+        (void)[deadlineTaskGroup performWithDeadline: laterDeadline block: ^id(AsyncTaskGroup *childTaskGroup) {
+            inheritedParentDeadline = ([childTaskGroup.deadline compare: $assert_nonnil(deadlineTaskGroup.deadline)] == OFOrderedSame);
             return AsyncUnit.unit;
         }];
         return AsyncUnit.unit;
     }];
 
     [AsyncRuntimeTestSupport assertCondition: (caughtMappedReject and caughtFlatMappedReject)
-                                     message: (@"Promise continuations should propagate rejected inputs across map and flatMap")];
+                                     message: (@"Task continuations should propagate rejected inputs across map and flatMap")];
     [AsyncRuntimeTestSupport assertCondition: ([[recoveredResolved await] isEqual: @"kept"]
         and [[flatRecoveredResolved await] isEqual: @"still-kept"])
-                                     message: (@"Recover continuations should leave fulfilled promises unchanged")];
+                                     message: (@"Recover continuations should leave fulfilled tasks unchanged")];
     [AsyncRuntimeTestSupport assertCondition: (caughtInvalidAll and caughtInvalidRace)
-                                     message: (@"Promise collection helpers should reject non-promise inputs")];
+                                     message: (@"Task collection helpers should reject non-task inputs")];
     [AsyncRuntimeTestSupport assertCondition: ([[spawnedWithoutName await] isEqual: @"spawned"])
-                                     message: (@"Scopes should support the spawn: convenience overload")];
-    [AsyncRuntimeTestSupport assertCondition: ([[rootScope withChildScope: ^id(AsyncScope *) {
+                                     message: (@"Task groups should support the spawnTask: convenience overload")];
+    [AsyncRuntimeTestSupport assertCondition: ([[rootTaskGroup performInChildTaskGroup: ^id(AsyncTaskGroup *) {
         return @"child-result";
     }] isEqual: @"child-result"])
-                                     message: (@"Scopes should support the withChildScope: convenience overload")];
+                                     message: (@"Task groups should support the performInChildTaskGroup: convenience overload")];
     [AsyncRuntimeTestSupport assertCondition: (caughtThrownTask)
                                      message: (@"Thrown task bodies should reject through task completion handling")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtScopeFailure)
-                                     message: (@"Thrown child-scope bodies should aggregate into AsyncScopeException")];
+    [AsyncRuntimeTestSupport assertCondition: (caughtTaskGroupFailure)
+                                     message: (@"Thrown child task-group bodies should surface the primary exception directly")];
     [AsyncRuntimeTestSupport assertCondition: (inheritedParentDeadline)
-                                     message: (@"Nested scopes should inherit an earlier parent deadline")];
+                                     message: (@"Nested task groups should inherit an earlier parent deadline")];
     [AsyncRuntimeTestSupport assertCondition: ([scheduler sleepUntilDate: [OFDate dateWithTimeIntervalSinceNow: 0.01]].await == AsyncUnit.unit)
                                      message: (@"Schedulers should wait until future dates instead of taking the immediate shortcut")];
 }
@@ -575,13 +578,13 @@ static void scheduler_channel_private_branches(void)
     auto unsupportedYieldTask = [[CoverageSchedulerTaskHarness alloc] init];
     auto ownerTask = [[CoverageScopeOwnerTaskHarness alloc] init];
     auto otherOwnerTask = [[CoverageScopeOwnerTaskHarness alloc] init];
-    auto cancelledScopeOwner = [[CoverageScopeOwnerTaskHarness alloc] init];
-    auto finishedScopeOwner = [[CoverageScopeOwnerTaskHarness alloc] init];
-    auto deadlineScopeOwner = [[CoverageScopeOwnerTaskHarness alloc] init];
-    auto cancelledScope = [[AsyncScope alloc] initWithScheduler: scheduler ownerTask: (Task *)cancelledScopeOwner parentScope: nilptr name: @"cancelled" deadline: nilptr];
-    auto finishedScope = [[AsyncScope alloc] initWithScheduler: scheduler ownerTask: (Task *)finishedScopeOwner parentScope: nilptr name: @"finished" deadline: nilptr];
-    auto deadlineScope = [[AsyncScope alloc] initWithScheduler: scheduler ownerTask: (Task *)deadlineScopeOwner parentScope: nilptr name: @"deadline" deadline: [OFDate dateWithTimeIntervalSinceNow: 1]];
-    auto scope = [[AsyncScope alloc] initWithScheduler: scheduler ownerTask: (Task *)ownerTask parentScope: nilptr name: @"scope" deadline: nilptr];
+    auto cancelledTaskGroupOwner = [[CoverageScopeOwnerTaskHarness alloc] init];
+    auto finishedTaskGroupOwner = [[CoverageScopeOwnerTaskHarness alloc] init];
+    auto deadlineTaskGroupOwner = [[CoverageScopeOwnerTaskHarness alloc] init];
+    auto cancelledTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler ownerTask: (Task *)cancelledTaskGroupOwner parentTaskGroup: nilptr name: @"cancelled" deadline: nilptr];
+    auto finishedTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler ownerTask: (Task *)finishedTaskGroupOwner parentTaskGroup: nilptr name: @"finished" deadline: nilptr];
+    auto deadlineTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler ownerTask: (Task *)deadlineTaskGroupOwner parentTaskGroup: nilptr name: @"deadline" deadline: [OFDate dateWithTimeIntervalSinceNow: 1]];
+    auto taskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler ownerTask: (Task *)ownerTask parentTaskGroup: nilptr name: @"scope" deadline: nilptr];
     auto channel = [[AsyncChannel alloc] initWithCapacity: 1];
     auto rendezvousChannel = [[AsyncChannel alloc] initWithCapacity: 0];
     auto closedChannel = [[AsyncChannel alloc] initWithCapacity: 1];
@@ -597,8 +600,8 @@ static void scheduler_channel_private_branches(void)
     bool caughtReceiveOutsideTask = false;
     bool caughtSpawnOutsideTask = false;
     bool caughtSpawnSchedulerMismatch = false;
-    bool caughtChildScopeOutsideTask = false;
-    bool caughtChildScopeSchedulerMismatch = false;
+    bool caughtChildTaskGroupOutsideTask = false;
+    bool caughtChildTaskGroupSchedulerMismatch = false;
     bool caughtDeadlineOutsideTask = false;
     bool caughtDeadlineSchedulerMismatch = false;
     bool caughtRegisterAfterCancel = false;
@@ -607,11 +610,11 @@ static void scheduler_channel_private_branches(void)
 
     ownerTask.scheduler = scheduler;
     otherOwnerTask.scheduler = [[AsyncScheduler alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
-    cancelledScopeOwner.scheduler = scheduler;
-    finishedScopeOwner.scheduler = scheduler;
-    deadlineScopeOwner.scheduler = scheduler;
+    cancelledTaskGroupOwner.scheduler = scheduler;
+    finishedTaskGroupOwner.scheduler = scheduler;
+    deadlineTaskGroupOwner.scheduler = scheduler;
 
-    resolvedTask.isResolved = true;
+    resolvedTask.isCompleted = true;
     invalidCompletionCoroutine.status = CoroutineStatus_DEAD;
     invalidCompletionCoroutine.returnedObject = @"bad-completion";
     invalidCompletionTask.coroutine = invalidCompletionCoroutine;
@@ -624,7 +627,7 @@ static void scheduler_channel_private_branches(void)
     rendezvousSend.value = @"rendezvous";
     closedSend.value = @"closed";
 
-    [scheduler _drainReadyTasks];
+    [scheduler _drainReadyQueue];
     [scheduler _enqueueTask: (Task *)resolvedTask];
     [scheduler _resumeTask: (Task *)resolvedTask];
 
@@ -633,21 +636,21 @@ static void scheduler_channel_private_branches(void)
 
     scheduler = [[AsyncScheduler alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
     ownerTask.scheduler = scheduler;
-    cancelledScopeOwner.scheduler = scheduler;
-    finishedScopeOwner.scheduler = scheduler;
-    deadlineScopeOwner.scheduler = scheduler;
+    cancelledTaskGroupOwner.scheduler = scheduler;
+    finishedTaskGroupOwner.scheduler = scheduler;
+    deadlineTaskGroupOwner.scheduler = scheduler;
 
     [scheduler _resumeTask: (Task *)invalidCompletionTask];
     [scheduler _resumeTask: (Task *)unsupportedYieldTask];
 
-    [deadlineScope _installDeadlineTimerIfNeeded];
-    [deadlineScope _invalidateDeadlineTimerIfNeeded];
-    [deadlineScope _cancelFromTimeoutWithDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01]];
-    [deadlineScope _cancelFromTimeoutWithDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01]];
+    [deadlineTaskGroup _installDeadlineTimerIfNeeded];
+    [deadlineTaskGroup _invalidateDeadlineTimerIfNeeded];
+    [deadlineTaskGroup _cancelFromTimeoutWithDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01]];
+    [deadlineTaskGroup _cancelFromTimeoutWithDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01]];
 
-    [cancelledScope cancel];
+    [cancelledTaskGroup cancel];
 
-    (void)[finishedScope _runScopeBody: ^id(AsyncScope *) {
+    (void)[finishedTaskGroup _runTaskGroupBody: ^id(AsyncTaskGroup *) {
         return AsyncUnit.unit;
     }];
 
@@ -664,7 +667,7 @@ static void scheduler_channel_private_branches(void)
     }
 
     @try {
-        [scope spawn: ^id {
+        [taskGroup spawnTask: ^id {
             return @"outside";
         }];
     } @catch (OFInvalidArgumentException *) {
@@ -672,15 +675,15 @@ static void scheduler_channel_private_branches(void)
     }
 
     @try {
-        (void)[scope withChildScope: ^id(AsyncScope *) {
+        (void)[taskGroup performInChildTaskGroup: ^id(AsyncTaskGroup *) {
             return @"outside";
         }];
     } @catch (OFInvalidArgumentException *) {
-        caughtChildScopeOutsideTask = true;
+        caughtChildTaskGroupOutsideTask = true;
     }
 
     @try {
-        (void)[scope withDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01] block: ^id(AsyncScope *) {
+        (void)[taskGroup performWithDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01] block: ^id(AsyncTaskGroup *) {
             return @"outside";
         }];
     } @catch (OFInvalidArgumentException *) {
@@ -689,7 +692,7 @@ static void scheduler_channel_private_branches(void)
 
     async_current_task = (Task *)otherOwnerTask;
     @try {
-        [scope spawn: ^id {
+        [taskGroup spawnTask: ^id {
             return @"mismatch";
         }];
     } @catch (OFInvalidArgumentException *) {
@@ -697,15 +700,15 @@ static void scheduler_channel_private_branches(void)
     }
 
     @try {
-        (void)[scope withChildScopeNamed: @"mismatch" block: ^id(AsyncScope *) {
+        (void)[taskGroup performInChildTaskGroupNamed: @"mismatch" block: ^id(AsyncTaskGroup *) {
             return @"mismatch";
         }];
     } @catch (OFInvalidArgumentException *) {
-        caughtChildScopeSchedulerMismatch = true;
+        caughtChildTaskGroupSchedulerMismatch = true;
     }
 
     @try {
-        (void)[scope withDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01] block: ^id(AsyncScope *) {
+        (void)[taskGroup performWithDeadline: [OFDate dateWithTimeIntervalSinceNow: 0.01] block: ^id(AsyncTaskGroup *) {
             return @"mismatch";
         }];
     } @catch (OFInvalidArgumentException *) {
@@ -715,13 +718,13 @@ static void scheduler_channel_private_branches(void)
     }
 
     @try {
-        [cancelledScope _registerChildTask: (Task *)ownerTask];
+        [cancelledTaskGroup _registerChildTask: (Task *)ownerTask];
     } @catch (OFInvalidArgumentException *) {
         caughtRegisterAfterCancel = true;
     }
 
     @try {
-        [finishedScope _registerChildTask: (Task *)ownerTask];
+        [finishedTaskGroup _registerChildTask: (Task *)ownerTask];
     } @catch (OFInvalidArgumentException *) {
         caughtRegisterAfterBody = true;
     }
@@ -741,22 +744,22 @@ static void scheduler_channel_private_branches(void)
     [closedChannel _armReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)closedReceive];
 
     [AsyncRuntimeTestSupport assertCondition: (invalidCompletionTask.rejectCount == 1
-        and [invalidCompletionTask.rejectionException isKindOfClass: TaskReturnedNilException.class])
+        and [invalidCompletionTask.failureException isKindOfClass: TaskReturnedNilException.class])
                                      message: (@"Schedulers should reject dead coroutines that return invalid completion objects")];
     [AsyncRuntimeTestSupport assertCondition: (unsupportedYieldTask.rejectCount == 1
-        and [unsupportedYieldTask.rejectionException isKindOfClass: AsyncSchedulerUnsupportedYieldException.class])
+        and [unsupportedYieldTask.failureException isKindOfClass: AsyncSchedulerUnsupportedYieldException.class])
                                      message: (@"Schedulers should reject unsupported yielded objects")];
-    [AsyncRuntimeTestSupport assertCondition: (deadlineScopeOwner.interruptCount == 1)
+    [AsyncRuntimeTestSupport assertCondition: (deadlineTaskGroupOwner.interruptCount == 1)
                                      message: (@"Timeout cancellation should only interrupt the owner task once")];
     [AsyncRuntimeTestSupport assertCondition: (caughtSendOutsideTask and caughtReceiveOutsideTask)
                                      message: (@"Channels should reject send and receive outside a task context")];
     [AsyncRuntimeTestSupport assertCondition: (caughtSpawnOutsideTask
         and caughtSpawnSchedulerMismatch
-        and caughtChildScopeOutsideTask
-        and caughtChildScopeSchedulerMismatch
+        and caughtChildTaskGroupOutsideTask
+        and caughtChildTaskGroupSchedulerMismatch
         and caughtDeadlineOutsideTask
         and caughtDeadlineSchedulerMismatch)
-                                     message: (@"Scopes should reject spawn, child-scope, and deadline helpers outside the owning task scheduler")];
+                                     message: (@"Task groups should reject spawn, child-task-group, and deadline helpers outside the owning task scheduler")];
     [AsyncRuntimeTestSupport assertCondition: (caughtRegisterAfterCancel and caughtRegisterAfterBody)
                                      message: (@"Scopes should reject registering child tasks after cancellation or after the body finishes")];
     [AsyncRuntimeTestSupport assertCondition: (waitingReceiver.hasReceivedValue
@@ -834,7 +837,7 @@ static void utility_internal_branch_coverage(void)
 }
 
 ASYNC_RUNTIME_SYNC_TEST(runtime_internal_description_coverage)
-ASYNC_RUNTIME_ASYNC_TEST(promise_continuation_and_scope_internal_branches)
+ASYNC_RUNTIME_ASYNC_TEST(task_continuation_and_scope_internal_branches)
 ASYNC_RUNTIME_SYNC_TEST(scheduler_channel_private_branches)
 ASYNC_RUNTIME_SYNC_TEST(utility_internal_branch_coverage)
 

@@ -10,14 +10,13 @@
 #import "Async/Coroutine.h"
 #import "Utilities/Optional.h"
 #import "Utilities/Pointer.h"
-#import "Utilities/Signal.h"
 
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
 @interface AsyncRuntimeTestCase : OTTestCase
 
-- (void)runAsyncBlock: (void (^)(AsyncScope *rootScope))block;
+- (void)runAsyncBlock: (void (^)(AsyncTaskGroup *rootTaskGroup))block;
 
 @end
 
@@ -35,20 +34,32 @@
     @implementation test_##Name \
     - (void)test_case \
     { \
-        [self runAsyncBlock: ^(AsyncScope *rootScope) { \
-            Name(rootScope); \
+        [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) { \
+            Name(rootTaskGroup); \
         }]; \
     } \
     @end
 
 @namespace(AsyncRuntimeTestSupport)
 
-+ (Promise<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
-                                                seconds: (OFTimeInterval)seconds
-                                                  value: (OFString *)value;
-+ (Promise<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
-                                                seconds: (OFTimeInterval)seconds
-                                              exception: (OFException *)exception;
++ (Task<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
+                                              seconds: (OFTimeInterval)seconds
+                                                value: (OFString *)value;
++ (Task<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
+                                              seconds: (OFTimeInterval)seconds
+                                            exception: (OFException *)exception;
++ (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (OFHTTPClient *)client
+                                         onScheduler: (AsyncScheduler *)scheduler;
++ (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (OFHTTPClient *)client
+                                           redirects: (unsigned int)redirects
+                                         onScheduler: (AsyncScheduler *)scheduler;
++ (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (OFHTTPClient *)client
+                                           redirects: (unsigned int)redirects
+                                         onScheduler: (AsyncScheduler *)scheduler
+                            cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot;
 + (uintptr_t)pointerValueFromBytes: (const void *)bytes;
 + (void)assertCondition: (bool)condition message: (OFString *)message;
@@ -71,7 +82,7 @@
 [[subclassing_restricted]]
 @interface CrossThreadResolverThread : OFThread
 
-- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay [[designated_initailiser]];
+- (instancetype)initWithResolver: (AsyncCompletionSource<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

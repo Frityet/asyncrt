@@ -1,37 +1,133 @@
 #import "TestSupport.h"
+#import <ObjFWTLS/ObjFWTLS.h>
 
 #pragma clang assume_nonnull begin
 
+static unsigned int const async_runtime_test_default_http_redirects = 10;
+static OFOnceControl async_runtime_test_http_bridge_once = OFOnceControlInitValue;
+static OFMutex *nillable async_runtime_test_http_bridge_lock;
+static OFMutableSet<id> *nillable async_runtime_test_inflight_http_bridges;
+
+[[gnu::constructor]]
+static void AsyncRuntimeEnsureObjFWTLSBindingsLoadedForTests(void)
+{
+    volatile int objfwTLSReference = _ObjFWTLS_reference;
+    (void)objfwTLSReference;
+}
+
+[[subclassing_restricted]]
+@interface AsyncRuntimeTestHTTPRequestCancelledException : OFException
+
+@property(readonly, nonatomic) OFHTTPRequest *request;
+
+- (instancetype)initWithRequest: (OFHTTPRequest *)request [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
+[[subclassing_restricted]]
+@interface AsyncRuntimeTestHTTPClientTaskBridge : OFObject<OFHTTPClientDelegate>
+
+@property(readonly, nonatomic) OFHTTPClient *requestClient;
+@property(readonly, nonatomic) OFObject<OFHTTPClientDelegate> *nillable forwardDelegate;
+@property(readonly, nonatomic) OFHTTPRequest *request;
+@property(readonly, nonatomic) unsigned int redirects;
+@property(readonly, nonatomic) AsyncScheduler *scheduler;
+@property(readonly, nonatomic) AsyncCompletionSource<OFHTTPResponse *> *completionSource;
+
+- (instancetype)initWithRequestClient: (OFHTTPClient *)requestClient
+                      forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate
+                              request: (OFHTTPRequest *)request
+                            redirects: (unsigned int)redirects
+                            scheduler: (AsyncScheduler *)scheduler
+                     completionSource: (AsyncCompletionSource<OFHTTPResponse *> *)completionSource [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+- (void)start;
+- (void)cancel;
++ (void)retainInflightBridge: (AsyncRuntimeTestHTTPClientTaskBridge *)bridge;
++ (void)releaseInflightBridge: (AsyncRuntimeTestHTTPClientTaskBridge *)bridge;
+
+@end
+
 @namespace_implementation(AsyncRuntimeTestSupport)
 
-+ (Promise<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
-                                                seconds: (OFTimeInterval)seconds
-                                                  value: (OFString *)value
++ (Task<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
+                                              seconds: (OFTimeInterval)seconds
+                                                value: (OFString *)value
 {
-    auto resolver = [[PromiseResolver<OFString *> alloc] init];
+    auto completionSource = [[AsyncCompletionSource<OFString *> alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: seconds]
                                           interval: 0
-                                            target: resolver
-                                          selector: @selector(resolve:)
+                                            target: completionSource
+                                          selector: @selector(fulfill:)
                                             object: value
                                            repeats: false];
     [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
-    return resolver.promise;
+    return completionSource.task;
 }
 
-+ (Promise<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
-                                                seconds: (OFTimeInterval)seconds
-                                              exception: (OFException *)exception
++ (Task<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
+                                              seconds: (OFTimeInterval)seconds
+                                            exception: (OFException *)exception
 {
-    auto resolver = [[PromiseResolver<OFString *> alloc] init];
+    auto completionSource = [[AsyncCompletionSource<OFString *> alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: seconds]
                                           interval: 0
-                                            target: resolver
+                                            target: completionSource
                                           selector: @selector(reject:)
                                             object: exception
                                            repeats: false];
     [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
-    return resolver.promise;
+    return completionSource.task;
+}
+
++ (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (OFHTTPClient *)client
+                                         onScheduler: (AsyncScheduler *)scheduler
+{
+    return [self taskToPerformHTTPRequest: request
+                           withHTTPClient: client
+                                redirects: async_runtime_test_default_http_redirects
+                              onScheduler: scheduler
+                 cancelOnTaskCancellation: true];
+}
+
++ (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (OFHTTPClient *)client
+                                           redirects: (unsigned int)redirects
+                                         onScheduler: (AsyncScheduler *)scheduler
+{
+    return [self taskToPerformHTTPRequest: request
+                           withHTTPClient: client
+                                redirects: redirects
+                              onScheduler: scheduler
+                 cancelOnTaskCancellation: true];
+}
+
++ (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (OFHTTPClient *)client
+                                           redirects: (unsigned int)redirects
+                                         onScheduler: (AsyncScheduler *)scheduler
+                            cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
+{
+    auto completionSource = [[AsyncCompletionSource<OFHTTPResponse *> alloc] init];
+    auto requestClient = [[OFHTTPClient alloc] init];
+    requestClient.allowsInsecureRedirects = client.allowsInsecureRedirects;
+
+    auto bridge = [[AsyncRuntimeTestHTTPClientTaskBridge alloc] initWithRequestClient: requestClient
+                                                                        forwardDelegate: client.delegate
+                                                                                request: request
+                                                                              redirects: redirects
+                                                                              scheduler: scheduler
+                                                                       completionSource: completionSource];
+
+    [AsyncRuntimeTestHTTPClientTaskBridge retainInflightBridge: bridge];
+
+    if (cancelOnTaskCancellation)
+        [completionSource setPendingTaskCancellationHandler: ^{ [bridge cancel]; }];
+
+    [bridge start];
+    return completionSource.task;
 }
 
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot
@@ -79,13 +175,222 @@
 
 @implementation TestRejectionException @end
 
+static void AsyncRuntimeInitialiseHTTPBridgeState(void)
+{
+    async_runtime_test_http_bridge_lock = [OFMutex mutex];
+    async_runtime_test_inflight_http_bridges = [OFMutableSet set];
+}
+
+@implementation AsyncRuntimeTestHTTPRequestCancelledException
+
+@synthesize request = _request;
+
+- (instancetype)initWithRequest: (OFHTTPRequest *)request
+{
+    self = [super init];
+    _request = request;
+    return self;
+}
+
+- (OFString *)description
+{
+    return [OFString stringWithFormat: @"AsyncRuntimeTestHTTPRequestCancelledException: cancelled request %@", self.request];
+}
+
+@end
+
+@implementation AsyncRuntimeTestHTTPClientTaskBridge {
+    OFMutex *_lock;
+    bool _didComplete;
+}
+
+@synthesize requestClient = _requestClient;
+@synthesize forwardDelegate = _forwardDelegate;
+@synthesize request = _request;
+@synthesize redirects = _redirects;
+@synthesize scheduler = _scheduler;
+@synthesize completionSource = _completionSource;
+
++ (void)retainInflightBridge: (AsyncRuntimeTestHTTPClientTaskBridge *)bridge
+{
+    OFOnce(&async_runtime_test_http_bridge_once, AsyncRuntimeInitialiseHTTPBridgeState);
+
+    [async_runtime_test_http_bridge_lock lock];
+    @try {
+        [async_runtime_test_inflight_http_bridges addObject: bridge];
+    } @finally {
+        [async_runtime_test_http_bridge_lock unlock];
+    }
+}
+
++ (void)releaseInflightBridge: (AsyncRuntimeTestHTTPClientTaskBridge *)bridge
+{
+    OFOnce(&async_runtime_test_http_bridge_once, AsyncRuntimeInitialiseHTTPBridgeState);
+
+    [async_runtime_test_http_bridge_lock lock];
+    @try {
+        [async_runtime_test_inflight_http_bridges removeObject: bridge];
+    } @finally {
+        [async_runtime_test_http_bridge_lock unlock];
+    }
+}
+
+- (instancetype)initWithRequestClient: (OFHTTPClient *)requestClient
+                      forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate
+                              request: (OFHTTPRequest *)request
+                            redirects: (unsigned int)redirects
+                            scheduler: (AsyncScheduler *)scheduler
+                     completionSource: (AsyncCompletionSource<OFHTTPResponse *> *)completionSource
+{
+    self = [super init];
+    _requestClient = requestClient;
+    _forwardDelegate = forwardDelegate;
+    _request = request;
+    _redirects = redirects;
+    _scheduler = scheduler;
+    _completionSource = completionSource;
+    _lock = [OFMutex mutex];
+    _didComplete = false;
+    return self;
+}
+
+- (bool)_markCompletedOnce
+{
+    block_reference bool shouldComplete;
+
+    [_lock lock];
+    @try {
+        shouldComplete = (not _didComplete);
+        if (shouldComplete)
+            _didComplete = true;
+    } @finally {
+        [_lock unlock];
+    }
+
+    return shouldComplete;
+}
+
+- (void)_cleanup
+{
+    _requestClient.delegate = nilptr;
+
+    @try {
+        [_requestClient close];
+    } @catch (OFException *) {
+    }
+
+    [AsyncRuntimeTestHTTPClientTaskBridge releaseInflightBridge: self];
+}
+
+- (void)_finishWithResponse: (OFHTTPResponse *nillable)response exception: (OFException *nillable)exception
+{
+    if (not [self _markCompletedOnce])
+        return;
+
+    @try {
+        if (response != nilptr)
+            [_completionSource fulfill: response];
+        else if (exception != nilptr)
+            [_completionSource reject: exception];
+        else
+            [_completionSource reject: [OFInvalidArgumentException exception]];
+
+        if (_forwardDelegate != nilptr)
+            [_forwardDelegate client: _requestClient didPerformRequest: _request response: response exception: exception];
+    } @finally {
+        [self _cleanup];
+    }
+}
+
+- (void)start
+{
+    @try {
+        _requestClient.delegate = self;
+        [_requestClient asyncPerformRequest: _request redirects: _redirects runLoopMode: _scheduler.mode];
+    } @catch (OFException *exception) {
+        [self _finishWithResponse: nilptr exception: exception];
+    }
+}
+
+- (void)cancel
+{
+    if (not [self _markCompletedOnce])
+        return;
+
+    @try {
+        [_completionSource reject: [[AsyncRuntimeTestHTTPRequestCancelledException alloc] initWithRequest: _request]];
+    } @finally {
+        [self _cleanup];
+    }
+}
+
+-      (void)client: (OFHTTPClient *)client
+  didPerformRequest: (OFHTTPRequest *)request
+           response: (OFHTTPResponse *nillable)response
+          exception: (id nillable)exception
+{
+    (void)client;
+    (void)request;
+    [self _finishWithResponse: response exception: (OFException *nillable)exception];
+}
+
+-   (void)client: (OFHTTPClient *)client
+  didCreateTCPSocket: (OFTCPSocket *)TCPSocket
+             request: (OFHTTPRequest *)request
+{
+    if ([_forwardDelegate respondsToSelector: @selector(client:didCreateTCPSocket:request:)])
+        [_forwardDelegate client: client didCreateTCPSocket: TCPSocket request: request];
+}
+
+-   (void)client: (OFHTTPClient *)client
+  didCreateTLSStream: (OFTLSStream *)TLSStream
+             request: (OFHTTPRequest *)request
+{
+    if ([_forwardDelegate respondsToSelector: @selector(client:didCreateTLSStream:request:)])
+        [_forwardDelegate client: client didCreateTLSStream: TLSStream request: request];
+}
+
+-      (void)client: (OFHTTPClient *)client
+  wantsRequestBody: (OFStream *)requestBody
+           request: (OFHTTPRequest *)request
+{
+    if ([_forwardDelegate respondsToSelector: @selector(client:wantsRequestBody:request:)])
+        [_forwardDelegate client: client wantsRequestBody: requestBody request: request];
+}
+
+-      (void)client: (OFHTTPClient *)client
+  didReceiveHeaders: (OFDictionary<OFString *, OFString *> *)headers
+         statusCode: (short)statusCode
+            request: (OFHTTPRequest *)request
+{
+    if ([_forwardDelegate respondsToSelector: @selector(client:didReceiveHeaders:statusCode:request:)])
+        [_forwardDelegate client: client didReceiveHeaders: headers statusCode: statusCode request: request];
+}
+
+-       (bool)client: (OFHTTPClient *)client
+  shouldFollowRedirectToIRI: (OFIRI *)IRI
+                 statusCode: (short)statusCode
+                    request: (OFHTTPRequest *)request
+                   response: (OFHTTPResponse *)response
+{
+    if ([_forwardDelegate respondsToSelector: @selector(client:shouldFollowRedirectToIRI:statusCode:request:response:)])
+        return [_forwardDelegate client: client shouldFollowRedirectToIRI: IRI statusCode: statusCode request: request response: response];
+
+    if (request.method == OFHTTPRequestMethodGet or request.method == OFHTTPRequestMethodHead)
+        return true;
+
+    return (statusCode == 303);
+}
+
+@end
+
 @implementation CrossThreadResolverThread {
-    PromiseResolver<OFString *> *_resolver;
+    AsyncCompletionSource<OFString *> *_resolver;
     OFString *_value;
     OFTimeInterval _delay;
 }
 
-- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay
+- (instancetype)initWithResolver: (AsyncCompletionSource<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay
 {
     self = [super init];
     _resolver = resolver;
@@ -97,7 +402,7 @@
 - (id nillable)main
 {
     [OFThread sleepForTimeInterval: _delay];
-    [_resolver resolve: _value];
+    [_resolver fulfill: _value];
     return nilptr;
 }
 

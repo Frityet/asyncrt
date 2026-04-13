@@ -33,12 +33,12 @@
     _scheduler = AsyncScheduler.defaultScheduler;
     auto scheduler = $assert_nonnil(_scheduler);
 
-    auto launchTask = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncScope *rootScope) {
-        return [self applicationDidFinishLaunchingAsync: notification scope: rootScope];
+    auto launchTask = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *rootTaskGroup) {
+        return [self applicationDidFinishLaunchingAsync: notification taskGroup: rootTaskGroup];
     }];
     _launchTask = launchTask;
 
-    (void)[AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncScope *) {
+    (void)[AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *) {
         @try {
             id value = launchTask.await;
 
@@ -60,10 +60,10 @@
 }
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
-                                   scope: (AsyncScope *)scope
+                               taskGroup: (AsyncTaskGroup *)taskGroup
 {
     (void)notification;
-    (void)scope;
+    (void)taskGroup;
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 }
 

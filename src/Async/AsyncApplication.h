@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 @class AsyncScheduler;
-@class AsyncScope;
+@class AsyncTaskGroup;
 @class Task<T>;
 
 @interface AsyncApplication : OFObject<OFApplicationDelegate>
@@ -14,7 +14,7 @@
 @property(readonly, nonatomic) Task<id> *nillable launchTask;
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
-                                   scope: (AsyncScope *)scope;
+                               taskGroup: (AsyncTaskGroup *)taskGroup;
 - (void)asyncApplicationDidFailWithException: (OFException *)exception;
 - (void)asyncApplicationWillTerminate: (OFNotification *)notification;
 - (int)applicationExitStatusForValue: (id)value;

@@ -1,6 +1,6 @@
 #pragma once
 
-#import "UI/AUIComponent.h"
+#import "UI/AUIRenderable.h"
 #import "UI/AUIRenderContext.h"
 
 #pragma clang assume_nonnull begin

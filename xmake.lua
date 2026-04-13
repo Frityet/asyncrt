@@ -8,6 +8,8 @@ local mode_uses_lto = is_mode("release") or is_mode("minsizerel")
 
 includes("xmake/common.lua")
 
+add_repositories("asyncrt-xrepo xrepo", {rootdir = os.scriptdir()})
+
 add_requires("objfw", {
     configs = {
         shared = false,

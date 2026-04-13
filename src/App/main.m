@@ -8,7 +8,7 @@
 
 @implementation App
 
-- (AUIComponent *)makeRootComponent
+- (AUIViewComponent *)makeRootViewComponent
 {
     return [[AsyncRTCalculatorRootComponent alloc] init];
 }

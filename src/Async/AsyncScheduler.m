@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <fcntl.h>
 #include <unistd.h>
 #import "Async/AsyncRuntimeInternal.h"
 
@@ -15,20 +17,41 @@ static size_t const async_default_drain_batch_size = 64;
 
 @end
 
-[[gnu::constructor]]
-static void async_link_support_categories(void)
-{
-    async_link_objfw_promise_categories();
-}
+@protocol AsyncSchedulerRunnable
+
+- (void)runOnScheduler: (AsyncScheduler *)scheduler;
+
+@end
+
+[[subclassing_restricted]]
+@interface AsyncSchedulerTaskRunnable : OFObject<AsyncSchedulerRunnable>
+
+@property(readonly, nonatomic) Task *task;
+
+- (instancetype)initWithTask: (Task *)task [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
+[[subclassing_restricted]]
+@interface AsyncSchedulerBlockRunnable : OFObject<AsyncSchedulerRunnable>
+
+@property(readonly, nonatomic) void (^block)(void);
+
+- (instancetype)initWithBlock: (void (^)(void))block [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
 
 [[subclassing_restricted]]
 @interface AsyncOffloadJob : OFObject
 
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
-@property(readonly, nonatomic) PromiseResolver<id> *resolver;
+@property(readonly, nonatomic) AsyncCompletionSource<id> *completionSource;
 @property(readonly, nonatomic) id (^block)(void);
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block [[designated_initailiser]];
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler completionSource: (AsyncCompletionSource<id> *)completionSource block: (id (^)(void))block [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
 - (void)perform;
 
 @end
@@ -39,7 +62,8 @@ static void async_link_support_categories(void)
 @property(readonly, nonatomic) size_t maxWorkerCount;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount [[designated_initailiser]];
-- (void)enqueueBlock: (id (^)(void))block resolver: (PromiseResolver<id> *)resolver;
+- (instancetype)init OF_UNAVAILABLE;
+- (void)enqueueBlock: (id (^)(void))block completionSource: (AsyncCompletionSource<id> *)completionSource;
 - (void)shutdown;
 
 @end
@@ -48,7 +72,13 @@ static void async_link_support_categories(void)
 @interface AsyncScheduler ()
 
 + (size_t)_defaultWorkerCount;
-- (void)_scheduleDrainTimer;
+- (void)_initializeWakePipe;
+- (void)_armWakeReadHandler;
+- (void)_signalWakePipeIfNeeded;
+- (void)_drainWakePipe;
+- (void)_compactReadyQueueIfNeeded;
+- (OFArray<id<AsyncSchedulerRunnable>> *)_dequeueReadyBatch;
+- (void)_drainReadyQueue;
 - (void)_resumeTask: (Task *)task;
 
 @end
@@ -76,7 +106,7 @@ static void async_link_support_categories(void)
 
 @synthesize isCancellationRequested = _cancellationRequested;
 
-- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested scopeName: (OFString *nillable)scopeName
+- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested taskGroupName: (OFString *nillable)taskGroupName
 {
     self = [super init];
     _taskID = taskID;
@@ -84,14 +114,13 @@ static void async_link_support_categories(void)
     _executionState = executionState;
     _waitReason = [waitReason copy];
     _cancellationRequested = cancellationRequested;
-    _scopeName = [scopeName copy];
+    _taskGroupName = [taskGroupName copy];
     return self;
 }
 
 @end
 
 @implementation AsyncSchedulerSnapshot
-
 
 - (instancetype)initWithQueuedTaskCount: (size_t)queuedTaskCount runningTaskCount: (size_t)runningTaskCount completedTaskCount: (uint64_t)completedTaskCount cancelledTaskCount: (uint64_t)cancelledTaskCount tasks: (OFArray<AsyncTaskSnapshot *> *)tasks
 {
@@ -107,7 +136,6 @@ static void async_link_support_categories(void)
 @end
 
 @implementation AsyncSchedulerException
-
 
 - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler
 {
@@ -126,7 +154,6 @@ static void async_link_support_categories(void)
 
 @implementation AsyncSchedulerInvalidInitializationException
 
-
 - (instancetype)initWithReason: (OFString *)reason
 {
     self = [super initWithScheduler: nilptr];
@@ -142,7 +169,6 @@ static void async_link_support_categories(void)
 @end
 
 @implementation AsyncSchedulerUnsupportedYieldException
-
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task yieldedObject: (id nillable)yieldedObject
 {
@@ -162,17 +188,20 @@ static void async_link_support_categories(void)
 
 @implementation AsyncScheduler {
     OFMutex *_lock;
-    OFMutableArray<Task *> *_readyTasks;
-    OFMutableSet<Task *> *_queuedTasks;
+    OFMutableArray<id<AsyncSchedulerRunnable>> *_readyRunnables;
+    size_t _readyRunnableHeadIndex;
     OFMutableSet<Task *> *_activeTasks;
     AsyncWorkerPool *_workerPool;
-    bool _drainScheduled;
+    OFFile *nillable _wakeReadFile;
+    int _wakeReadFileDescriptor;
+    int _wakeWriteFileDescriptor;
+    char _wakeBuffer[64];
+    bool _wakeSignalPending;
     bool _shutdown;
     size_t _runningTaskCount;
     uint64_t _completedTaskCount;
     uint64_t _cancelledTaskCount;
 }
-
 
 + (AsyncScheduler *)defaultScheduler
 {
@@ -225,15 +254,20 @@ static void async_link_support_categories(void)
     _maxWorkerCount = maxWorkerCount;
     _maxDrainBatchSize = maxDrainBatchSize;
     _lock = [OFMutex mutex];
-    _readyTasks = [OFMutableArray array];
-    _queuedTasks = [OFMutableSet set];
+    _readyRunnables = [OFMutableArray array];
+    _readyRunnableHeadIndex = 0;
     _activeTasks = [OFMutableSet set];
-    _workerPool = [[AsyncWorkerPool alloc] initWithScheduler: self maxWorkerCount: maxWorkerCount];
-    _drainScheduled = false;
+    _wakeReadFileDescriptor = -1;
+    _wakeWriteFileDescriptor = -1;
+    _wakeSignalPending = false;
     _shutdown = false;
     _runningTaskCount = 0;
     _completedTaskCount = 0;
     _cancelledTaskCount = 0;
+
+    [self _initializeWakePipe];
+    _workerPool = [[AsyncWorkerPool alloc] initWithScheduler: self maxWorkerCount: maxWorkerCount];
+    [self _armWakeReadHandler];
     return self;
 }
 
@@ -247,45 +281,177 @@ static void async_link_support_categories(void)
     return [self initWithRunLoop: runLoop mode: OFDefaultRunLoopMode];
 }
 
-- (void)_scheduleDrainTimer
+- (void)_initializeWakePipe
 {
-    auto fireDate = [[OFDate alloc] initWithTimeIntervalSinceNow: 0];
-    auto timer = [[OFTimer alloc] initWithFireDate: fireDate interval: 0 target: self selector: @selector(_drainReadyTasks) repeats: false];
-    [self.runLoop addTimer: timer forMode: self.mode];
+    int pipeFileDescriptors[2];
+
+    if (pipe(pipeFileDescriptors) != 0)
+        @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"failed to create scheduler wake pipe"];
+    if (fcntl(pipeFileDescriptors[0], F_SETFL, O_NONBLOCK) != 0 or
+        fcntl(pipeFileDescriptors[1], F_SETFL, O_NONBLOCK) != 0) {
+        close(pipeFileDescriptors[0]);
+        close(pipeFileDescriptors[1]);
+        @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"failed to configure scheduler wake pipe"];
+    }
+
+    _wakeReadFileDescriptor = pipeFileDescriptors[0];
+    _wakeWriteFileDescriptor = pipeFileDescriptors[1];
+    _wakeReadFile = [[OFFile alloc] initWithHandle: _wakeReadFileDescriptor];
 }
 
-- (void)_enqueueTask: (Task *)task
+- (void)_armWakeReadHandler
 {
-    block_reference bool shouldScheduleTimer = false;
-    block_reference bool shouldEnqueueTask = false;
-
-    if (task.isResolved)
+    if (_wakeReadFile == nilptr)
         return;
+
+    unretained AsyncScheduler *unsafeSelf = self;
+    [_wakeReadFile asyncReadIntoBuffer: _wakeBuffer
+                                length: sizeof(_wakeBuffer)
+                           runLoopMode: self.mode
+                               handler: ^bool(OFStream *stream, void *buffer, size_t length, id nillable exception) {
+        (void)stream;
+        (void)buffer;
+        (void)length;
+
+        if (exception != nilptr)
+            return not unsafeSelf->_shutdown;
+
+        [unsafeSelf _drainWakePipe];
+        [unsafeSelf _drainReadyQueue];
+        return not unsafeSelf->_shutdown;
+    }];
+}
+
+- (void)_signalWakePipeIfNeeded
+{
+    bool shouldWrite = false;
 
     [_lock lock];
     @try {
-        if (not _shutdown) {
-            shouldEnqueueTask = true;
-            [_activeTasks addObject: task];
-            if (not [_queuedTasks containsObject: task]) {
-                [_queuedTasks addObject: task];
-                [_readyTasks addObject: task];
-            }
-
-            if (not _drainScheduled) {
-                _drainScheduled = true;
-                shouldScheduleTimer = true;
-            }
+        if (not _shutdown and not _wakeSignalPending) {
+            _wakeSignalPending = true;
+            shouldWrite = true;
         }
     } @finally {
         [_lock unlock];
     }
 
-    if (not shouldEnqueueTask)
+    if (not shouldWrite or _wakeWriteFileDescriptor < 0)
         return;
 
-    if (shouldScheduleTimer)
-        [self _scheduleDrainTimer];
+    char wakeByte = 1;
+    ssize_t writeCount = write(_wakeWriteFileDescriptor, &wakeByte, sizeof(wakeByte));
+    if (writeCount >= 0)
+        return;
+
+    if (errno == EAGAIN or errno == EWOULDBLOCK or errno == EBADF)
+        return;
+}
+
+- (void)_drainWakePipe
+{
+    if (_wakeReadFileDescriptor >= 0) {
+        while (true) {
+            ssize_t readCount = read(_wakeReadFileDescriptor, _wakeBuffer, sizeof(_wakeBuffer));
+
+            if (readCount > 0)
+                continue;
+            if (readCount == 0)
+                break;
+            if (errno == EAGAIN or errno == EWOULDBLOCK)
+                break;
+            break;
+        }
+    }
+
+    [_lock lock];
+    @try {
+        _wakeSignalPending = false;
+    } @finally {
+        [_lock unlock];
+    }
+}
+
+- (void)_compactReadyQueueIfNeeded
+{
+    if (_readyRunnableHeadIndex == 0)
+        return;
+    if (_readyRunnableHeadIndex < 128 and _readyRunnableHeadIndex * 2 < _readyRunnables.count)
+        return;
+
+    auto compactedQueue = [OFMutableArray<id<AsyncSchedulerRunnable>> arrayWithCapacity: (_readyRunnables.count - _readyRunnableHeadIndex)];
+    for (size_t index = _readyRunnableHeadIndex; index < _readyRunnables.count; index++)
+        [compactedQueue addObject: _readyRunnables[index]];
+
+    _readyRunnables = compactedQueue;
+    _readyRunnableHeadIndex = 0;
+}
+
+- (OFArray<id<AsyncSchedulerRunnable>> *)_dequeueReadyBatch
+{
+    auto batch = [OFMutableArray<id<AsyncSchedulerRunnable>> array];
+
+    [_lock lock];
+    @try {
+        size_t queuedCount = (_readyRunnables.count - _readyRunnableHeadIndex);
+        size_t batchCount = queuedCount;
+
+        if (batchCount > _maxDrainBatchSize)
+            batchCount = _maxDrainBatchSize;
+
+        for (size_t index = 0; index < batchCount; index++) {
+            [batch addObject: _readyRunnables[_readyRunnableHeadIndex]];
+            _readyRunnableHeadIndex++;
+        }
+
+        [self _compactReadyQueueIfNeeded];
+    } @finally {
+        [_lock unlock];
+    }
+
+    return batch;
+}
+
+- (void)_enqueueTask: (Task *)task
+{
+    bool shouldWake = false;
+
+    if (task.isCompleted or not [task _markReadyQueued])
+        return;
+
+    [_lock lock];
+    @try {
+        if (not _shutdown) {
+            [_activeTasks addObject: task];
+            [_readyRunnables addObject: [[AsyncSchedulerTaskRunnable alloc] initWithTask: task]];
+            shouldWake = true;
+        }
+    } @finally {
+        [_lock unlock];
+    }
+
+    if (shouldWake)
+        [self _signalWakePipeIfNeeded];
+    else
+        [task _clearReadyQueued];
+}
+
+- (void)_enqueueBlock: (void (^)(void))block
+{
+    bool shouldWake = false;
+
+    [_lock lock];
+    @try {
+        if (not _shutdown) {
+            [_readyRunnables addObject: [[AsyncSchedulerBlockRunnable alloc] initWithBlock: block]];
+            shouldWake = true;
+        }
+    } @finally {
+        [_lock unlock];
+    }
+
+    if (shouldWake)
+        [self _signalWakePipeIfNeeded];
 }
 
 - (void)_recordTaskResolutionForTask: (Task *)task
@@ -293,9 +459,8 @@ static void async_link_support_categories(void)
     [_lock lock];
     @try {
         [_activeTasks removeObject: task];
-        [_queuedTasks removeObject: task];
         _completedTaskCount++;
-        if (task.status == PromiseStatus_REJECTED and [task.rejectionException isKindOfClass: TaskCancelledException.class])
+        if (task.status == AsyncTaskStatus_REJECTED and [task.failureException isKindOfClass: TaskCancelledException.class])
             _cancelledTaskCount++;
     } @finally {
         [_lock unlock];
@@ -310,18 +475,18 @@ static void async_link_support_categories(void)
     enum CoroutineStatus coroutineStatus;
     Task *previousTask;
     AsyncScheduler *previousScheduler;
-    AsyncScope *previousScope;
+    AsyncTaskGroup *previousTaskGroup;
 
-    if (task.isResolved)
+    if (task.isCompleted)
         return;
 
     coroutineObject = [task _coroutineObject];
     previousTask = async_current_task;
     previousScheduler = async_current_scheduler;
-    previousScope = async_current_scope;
+    previousTaskGroup = async_current_task_group;
     async_current_task = task;
     async_current_scheduler = self;
-    async_current_scope = [task _resumeScopeContext];
+    async_current_task_group = [task _resumeTaskGroupContext];
 
     [_lock lock];
     @try {
@@ -352,7 +517,7 @@ static void async_link_support_categories(void)
         [task _captureCurrentScopeContext];
         async_current_task = previousTask;
         async_current_scheduler = previousScheduler;
-        async_current_scope = previousScope;
+        async_current_task_group = previousTaskGroup;
 
         [_lock lock];
         @try {
@@ -363,12 +528,12 @@ static void async_link_support_categories(void)
     }
 
     if (coroutineStatus == CoroutineStatus_DEAD) {
-        if (not [returnedObject isKindOfClass: AsyncPromiseCompletion.class]) {
+        if (not [returnedObject isKindOfClass: AsyncTaskExecutionCompletion.class]) {
             [task _rejectTaskWithException: [[TaskReturnedNilException alloc] initWithTask: task]];
             return;
         }
 
-        [task _resolveFromCompletion: $as_nonnil((AsyncPromiseCompletion *)returnedObject)];
+        [task _resolveFromCompletion: $as_nonnil((AsyncTaskExecutionCompletion *)returnedObject)];
         return;
     }
 
@@ -381,82 +546,46 @@ static void async_link_support_categories(void)
     [instruction.registration arm];
 }
 
-- (void)_drainReadyTasks
+- (void)_drainReadyQueue
 {
-    auto batch = [OFMutableArray<Task *> array];
-    block_reference bool shouldScheduleAnotherDrain = false;
-    block_reference bool hasBatch = false;
+    while (true) {
+        OFArray<id<AsyncSchedulerRunnable>> *batch = [self _dequeueReadyBatch];
 
-    [_lock lock];
-    @try {
-        size_t taskCount = _readyTasks.count;
-        size_t batchCount = taskCount;
-
-        if (batchCount > _maxDrainBatchSize)
-            batchCount = _maxDrainBatchSize;
-
-        if (batchCount == 0) {
-            _drainScheduled = false;
+        if (batch.count == 0)
             return;
-        }
 
-        hasBatch = true;
-
-        for (size_t index = 0; index < batchCount; index++) {
-            auto task = _readyTasks[0];
-            [_readyTasks removeObjectAtIndex: 0];
-            [_queuedTasks removeObject: task];
-            [batch addObject: task];
-        }
-    } @finally {
-        [_lock unlock];
+        for (id<AsyncSchedulerRunnable> runnable in batch)
+            [runnable runOnScheduler: self];
     }
-
-    if (not hasBatch)
-        return;
-
-    for (Task *task in batch)
-        [self _resumeTask: task];
-
-    [_lock lock];
-    @try {
-        shouldScheduleAnotherDrain = (_readyTasks.count > 0);
-        _drainScheduled = shouldScheduleAnotherDrain;
-    } @finally {
-        [_lock unlock];
-    }
-
-    if (shouldScheduleAnotherDrain)
-        [self _scheduleDrainTimer];
 }
 
-- (Promise *)sleepForTimeInterval: (OFTimeInterval)timeInterval
+- (Task *)sleepForTimeInterval: (OFTimeInterval)timeInterval
 {
     if (timeInterval <= 0)
-        return [Promise resolved: AsyncUnit.unit];
+        return [Task resolved: AsyncUnit.unit];
 
-    auto resolver = [[PromiseResolver alloc] init];
+    auto completionSource = [[AsyncCompletionSource alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: [OFDate dateWithTimeIntervalSinceNow: timeInterval] interval: 0 repeats: false block: ^(OFTimer *) {
-        [resolver resolve: AsyncUnit.unit];
+        [completionSource fulfill: AsyncUnit.unit];
     }];
     [self.runLoop addTimer: timer forMode: self.mode];
-    return resolver.promise;
+    return completionSource.task;
 }
 
-- (Promise *)sleepUntilDate: (OFDate *)date
+- (Task *)sleepUntilDate: (OFDate *)date
 {
     if ([date compare: OFDate.date] != OFOrderedDescending)
-        return [Promise resolved: AsyncUnit.unit];
+        return [Task resolved: AsyncUnit.unit];
 
-    auto resolver = [[PromiseResolver alloc] init];
+    auto completionSource = [[AsyncCompletionSource alloc] init];
     auto timer = [[OFTimer alloc] initWithFireDate: date interval: 0 repeats: false block: ^(OFTimer *) {
-        [resolver resolve: AsyncUnit.unit];
+        [completionSource fulfill: AsyncUnit.unit];
     }];
     [self.runLoop addTimer: timer forMode: self.mode];
-    return resolver.promise;
+    return completionSource.task;
 }
 
-- (Promise<id> *)offload: (id (^)(void))block
+- (Task<id> *)offload: (id (^)(void))block
 {
     [_lock lock];
     @try {
@@ -466,26 +595,33 @@ static void async_link_support_categories(void)
         [_lock unlock];
     }
 
-    auto resolver = [[PromiseResolver alloc] init];
-    [_workerPool enqueueBlock: block resolver: resolver];
-    return resolver.promise;
+    auto completionSource = [[AsyncCompletionSource alloc] init];
+    [_workerPool enqueueBlock: block completionSource: completionSource];
+    return completionSource.task;
 }
 
 - (void)shutdown
 {
-    block_reference AsyncWorkerPool *workerPool = nilptr;
-    block_reference bool shouldShutdown = false;
+    AsyncWorkerPool *nillable workerPool = nilptr;
+    OFFile *nillable wakeReadFile = nilptr;
+    int wakeWriteFileDescriptor = -1;
+    bool shouldShutdown = false;
 
     [_lock lock];
     @try {
         if (not _shutdown) {
             shouldShutdown = true;
             _shutdown = true;
-            [_readyTasks removeAllObjects];
-            [_queuedTasks removeAllObjects];
+            [_readyRunnables removeAllObjects];
+            _readyRunnableHeadIndex = 0;
             [_activeTasks removeAllObjects];
             workerPool = _workerPool;
             _workerPool = nilptr;
+            wakeReadFile = _wakeReadFile;
+            _wakeReadFile = nilptr;
+            wakeWriteFileDescriptor = _wakeWriteFileDescriptor;
+            _wakeWriteFileDescriptor = -1;
+            _wakeSignalPending = false;
         }
     } @finally {
         [_lock unlock];
@@ -493,6 +629,14 @@ static void async_link_support_categories(void)
 
     if (not shouldShutdown)
         return;
+
+    if (wakeWriteFileDescriptor >= 0)
+        close(wakeWriteFileDescriptor);
+    if (wakeReadFile != nilptr)
+        @try {
+            [wakeReadFile close];
+        } @catch (OFException *) {
+        }
 
     [workerPool shutdown];
 }
@@ -504,17 +648,17 @@ static void async_link_support_categories(void)
 
 - (AsyncSchedulerSnapshot *)snapshot
 {
-    block_reference OFArray<Task *> *activeTasks;
-    block_reference size_t queuedTaskCount;
-    block_reference size_t runningTaskCount;
-    block_reference uint64_t completedTaskCount;
-    block_reference uint64_t cancelledTaskCount;
+    OFArray<Task *> *activeTasks;
+    size_t queuedTaskCount;
+    size_t runningTaskCount;
+    uint64_t completedTaskCount;
+    uint64_t cancelledTaskCount;
     auto taskSnapshots = [OFMutableArray<AsyncTaskSnapshot *> array];
 
     [_lock lock];
     @try {
         activeTasks = _activeTasks.allObjects;
-        queuedTaskCount = _readyTasks.count;
+        queuedTaskCount = (_readyRunnables.count - _readyRunnableHeadIndex);
         runningTaskCount = _runningTaskCount;
         completedTaskCount = _completedTaskCount;
         cancelledTaskCount = _cancelledTaskCount;
@@ -523,7 +667,12 @@ static void async_link_support_categories(void)
     }
 
     for (Task *task in activeTasks) {
-        [taskSnapshots addObject: [[AsyncTaskSnapshot alloc] initWithTaskID: task.taskID name: task.name executionState: task.executionState waitReason: task.waitReason cancellationRequested: task.isCancellationRequested scopeName: task.scope._scopeNameForSnapshots]];
+        [taskSnapshots addObject: [[AsyncTaskSnapshot alloc] initWithTaskID: task.taskID
+                                                                       name: task.name
+                                                             executionState: task.executionState
+                                                                 waitReason: task.waitReason
+                                                      cancellationRequested: task.isCancellationRequested
+                                                              taskGroupName: task.taskGroup._taskGroupNameForSnapshots]];
     }
 
     return [[AsyncSchedulerSnapshot alloc] initWithQueuedTaskCount: queuedTaskCount runningTaskCount: runningTaskCount completedTaskCount: completedTaskCount cancelledTaskCount: cancelledTaskCount tasks: taskSnapshots];
@@ -541,14 +690,47 @@ static void async_link_support_categories(void)
 
 @end
 
+@implementation AsyncSchedulerTaskRunnable
+
+- (instancetype)initWithTask: (Task *)task
+{
+    self = [super init];
+    _task = task;
+    return self;
+}
+
+- (void)runOnScheduler: (AsyncScheduler *)scheduler
+{
+    [self.task _clearReadyQueued];
+    [scheduler _resumeTask: self.task];
+}
+
+@end
+
+@implementation AsyncSchedulerBlockRunnable
+
+- (instancetype)initWithBlock: (void (^)(void))block
+{
+    self = [super init];
+    _block = [block copy];
+    return self;
+}
+
+- (void)runOnScheduler: (AsyncScheduler *)scheduler
+{
+    (void)scheduler;
+    self.block();
+}
+
+@end
+
 @implementation AsyncOffloadJob
 
-
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler completionSource: (AsyncCompletionSource<id> *)completionSource block: (id (^)(void))block
 {
     self = [super init];
     _scheduler = scheduler;
-    _resolver = resolver;
+    _completionSource = completionSource;
     _block = [block copy];
     return self;
 }
@@ -557,7 +739,7 @@ static void async_link_support_categories(void)
 {
     id nillable value = nilptr;
     OFException *nillable exception = nilptr;
-    auto resolver = self.resolver;
+    auto completionSource = self.completionSource;
     auto scheduler = self.scheduler;
 
     @try {
@@ -568,14 +750,12 @@ static void async_link_support_categories(void)
         exception = caughtException;
     }
 
-    auto timer = [[OFTimer alloc] initWithFireDate: OFDate.date interval: 0 repeats: false block: ^(OFTimer *) {
+    [scheduler _enqueueBlock: ^{
         if (exception != nilptr)
-            [resolver reject: $assert_nonnil(exception)];
+            [completionSource reject: $assert_nonnil(exception)];
         else
-            [resolver resolve: $assert_nonnil(value)];
+            [completionSource fulfill: $assert_nonnil(value)];
     }];
-
-    [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
 }
 
 @end
@@ -584,10 +764,10 @@ static void async_link_support_categories(void)
     AsyncScheduler *_scheduler;
     OFCondition *_condition;
     OFMutableArray<AsyncOffloadJob *> *_jobs;
+    size_t _jobHeadIndex;
     OFMutableArray<OFThread *> *_threads;
     bool _stopping;
 }
-
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount
 {
@@ -596,29 +776,38 @@ static void async_link_support_categories(void)
     _maxWorkerCount = maxWorkerCount;
     _condition = [[OFCondition alloc] init];
     _jobs = [OFMutableArray array];
+    _jobHeadIndex = 0;
     _threads = [OFMutableArray array];
     _stopping = false;
 
     for (size_t index = 0; index < maxWorkerCount; index++) {
         auto thread = [[OFThread alloc] initWithBlock: ^{
             while (true) {
-                AsyncOffloadJob *job = nilptr;
+                AsyncOffloadJob *nillable job = nilptr;
 
                 [self->_condition lock];
                 @try {
-                    while (self->_jobs.count == 0 and not self->_stopping)
+                    while ((self->_jobs.count - self->_jobHeadIndex) == 0 and not self->_stopping)
                         [self->_condition wait];
 
-                    if (self->_stopping and self->_jobs.count == 0)
+                    if (self->_stopping and (self->_jobs.count - self->_jobHeadIndex) == 0)
                         return nilptr;
 
-                    job = self->_jobs[0];
-                    [self->_jobs removeObjectAtIndex: 0];
+                    job = self->_jobs[self->_jobHeadIndex];
+                    self->_jobHeadIndex++;
+
+                    if (self->_jobHeadIndex >= 128 and self->_jobHeadIndex * 2 >= self->_jobs.count) {
+                        auto compactedQueue = [OFMutableArray<AsyncOffloadJob *> arrayWithCapacity: (self->_jobs.count - self->_jobHeadIndex)];
+                        for (size_t jobIndex = self->_jobHeadIndex; jobIndex < self->_jobs.count; jobIndex++)
+                            [compactedQueue addObject: self->_jobs[jobIndex]];
+                        self->_jobs = compactedQueue;
+                        self->_jobHeadIndex = 0;
+                    }
                 } @finally {
                     [self->_condition unlock];
                 }
 
-                [job perform];
+                [$assert_nonnil(job) perform];
             }
         }];
 
@@ -635,9 +824,9 @@ static void async_link_support_categories(void)
     [self shutdown];
 }
 
-- (void)enqueueBlock: (id (^)(void))block resolver: (PromiseResolver<id> *)resolver
+- (void)enqueueBlock: (id (^)(void))block completionSource: (AsyncCompletionSource<id> *)completionSource
 {
-    auto job = [[AsyncOffloadJob alloc] initWithScheduler: _scheduler resolver: resolver block: block];
+    auto job = [[AsyncOffloadJob alloc] initWithScheduler: _scheduler completionSource: completionSource block: block];
 
     [_condition lock];
     @try {
@@ -658,7 +847,6 @@ static void async_link_support_categories(void)
             return;
 
         _stopping = true;
-        /* Worker thread blocks retain the pool, so dealloc alone can't stop them. */
         threads = [_threads copy];
         [_condition broadcast];
     } @finally {

@@ -7,7 +7,7 @@
 
 extern thread_local unretained Task *nillable async_current_task;
 extern thread_local unretained AsyncScheduler *nillable async_current_scheduler;
-extern thread_local unretained AsyncScope *nillable async_current_scope;
+extern thread_local unretained AsyncTaskGroup *nillable async_current_task_group;
 
 void AsyncRetainForTSAN(id nillable object);
 
@@ -35,10 +35,38 @@ void AsyncRetainForTSAN(id nillable object);
 @end
 
 @class AsyncTaskWaitRegistration;
-@class AsyncPromiseWaitRegistration;
+@class AsyncTaskStateWaitRegistration;
 @class AsyncChannelSendWaitRegistration;
 @class AsyncChannelReceiveWaitRegistration;
-@protocol AsyncPromiseObserver;
+@protocol AsyncTaskStateObserver;
+
+@interface AsyncTaskState<__covariant T> : OFObject
+
+@property(readonly, nonatomic) enum AsyncTaskStatus status;
+@property(readonly, nonatomic) bool isCompleted;
+@property(readonly, nonatomic) id value;
+@property(readonly, nonatomic) OFException *failureException;
+
++ (AsyncTaskState *)resolved: (id)value;
++ (AsyncTaskState *)rejected: (OFException *)exception;
++ (AsyncTaskState<OFArray<id> *> *)allTasks: (OFArray<Task *> *)tasks;
++ (AsyncTaskState *)raceTasks: (OFArray<Task *> *)tasks;
++ (OFString *)describeStatus: (enum AsyncTaskStatus)status;
+- (AsyncTaskState<id> *)map: (id (^)(id value))transform;
+- (AsyncTaskState<id> *)mapOnScheduler: (AsyncScheduler *)scheduler transform: (id (^)(id value))transform;
+- (AsyncTaskState<id> *)flatMapTask: (Task * (^)(id value))transform;
+- (AsyncTaskState<id> *)flatMapTaskOnScheduler: (AsyncScheduler *)scheduler transform: (Task * (^)(id value))transform;
+- (AsyncTaskState<id> *)recover: (id (^)(OFException *exception))handler;
+- (AsyncTaskState<id> *)recoverOnScheduler: (AsyncScheduler *)scheduler handler: (id (^)(OFException *exception))handler;
+- (AsyncTaskState<id> *)flatRecoverTask: (Task * (^)(OFException *exception))handler;
+- (AsyncTaskState<id> *)flatRecoverTaskOnScheduler: (AsyncScheduler *)scheduler handler: (Task * (^)(OFException *exception))handler;
+- (AsyncTaskState<id> *)ensure: (void (^)(void))block;
+- (AsyncTaskState<id> *)ensureOnScheduler: (AsyncScheduler *)scheduler block: (void (^)(void))block;
+- (OFString *)describe;
+- (id)await;
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
 
 @interface AsyncTaskWaitRegistration : OFObject
 
@@ -64,7 +92,7 @@ void AsyncRetainForTSAN(id nillable object);
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AsyncPromiseCompletion : OFObject
+@interface AsyncTaskExecutionCompletion : OFObject
 
 @property(readonly, nonatomic) id nillable value;
 @property(readonly, nonatomic) OFException *nillable exception;
@@ -75,16 +103,26 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-@interface Promise ()
+@interface AsyncTaskState ()
 
 - (instancetype)_initInternal;
 - (void)_resolveWithValue: (id nillable)value [[direct]];
 - (void)_rejectWithException: (OFException *nillable)exception [[direct]];
-- (void)_addWaitRegistration: (AsyncPromiseWaitRegistration *)registration [[direct]];
-- (void)_removeWaitRegistration: (AsyncPromiseWaitRegistration *)registration [[direct]];
-- (void)_setPendingCancellationCallback: (void (^)(void))cancellationCallback [[direct]];
-- (void)_addObserver: (id<AsyncPromiseObserver>)observer [[direct]];
-- (void)_removeObserver: (id<AsyncPromiseObserver>)observer [[direct]];
+- (void)_addWaitRegistration: (AsyncTaskStateWaitRegistration *)registration [[direct]];
+- (void)_removeWaitRegistration: (AsyncTaskStateWaitRegistration *)registration [[direct]];
+- (void)_setPendingCancellationCallback: (void (^nillable)(void))cancellationCallback [[direct]];
+- (void)_addObserver: (id<AsyncTaskStateObserver>)observer [[direct]];
+- (void)_removeObserver: (id<AsyncTaskStateObserver>)observer [[direct]];
+- (Task *nillable)_producingTask [[direct]];
+- (void)_setProducingTask: (Task *nillable)task [[direct]];
+- (Task *nillable)_associatedTask [[direct]];
+- (void)_setAssociatedTask: (Task *nillable)task [[direct]];
+
+@end
+
+@interface AsyncCompletionSource ()
+
+- (AsyncTaskState *)_internalTaskState [[direct]];
 
 @end
 
@@ -102,34 +140,38 @@ void AsyncRetainForTSAN(id nillable object);
 @interface AsyncScheduler ()
 
 - (void)_enqueueTask: (Task *)task;
+- (void)_enqueueBlock: (void (^)(void))block;
 - (void)_recordTaskResolutionForTask: (Task *)task;
 
 @end
 
 [[direct_members]]
-@interface AsyncScope ()
+@interface AsyncTaskGroup ()
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler ownerTask: (Task *)ownerTask parentScope: (AsyncScope *nillable)parentScope name: (OFString *nillable)name deadline: (OFDate *nillable)deadline [[designated_initailiser]];
-- (id)_runScopeBody: (id (^)(AsyncScope *scope))block;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler ownerTask: (Task *)ownerTask parentTaskGroup: (AsyncTaskGroup *nillable)parentTaskGroup name: (OFString *nillable)name deadline: (OFDate *nillable)deadline [[designated_initailiser]];
+- (id)_runTaskGroupBody: (id (^)(AsyncTaskGroup *taskGroup))block;
 - (void)_registerChildTask: (Task *)task;
 - (void)_task: (Task *)task didCompleteWithException: (OFException *nillable)exception;
 - (void)_cancelFromTimeoutWithDeadline: (OFDate *)deadline;
-- (OFString *nillable)_debugName;
-- (OFString *nillable)_scopeNameForSnapshots;
+- (OFString *nillable)_taskGroupNameForSnapshots;
 
 @end
 
 @interface Task ()
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler scope: (AsyncScope *nillable)scope name: (OFString *nillable)name block: (id (^)(void))block [[designated_initailiser]] [[direct]];
+- (instancetype)initWithTaskState: (AsyncTaskState *)promise [[designated_initailiser]] [[direct]];
+- (AsyncTaskState *)_internalTaskState [[direct]];
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler taskGroup: (AsyncTaskGroup *nillable)taskGroup name: (OFString *nillable)name block: (id (^)(void))block [[designated_initailiser]] [[direct]];
 - (void)_yieldWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason [[direct]];
 - (bool)_resumeFromWaitRegistration: (AsyncTaskWaitRegistration *)registration [[direct]];
+- (bool)_markReadyQueued [[direct]];
+- (void)_clearReadyQueued [[direct]];
 - (void)_setExecutionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason;
-- (void)_setScope: (AsyncScope *nillable)scope [[direct]];
-- (AsyncScope *nillable)_resumeScopeContext;
+- (void)_setTaskGroup: (AsyncTaskGroup *nillable)taskGroup [[direct]];
+- (AsyncTaskGroup *nillable)_resumeTaskGroupContext;
 - (void)_captureCurrentScopeContext;
 - (Coroutine<id> *)_coroutineObject;
-- (void)_resolveFromCompletion: (AsyncPromiseCompletion *)completion;
+- (void)_resolveFromCompletion: (AsyncTaskExecutionCompletion *)completion;
 - (void)_fulfillTaskWithValue: (id)value [[direct]];
 - (void)_rejectTaskWithException: (OFException *)exception;
 - (bool)_isCancellationRequested [[direct]];

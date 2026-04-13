@@ -1,6 +1,6 @@
 #pragma once
 
-#import "UI/AUIComponent.h"
+#import "UI/AUIViewComponent.h"
 #import "UI/Backend/AUIBackend.h"
 #import "UI/AUIExceptions.h"
 #import "UI/AUIRenderContext.h"
@@ -9,9 +9,9 @@
 
 @interface AUIApplication : AsyncApplication
 
-@property(readonly, nonatomic) AUIComponent *nillable rootComponent;
+@property(readonly, nonatomic) AUIViewComponent *nillable rootViewComponent;
 
-- (AUIComponent *)makeRootComponent;
+- (AUIViewComponent *)makeRootViewComponent;
 - (AUIWindowOptions *)windowOptions;
 - (AUIWindow *)makeWindow;
 - (void)setNeedsRender;

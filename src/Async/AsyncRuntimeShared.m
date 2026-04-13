@@ -5,7 +5,7 @@
 
 thread_local unretained Task *nillable async_current_task;
 thread_local unretained AsyncScheduler *nillable async_current_scheduler;
-thread_local unretained AsyncScope *nillable async_current_scope;
+thread_local unretained AsyncTaskGroup *nillable async_current_task_group;
 
 #if defined(__has_feature)
 # if __has_feature(thread_sanitizer)
@@ -77,7 +77,7 @@ void AsyncRetainForTSAN(id nillable object)
 
 @end
 
-@implementation AsyncPromiseCompletion
+@implementation AsyncTaskExecutionCompletion
 
 
 - (instancetype)initWithValue: (id)value

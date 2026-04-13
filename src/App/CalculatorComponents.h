@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AsyncRTCalculatorRootComponent : AUIComponent
+@interface AsyncRTCalculatorRootComponent : AUIViewComponent
 @end
 
 #pragma clang assume_nonnull end

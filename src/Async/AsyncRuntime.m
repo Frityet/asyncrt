@@ -4,25 +4,23 @@
 
 @implementation AsyncRuntime
 
-+ (Task<id> *)run: (id (^)(AsyncScope *scope))block
++ (Task<id> *)run: (id (^)(AsyncTaskGroup *taskGroup))block
 {
     return [self runOnScheduler: AsyncScheduler.defaultScheduler block: block];
 }
 
-+ (Task<id> *)runOnScheduler: (AsyncScheduler *)scheduler block: (id (^)(AsyncScope *scope))block
++ (Task<id> *)runOnScheduler: (AsyncScheduler *)scheduler block: (id (^)(AsyncTaskGroup *taskGroup))block
 {
-    AsyncEnsureObjFWBindingsLoaded();
-
     block_reference Task *rootTask = nilptr;
-    block_reference AsyncScope *rootScope = nilptr;
+    block_reference AsyncTaskGroup *rootTaskGroup = nilptr;
 
-    rootTask = [[Task alloc] initWithScheduler: scheduler scope: nilptr name: @"root" block: ^{
-        if (rootScope == nilptr) {
-            rootScope = [[AsyncScope alloc] initWithScheduler: scheduler ownerTask: rootTask parentScope: nilptr name: @"root" deadline: nilptr];
-            [rootTask _setScope: rootScope];
+    rootTask = [[Task alloc] initWithScheduler: scheduler taskGroup: nilptr name: @"root" block: ^{
+        if (rootTaskGroup == nilptr) {
+            rootTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler ownerTask: rootTask parentTaskGroup: nilptr name: @"root" deadline: nilptr];
+            [rootTask _setTaskGroup: rootTaskGroup];
         }
 
-        return [rootScope _runScopeBody: block];
+        return [rootTaskGroup _runTaskGroupBody: block];
     }];
 
     return rootTask;
