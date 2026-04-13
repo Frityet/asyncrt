@@ -5,7 +5,7 @@
 @interface AUIContextMenuRegion ()
 
 - (instancetype)initWithChild: (id<AUIRenderable> nillable)child
-                         menu: (AUIContextMenu *nillable)menu designated_initaliser;
+                         menu: (AUIContextMenu *nillable)menu [[designated_initailiser]];
 
 @end
 
@@ -14,8 +14,6 @@
     AUIContextMenu *_menu;
 }
 
-@synthesize child = _child;
-@synthesize menu = _menu;
 
 + (instancetype)child: (id<AUIRenderable> nillable)child
                  menu: (AUIContextMenu *nillable)menu

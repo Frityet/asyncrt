@@ -4,11 +4,12 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIToggle : OFObject<AUICompositeRenderable>
 
 @property(readonly, copy, nonatomic) OFString *label;
-@property(readonly, nonatomic, getter=isChecked) bool checked;
-@property(readonly, nonatomic, getter=isEnabled) bool enabled;
+@property(readonly, nonatomic) bool isChecked;
+@property(readonly, nonatomic) bool isEnabled;
 @property(readonly, copy, nonatomic) void (^nillable changeHandler)(bool value);
 
 + (instancetype)label: (OFString *nillable)label

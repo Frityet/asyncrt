@@ -9,7 +9,7 @@
 - (instancetype)initWithLabel: (OFString *nillable)label
                       checked: (bool)checked
                       enabled: (bool)enabled
-                     onChange: (void (^nillable)(bool value))changeHandler designated_initaliser;
+                     onChange: (void (^nillable)(bool value))changeHandler [[designated_initailiser]];
 
 @end
 
@@ -20,10 +20,8 @@
     void (^nillable _changeHandler)(bool value);
 }
 
-@synthesize label = _label;
-@synthesize checked = _checked;
-@synthesize enabled = _enabled;
-@synthesize changeHandler = _changeHandler;
+@synthesize isChecked = _checked;
+@synthesize isEnabled = _enabled;
 
 + (instancetype)label: (OFString *nillable)label
               checked: (bool)checked

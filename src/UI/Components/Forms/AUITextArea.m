@@ -8,7 +8,7 @@
                  placeholder: (OFString *nillable)placeholder
                      enabled: (bool)enabled
                     onChange: (void (^nillable)(OFString *text))changeHandler
-                    onSubmit: (void (^nillable)(OFString *text))submitHandler designated_initaliser;
+                    onSubmit: (void (^nillable)(OFString *text))submitHandler [[designated_initailiser]];
 
 @end
 
@@ -20,11 +20,7 @@
     void (^nillable _submitHandler)(OFString *text);
 }
 
-@synthesize text = _text;
-@synthesize placeholder = _placeholder;
-@synthesize enabled = _enabled;
-@synthesize changeHandler = _changeHandler;
-@synthesize submitHandler = _submitHandler;
+@synthesize isEnabled = _enabled;
 
 + (instancetype)text: (OFString *nillable)text
          placeholder: (OFString *nillable)placeholder

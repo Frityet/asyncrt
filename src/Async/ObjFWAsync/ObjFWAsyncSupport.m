@@ -19,9 +19,10 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AsyncObjFWTimerTarget : OFObject
 
-- (instancetype)initWithBlock: (void (^)(void))block designated_initaliser;
+- (instancetype)initWithBlock: (void (^)(void))block [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)fire;
 
@@ -76,8 +77,6 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 @implementation AsyncBufferReadResult
 
-@synthesize buffer = _buffer;
-@synthesize length = _length;
 
 - (instancetype)initWithBuffer: (const void *)buffer length: (size_t)length
 {
@@ -91,7 +90,6 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 @implementation AsyncDatagramReceiveResult
 
-@synthesize senderAddressData = _senderAddressData;
 
 - (instancetype)initWithBuffer: (const void *)buffer length: (size_t)length sender: (const OFSocketAddress *)sender
 {
@@ -110,7 +108,6 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 #ifdef OF_HAVE_SCTP
 @implementation AsyncSCTPReceiveResult
 
-@synthesize info = _info;
 
 - (instancetype)initWithBuffer: (const void *)buffer length: (size_t)length info: (OFSCTPMessageInfo nillable)info
 {
@@ -130,11 +127,7 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
     bool _completed;
 }
 
-@synthesize object = _object;
-@synthesize operation = _operation;
-@synthesize scheduler = _scheduler;
-@synthesize resolver = _resolver;
-@synthesize started = _started;
+@synthesize isStarted = _started;
 
 - (instancetype)initWithObject: (id)object operation: (OFString *)operation scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver startBlock: (void (^)(AsyncObjFWPromiseBridge *bridge))startBlock cancelBlock: (void (^ nillable)(AsyncObjFWPromiseBridge *bridge))cancelBlock
 {

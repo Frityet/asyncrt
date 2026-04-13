@@ -5,7 +5,7 @@
 static OFOnceControl async_unit_once = OFOnceControlInitValue;
 static AsyncUnit *nillable async_unit_singleton;
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncUnit ()
 
 + (void)_createSingleton;

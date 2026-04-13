@@ -7,7 +7,6 @@
     AUIApplication *_application;
 }
 
-@synthesize application = _application;
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
 {

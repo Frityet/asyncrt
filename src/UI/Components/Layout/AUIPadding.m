@@ -4,7 +4,7 @@
 
 @interface AUIPadding ()
 
-- (instancetype)initWithInsets: (AUIInsets)insets child: (id<AUIRenderable>)child designated_initaliser;
+- (instancetype)initWithInsets: (AUIInsets)insets child: (id<AUIRenderable>)child [[designated_initailiser]];
 
 @end
 
@@ -13,8 +13,6 @@
     id<AUIRenderable> _child;
 }
 
-@synthesize insets = _insets;
-@synthesize child = _child;
 
 + (instancetype)insets: (AUIInsets)insets child: (id<AUIRenderable>)child
 {

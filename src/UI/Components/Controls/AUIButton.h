@@ -4,12 +4,13 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIButton : OFObject<AUICompositeRenderable>
 
 @property(readonly, copy, nonatomic) OFString *title;
 @property(readonly, nonatomic) AUIControlVariant variant;
 @property(readonly, nonatomic) AUIControlSize size;
-@property(readonly, nonatomic, getter=isEnabled) bool enabled;
+@property(readonly, nonatomic) bool isEnabled;
 @property(readonly, copy, nonatomic) void (^nillable pressHandler)(void);
 
 + (instancetype)title: (OFString *nillable)title

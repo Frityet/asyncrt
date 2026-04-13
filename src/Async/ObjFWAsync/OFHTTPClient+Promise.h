@@ -7,23 +7,25 @@
 
 void AsyncEnsureObjFWBindingsLoaded(void);
 
+[[subclassing_restricted]]
 @interface PromiseHTTPClientInvalidCompletionException : PromiseException
 
 @property(readonly, nonatomic) OFHTTPClient *client;
 @property(readonly, nonatomic) OFHTTPRequest *request;
 @property(readonly, nonatomic) OFString *reason;
 
-- (instancetype)initWithPromise: (Promise *)promise client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason [[designated_initailiser]];
 - (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseHTTPClientCancelledException : PromiseException
 
 @property(readonly, nonatomic) OFHTTPRequest *request;
 
-- (instancetype)initWithPromise: (Promise *)promise request: (OFHTTPRequest *)request designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise request: (OFHTTPRequest *)request [[designated_initailiser]];
 - (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 

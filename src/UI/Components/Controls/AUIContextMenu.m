@@ -4,7 +4,7 @@
 
 @interface AUIContextMenu ()
 
-- (instancetype)initWithItems: (OFArray<AUIContextMenuItem *> *nillable)items designated_initaliser;
+- (instancetype)initWithItems: (OFArray<AUIContextMenuItem *> *nillable)items [[designated_initailiser]];
 
 @end
 
@@ -12,7 +12,6 @@
     OFArray<AUIContextMenuItem *> *_items;
 }
 
-@synthesize items = _items;
 
 + (instancetype)items: (OFArray<AUIContextMenuItem *> *nillable)items
 {

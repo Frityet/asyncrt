@@ -27,8 +27,6 @@
 
 @implementation AsyncApplication
 
-@synthesize scheduler = _scheduler;
-@synthesize launchTask = _launchTask;
 
 - (void)applicationDidFinishLaunching: (OFNotification *)notification
 {

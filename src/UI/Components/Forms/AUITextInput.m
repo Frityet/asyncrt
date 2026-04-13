@@ -14,7 +14,7 @@
                       secure: (bool)secure
                    multiline: (bool)multiline
                     onChange: (void (^nillable)(OFString *text))changeHandler
-                    onSubmit: (void (^nillable)(OFString *text))submitHandler designated_initaliser;
+                    onSubmit: (void (^nillable)(OFString *text))submitHandler [[designated_initailiser]];
 
 @end
 
@@ -32,17 +32,9 @@
     void (^nillable _submitHandler)(OFString *text);
 }
 
-@synthesize text = _text;
-@synthesize placeholder = _placeholder;
-@synthesize style = _style;
-@synthesize colors = _colors;
-@synthesize layout = _layout;
-@synthesize cornerRadius = _cornerRadius;
-@synthesize enabled = _enabled;
-@synthesize secure = _secure;
-@synthesize multiline = _multiline;
-@synthesize changeHandler = _changeHandler;
-@synthesize submitHandler = _submitHandler;
+@synthesize isEnabled = _enabled;
+@synthesize isSecure = _secure;
+@synthesize isMultiline = _multiline;
 
 + (instancetype)text: (OFString *nillable)text
          placeholder: (OFString *nillable)placeholder

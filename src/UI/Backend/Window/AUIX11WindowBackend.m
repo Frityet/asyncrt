@@ -13,7 +13,16 @@
 
 #pragma clang assume_nonnull begin
 
-static AUIModifierFlags AUIX11ModifierFlagsFromState(unsigned int state)
+@namespace(AUIX11EventSupport)
+
++ (AUIModifierFlags)modifierFlagsFromState: (unsigned int)state;
++ (AUIKey)keyFromKeySym: (KeySym)keySym;
+
+@end
+
+@namespace_implementation(AUIX11EventSupport)
+
++ (AUIModifierFlags)modifierFlagsFromState: (unsigned int)state
 {
     AUIModifierFlags modifiers = AUIModifierFlagNone;
 
@@ -29,7 +38,7 @@ static AUIModifierFlags AUIX11ModifierFlagsFromState(unsigned int state)
     return modifiers;
 }
 
-static AUIKey AUIX11KeyFromKeySym(KeySym keySym)
++ (AUIKey)keyFromKeySym: (KeySym)keySym
 {
     switch (keySym) {
         case XK_Tab:
@@ -76,6 +85,8 @@ static AUIKey AUIX11KeyFromKeySym(KeySym keySym)
             return AUIKeyUnknown;
     }
 }
+
+@end
 
 @implementation AUIX11WindowBackend {
     bool _open;
@@ -223,7 +234,7 @@ static AUIKey AUIX11KeyFromKeySym(KeySym keySym)
                 Status status = 0;
                 char buffer[64] = {0};
                 int length = 0;
-                AUIModifierFlags modifiers = AUIX11ModifierFlagsFromState(event.xkey.state);
+                AUIModifierFlags modifiers = [AUIX11EventSupport modifierFlagsFromState: event.xkey.state];
                 AUIKey key;
 
                 if (_inputContext != nullptr) {
@@ -238,7 +249,7 @@ static AUIKey AUIX11KeyFromKeySym(KeySym keySym)
                     status = XLookupBoth;
                 }
 
-                key = AUIX11KeyFromKeySym(keySym);
+                key = [AUIX11EventSupport keyFromKeySym: keySym];
                 if (key != AUIKeyUnknown)
                     [[self.application _inputState] addKey: key modifiers: modifiers repeat: false];
 

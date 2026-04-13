@@ -8,7 +8,7 @@
                       variant: (AUIControlVariant)variant
                          size: (AUIControlSize)size
                       enabled: (bool)enabled
-                      onPress: (void (^nillable)(void))pressHandler designated_initaliser;
+                      onPress: (void (^nillable)(void))pressHandler [[designated_initailiser]];
 
 @end
 
@@ -20,11 +20,7 @@
     void (^nillable _pressHandler)(void);
 }
 
-@synthesize title = _title;
-@synthesize variant = _variant;
-@synthesize size = _size;
-@synthesize enabled = _enabled;
-@synthesize pressHandler = _pressHandler;
+@synthesize isEnabled = _enabled;
 
 + (instancetype)title: (OFString *nillable)title
               variant: (AUIControlVariant)variant

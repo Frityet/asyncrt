@@ -8,9 +8,6 @@
     AUIRendererBackend *_rendererBackend;
 }
 
-@synthesize application = _application;
-@synthesize windowBackend = _windowBackend;
-@synthesize rendererBackend = _rendererBackend;
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
                         windowBackend: (AUIWindowBackend *nillable)windowBackend

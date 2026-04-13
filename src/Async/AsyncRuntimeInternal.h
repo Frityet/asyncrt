@@ -20,14 +20,14 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncUnit ()
 
 - (instancetype)_initPrivate;
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface Coroutine ()
 
 - (instancetype)_initAsRootCoroutine;
@@ -45,30 +45,32 @@ void AsyncRetainForTSAN(id nillable object);
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) Task *task;
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task designated_initaliser;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (void)arm;
 - (void)cancel;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncWaitInstruction : OFObject
 
 @property(readonly, nonatomic) AsyncTaskWaitRegistration *registration;
 @property(readonly, nonatomic) OFString *waitReason;
 
-- (instancetype)initWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason designated_initaliser;
+- (instancetype)initWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncPromiseCompletion : OFObject
 
 @property(readonly, nonatomic) id nillable value;
 @property(readonly, nonatomic) OFException *nillable exception;
 
-- (instancetype)initWithValue: (id)value designated_initaliser;
-- (instancetype)initWithException: (OFException *)exception designated_initaliser;
+- (instancetype)initWithValue: (id)value [[designated_initailiser]];
+- (instancetype)initWithException: (OFException *)exception [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -76,17 +78,17 @@ void AsyncRetainForTSAN(id nillable object);
 @interface Promise ()
 
 - (instancetype)_initInternal;
-- (void)_resolveWithValue: (id nillable)value [[clang::objc_direct]];
-- (void)_rejectWithException: (OFException *nillable)exception [[clang::objc_direct]];
-- (void)_addWaitRegistration: (AsyncPromiseWaitRegistration *)registration [[clang::objc_direct]];
-- (void)_removeWaitRegistration: (AsyncPromiseWaitRegistration *)registration [[clang::objc_direct]];
-- (void)_setPendingCancellationCallback: (void (^)(void))cancellationCallback [[clang::objc_direct]];
-- (void)_addObserver: (id<AsyncPromiseObserver>)observer [[clang::objc_direct]];
-- (void)_removeObserver: (id<AsyncPromiseObserver>)observer [[clang::objc_direct]];
+- (void)_resolveWithValue: (id nillable)value [[direct]];
+- (void)_rejectWithException: (OFException *nillable)exception [[direct]];
+- (void)_addWaitRegistration: (AsyncPromiseWaitRegistration *)registration [[direct]];
+- (void)_removeWaitRegistration: (AsyncPromiseWaitRegistration *)registration [[direct]];
+- (void)_setPendingCancellationCallback: (void (^)(void))cancellationCallback [[direct]];
+- (void)_addObserver: (id<AsyncPromiseObserver>)observer [[direct]];
+- (void)_removeObserver: (id<AsyncPromiseObserver>)observer [[direct]];
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncChannel ()
 
 - (void)_armSendRegistration: (AsyncChannelSendWaitRegistration *)registration;
@@ -96,7 +98,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncScheduler ()
 
 - (void)_enqueueTask: (Task *)task;
@@ -104,10 +106,10 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncScope ()
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler ownerTask: (Task *)ownerTask parentScope: (AsyncScope *nillable)parentScope name: (OFString *nillable)name deadline: (OFDate *nillable)deadline designated_initaliser;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler ownerTask: (Task *)ownerTask parentScope: (AsyncScope *nillable)parentScope name: (OFString *nillable)name deadline: (OFDate *nillable)deadline [[designated_initailiser]];
 - (id)_runScopeBody: (id (^)(AsyncScope *scope))block;
 - (void)_registerChildTask: (Task *)task;
 - (void)_task: (Task *)task didCompleteWithException: (OFException *nillable)exception;
@@ -119,19 +121,19 @@ void AsyncRetainForTSAN(id nillable object);
 
 @interface Task ()
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler scope: (AsyncScope *nillable)scope name: (OFString *nillable)name block: (id (^)(void))block designated_initaliser [[clang::objc_direct]];
-- (void)_yieldWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason [[clang::objc_direct]];
-- (bool)_resumeFromWaitRegistration: (AsyncTaskWaitRegistration *)registration [[clang::objc_direct]];
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler scope: (AsyncScope *nillable)scope name: (OFString *nillable)name block: (id (^)(void))block [[designated_initailiser]] [[direct]];
+- (void)_yieldWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason [[direct]];
+- (bool)_resumeFromWaitRegistration: (AsyncTaskWaitRegistration *)registration [[direct]];
 - (void)_setExecutionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason;
-- (void)_setScope: (AsyncScope *nillable)scope [[clang::objc_direct]];
+- (void)_setScope: (AsyncScope *nillable)scope [[direct]];
 - (AsyncScope *nillable)_resumeScopeContext;
 - (void)_captureCurrentScopeContext;
 - (Coroutine<id> *)_coroutineObject;
 - (void)_resolveFromCompletion: (AsyncPromiseCompletion *)completion;
-- (void)_fulfillTaskWithValue: (id)value [[clang::objc_direct]];
+- (void)_fulfillTaskWithValue: (id)value [[direct]];
 - (void)_rejectTaskWithException: (OFException *)exception;
-- (bool)_isCancellationRequested [[clang::objc_direct]];
-- (void)_requestCancellation [[clang::objc_direct]];
+- (bool)_isCancellationRequested [[direct]];
+- (void)_requestCancellation [[direct]];
 - (void)_interruptForScopeCancellation;
 - (void)_pushCancellationSuppression;
 - (void)_popCancellationSuppression;

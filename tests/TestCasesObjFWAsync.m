@@ -5,6 +5,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface OTTestSkippedException : OFException
 + (instancetype)exceptionWithMessage: (OFString *)message;
 @end
@@ -31,6 +32,7 @@ static void AsyncRuntimeWriteFile(OFString *path, OFString *contents)
     }
 }
 
+[[subclassing_restricted]]
 @interface LocalPlaintextTCPServer : OFObject
 
 @property(readonly, nonatomic) uint16_t port;
@@ -155,9 +157,10 @@ static bool AsyncRuntimeCanBindLoopbackDNSStub(void)
     }
 }
 
+[[subclassing_restricted]]
 @interface LocalDNSQueryTestServer : OFObject
 
-- (instancetype)initWithResponseText: (OFString *)responseText designated_initaliser;
+- (instancetype)initWithResponseText: (OFString *)responseText [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)start;
 - (void)stop;
@@ -1415,6 +1418,7 @@ ASYNC_RUNTIME_ASYNC_TEST(objfw_dns_static_host_resolution)
 ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_client_handshake_failure)
 ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_server_handshake_failure)
 
+[[subclassing_restricted]]
 @interface test_objfw_unix_sequenced_packet_wrappers : AsyncRuntimeTestCase @end
 
 @implementation test_objfw_unix_sequenced_packet_wrappers
@@ -1453,6 +1457,7 @@ ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_server_handshake_failure)
 
 @end
 
+[[subclassing_restricted]]
 @interface test_objfw_unix_sequenced_packet_cancel_overloads : AsyncRuntimeTestCase @end
 
 @implementation test_objfw_unix_sequenced_packet_cancel_overloads
@@ -1484,6 +1489,7 @@ ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_server_handshake_failure)
 
 @end
 
+[[subclassing_restricted]]
 @interface test_objfw_spx_socket_connect_wrappers : AsyncRuntimeTestCase @end
 
 @implementation test_objfw_spx_socket_connect_wrappers
@@ -1515,6 +1521,7 @@ ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_server_handshake_failure)
 
 @end
 
+[[subclassing_restricted]]
 @interface test_objfw_spx_stream_socket_connect_wrappers : AsyncRuntimeTestCase @end
 
 @implementation test_objfw_spx_stream_socket_connect_wrappers
@@ -1546,6 +1553,7 @@ ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_server_handshake_failure)
 
 @end
 
+[[subclassing_restricted]]
 @interface test_objfw_sctp_wrapper_methods : AsyncRuntimeTestCase @end
 
 @implementation test_objfw_sctp_wrapper_methods
@@ -1576,6 +1584,7 @@ ASYNC_RUNTIME_ASYNC_TEST(objfw_tls_server_handshake_failure)
 
 @end
 
+[[subclassing_restricted]]
 @interface test_objfw_dns_query_local_stub : AsyncRuntimeTestCase @end
 
 @implementation test_objfw_dns_query_local_stub

@@ -21,64 +21,71 @@ enum [[clang::enum_extensibility(closed)]] PromiseStatus {
 
 @property(readonly, nonatomic) Promise *nillable promise;
 
-- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseAlreadyResolvedException : PromiseException
 
 @property(readonly, nonatomic) enum PromiseStatus currentStatus;
 @property(readonly, nonatomic) enum PromiseStatus attemptedStatus;
 
-- (instancetype)initWithPromise: (Promise *)promise currentStatus: (enum PromiseStatus)currentStatus attemptedStatus: (enum PromiseStatus)attemptedStatus designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise currentStatus: (enum PromiseStatus)currentStatus attemptedStatus: (enum PromiseStatus)attemptedStatus [[designated_initailiser]];
 - (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseNilResolutionValueException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseNilRejectionException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseInvalidStateAccessException : PromiseException
 
 @property(readonly, nonatomic) OFString *operation;
 @property(readonly, nonatomic) enum PromiseStatus status;
 
-- (instancetype)initWithPromise: (Promise *)promise operation: (OFString *)operation status: (enum PromiseStatus)status designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise operation: (OFString *)operation status: (enum PromiseStatus)status [[designated_initailiser]];
 - (instancetype)initWithPromise: (Promise *)promise OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseAwaitOutsideTaskException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseSelfAwaitException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseContinuationOutsideTaskException : PromiseException
 
-- (instancetype)initWithPromise: (Promise *)promise designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -111,11 +118,12 @@ enum [[clang::enum_extensibility(closed)]] PromiseStatus {
 
 @end
 
+[[subclassing_restricted]]
 @interface PromiseResolver<__covariant T> : OFObject
 
 @property(readonly, nonatomic) Promise<T> *promise;
 
-- (instancetype)init designated_initaliser;
+- (instancetype)init [[designated_initailiser]];
 - (void)resolve: (T)value;
 - (void)reject: (OFException *)exception;
 

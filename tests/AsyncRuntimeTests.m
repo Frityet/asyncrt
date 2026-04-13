@@ -2,7 +2,9 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface OTAssertionFailedException : OFException @end
+[[subclassing_restricted]]
 @interface OTTestSkippedException : OFException @end
 
 @implementation AsyncRuntimeTestCase

@@ -7,14 +7,15 @@
 
 @interface AsyncScheduler (CoverageExtras)
 - (void)_drainReadyTasks;
-- (void)_resumeTask: (Task *)task [[clang::objc_direct]];
+- (void)_resumeTask: (Task *)task [[direct]];
 @end
 
 @interface AsyncScope (CoverageExtras)
-- (void)_installDeadlineTimerIfNeeded [[clang::objc_direct]];
-- (void)_invalidateDeadlineTimerIfNeeded [[clang::objc_direct]];
+- (void)_installDeadlineTimerIfNeeded [[direct]];
+- (void)_invalidateDeadlineTimerIfNeeded [[direct]];
 @end
 
+[[subclassing_restricted]]
 @interface CoverageCoroutineHarness : OFObject
 
 @property(nonatomic) enum CoroutineStatus status;
@@ -42,9 +43,10 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageSchedulerTaskHarness : OFObject
 
-@property(nonatomic, getter=isResolved) bool resolved;
+@property(nonatomic) bool isResolved;
 @property(retain, nonatomic) id coroutine;
 @property(retain, nonatomic) AsyncScope *nillable resumedScope;
 @property(nonatomic) enum PromiseStatus status;
@@ -78,7 +80,7 @@
     size_t _resolveCount;
 }
 
-@synthesize resolved = _resolved;
+@synthesize isResolved = _resolved;
 @synthesize coroutine = _coroutine;
 @synthesize resumedScope = _resumedScope;
 @synthesize status = _status;
@@ -133,6 +135,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageScopeOwnerTaskHarness : OFObject
 
 @property(retain, nonatomic) AsyncScheduler *scheduler;
@@ -184,10 +187,11 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageChannelSendRegistrationHarness : OFObject
 
 @property(retain, nonatomic) id value;
-@property(nonatomic, getter=isClosed) bool closed;
+@property(nonatomic) bool isClosed;
 @property(readonly, nonatomic) size_t deliveredCount;
 @property(readonly, nonatomic) size_t closedCount;
 
@@ -204,7 +208,7 @@
 }
 
 @synthesize value = _value;
-@synthesize closed = _closed;
+@synthesize isClosed = _closed;
 @synthesize deliveredCount = _deliveredCount;
 @synthesize closedCount = _closedCount;
 
@@ -221,11 +225,12 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageChannelReceiveRegistrationHarness : OFObject
 
 @property(retain, nonatomic) id nillable receivedValue;
 @property(nonatomic) bool hasReceivedValue;
-@property(nonatomic, getter=isClosed) bool closed;
+@property(nonatomic) bool isClosed;
 @property(readonly, nonatomic) size_t closedCount;
 
 - (void)signalReceivedValue: (id)value;
@@ -242,7 +247,7 @@
 
 @synthesize receivedValue = _receivedValue;
 @synthesize hasReceivedValue = _hasReceivedValue;
-@synthesize closed = _closed;
+@synthesize isClosed = _closed;
 @synthesize closedCount = _closedCount;
 
 - (void)signalReceivedValue: (id)value
@@ -606,7 +611,7 @@ static void scheduler_channel_private_branches(void)
     finishedScopeOwner.scheduler = scheduler;
     deadlineScopeOwner.scheduler = scheduler;
 
-    resolvedTask.resolved = true;
+    resolvedTask.isResolved = true;
     invalidCompletionCoroutine.status = CoroutineStatus_DEAD;
     invalidCompletionCoroutine.returnedObject = @"bad-completion";
     invalidCompletionTask.coroutine = invalidCompletionCoroutine;

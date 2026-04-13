@@ -11,12 +11,14 @@
 
 - (instancetype)initWithReason: (OFString *nillable)reason;
 - (instancetype)initWithReason: (OFString *nillable)reason
-             underlyingException: (OFException *nillable)underlyingException designated_initaliser;
+             underlyingException: (OFException *nillable)underlyingException [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AUIInitializationException : AUIException @end
+[[subclassing_restricted]]
 @interface AUIRenderException : AUIException @end
 
 #pragma clang assume_nonnull end

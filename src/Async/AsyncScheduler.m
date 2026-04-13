@@ -21,30 +21,30 @@ static void async_link_support_categories(void)
     async_link_objfw_promise_categories();
 }
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncOffloadJob : OFObject
 
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) PromiseResolver<id> *resolver;
 @property(readonly, nonatomic) id (^block)(void);
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block designated_initaliser;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block [[designated_initailiser]];
 - (void)perform;
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncWorkerPool : OFObject
 
 @property(readonly, nonatomic) size_t maxWorkerCount;
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount designated_initaliser;
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount [[designated_initailiser]];
 - (void)enqueueBlock: (id (^)(void))block resolver: (PromiseResolver<id> *)resolver;
 - (void)shutdown;
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncScheduler ()
 
 + (size_t)_defaultWorkerCount;
@@ -74,12 +74,7 @@ static void async_link_support_categories(void)
 
 @implementation AsyncTaskSnapshot
 
-@synthesize taskID = _taskID;
-@synthesize name = _name;
-@synthesize executionState = _executionState;
-@synthesize waitReason = _waitReason;
-@synthesize cancellationRequested = _cancellationRequested;
-@synthesize scopeName = _scopeName;
+@synthesize isCancellationRequested = _cancellationRequested;
 
 - (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested scopeName: (OFString *nillable)scopeName
 {
@@ -93,20 +88,10 @@ static void async_link_support_categories(void)
     return self;
 }
 
-- (bool)isCancellationRequested
-{
-    return _cancellationRequested;
-}
-
 @end
 
 @implementation AsyncSchedulerSnapshot
 
-@synthesize queuedTaskCount = _queuedTaskCount;
-@synthesize runningTaskCount = _runningTaskCount;
-@synthesize completedTaskCount = _completedTaskCount;
-@synthesize cancelledTaskCount = _cancelledTaskCount;
-@synthesize tasks = _tasks;
 
 - (instancetype)initWithQueuedTaskCount: (size_t)queuedTaskCount runningTaskCount: (size_t)runningTaskCount completedTaskCount: (uint64_t)completedTaskCount cancelledTaskCount: (uint64_t)cancelledTaskCount tasks: (OFArray<AsyncTaskSnapshot *> *)tasks
 {
@@ -123,7 +108,6 @@ static void async_link_support_categories(void)
 
 @implementation AsyncSchedulerException
 
-@synthesize scheduler = _scheduler;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *nillable)scheduler
 {
@@ -142,7 +126,6 @@ static void async_link_support_categories(void)
 
 @implementation AsyncSchedulerInvalidInitializationException
 
-@synthesize reason = _reason;
 
 - (instancetype)initWithReason: (OFString *)reason
 {
@@ -160,8 +143,6 @@ static void async_link_support_categories(void)
 
 @implementation AsyncSchedulerUnsupportedYieldException
 
-@synthesize task = _task;
-@synthesize yieldedObject = _yieldedObject;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task yieldedObject: (id nillable)yieldedObject
 {
@@ -192,10 +173,6 @@ static void async_link_support_categories(void)
     uint64_t _cancelledTaskCount;
 }
 
-@synthesize runLoop = _runLoop;
-@synthesize mode = _mode;
-@synthesize maxWorkerCount = _maxWorkerCount;
-@synthesize maxDrainBatchSize = _maxDrainBatchSize;
 
 + (AsyncScheduler *)defaultScheduler
 {
@@ -542,7 +519,7 @@ static void async_link_support_categories(void)
     }
 
     for (Task *task in activeTasks) {
-        [taskSnapshots addObject: [[AsyncTaskSnapshot alloc] initWithTaskID: task.taskID name: task.name executionState: task.executionState waitReason: task.waitReason cancellationRequested: task.cancellationRequested scopeName: task.scope._scopeNameForSnapshots]];
+        [taskSnapshots addObject: [[AsyncTaskSnapshot alloc] initWithTaskID: task.taskID name: task.name executionState: task.executionState waitReason: task.waitReason cancellationRequested: task.isCancellationRequested scopeName: task.scope._scopeNameForSnapshots]];
     }
 
     return [[AsyncSchedulerSnapshot alloc] initWithQueuedTaskCount: queuedTaskCount runningTaskCount: runningTaskCount completedTaskCount: completedTaskCount cancelledTaskCount: cancelledTaskCount tasks: taskSnapshots];
@@ -562,9 +539,6 @@ static void async_link_support_categories(void)
 
 @implementation AsyncOffloadJob
 
-@synthesize scheduler = _scheduler;
-@synthesize resolver = _resolver;
-@synthesize block = _block;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<id> *)resolver block: (id (^)(void))block
 {
@@ -610,7 +584,6 @@ static void async_link_support_categories(void)
     bool _stopping;
 }
 
-@synthesize maxWorkerCount = _maxWorkerCount;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount
 {

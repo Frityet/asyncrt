@@ -4,7 +4,7 @@
 
 @interface AUIDivider ()
 
-- (instancetype)initWithHorizontal: (bool)horizontal thickness: (uint16_t)thickness color: (AUIColor)color designated_initaliser;
+- (instancetype)initWithHorizontal: (bool)horizontal thickness: (uint16_t)thickness color: (AUIColor)color [[designated_initailiser]];
 
 @end
 
@@ -14,9 +14,6 @@
     AUIColor _color;
 }
 
-@synthesize horizontal = _horizontal;
-@synthesize thickness = _thickness;
-@synthesize color = _color;
 
 + (instancetype)horizontalWithThickness: (uint16_t)thickness color: (AUIColor)color
 {

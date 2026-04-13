@@ -12,28 +12,30 @@
 
 @class AUIBackend;
 
+[[subclassing_restricted]]
 @interface AUIKeyEvent : OFObject
 
 @property(readonly, nonatomic) AUIKey key;
 @property(readonly, nonatomic) AUIModifierFlags modifiers;
-@property(readonly, nonatomic, getter=isRepeat) bool repeat;
+@property(readonly, nonatomic) bool isRepeat;
 
 + (instancetype)key: (AUIKey)key modifiers: (AUIModifierFlags)modifiers repeat: (bool)repeat;
 - (instancetype)initWithKey: (AUIKey)key
                   modifiers: (AUIModifierFlags)modifiers
-                     repeat: (bool)repeat designated_initaliser;
+                     repeat: (bool)repeat [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AUIInputState : OFObject
 
 @property(nonatomic) float pointerX;
 @property(nonatomic) float pointerY;
-@property(nonatomic, getter=isPrimaryButtonDown) bool primaryButtonDown;
+@property(nonatomic) bool isPrimaryButtonDown;
 @property(nonatomic) bool primaryButtonPressedThisFrame;
 @property(nonatomic) bool primaryButtonReleasedThisFrame;
-@property(nonatomic, getter=isSecondaryButtonDown) bool secondaryButtonDown;
+@property(nonatomic) bool isSecondaryButtonDown;
 @property(nonatomic) bool secondaryButtonPressedThisFrame;
 @property(nonatomic) bool secondaryButtonReleasedThisFrame;
 @property(nonatomic) float scrollDeltaX;
@@ -52,6 +54,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITextEditingState : OFObject
 
 @property(nonatomic) size_t caretIndex;
@@ -64,18 +67,19 @@
 - (instancetype)initWithCaretIndex: (size_t)caretIndex;
 - (instancetype)initWithCaretIndex: (size_t)caretIndex
               selectionAnchorIndex: (size_t)selectionAnchorIndex
-               selectionFocusIndex: (size_t)selectionFocusIndex designated_initaliser;
+               selectionFocusIndex: (size_t)selectionFocusIndex [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AUIInteractionRegistration : OFObject
 
 @property(readonly, copy, nonatomic) OFString *identifier;
 @property(readonly, nonatomic) Clay_ElementId elementID;
-@property(nonatomic, getter=isEnabled) bool enabled;
-@property(nonatomic, getter=isFocusable) bool focusable;
-@property(nonatomic, getter=isMultiline) bool multiline;
+@property(nonatomic) bool isEnabled;
+@property(nonatomic) bool isFocusable;
+@property(nonatomic) bool isMultiline;
 @property(copy, nonatomic) OFString *nillable text;
 @property(nonatomic) AUICursorStyle cursorStyle;
 @property(retain, nonatomic) AUIContextMenu *nillable contextMenu;
@@ -86,7 +90,7 @@
 + (instancetype)identifier: (OFString *nillable)identifier
                   elementID: (Clay_ElementId)elementID;
 - (instancetype)initWithIdentifier: (OFString *nillable)identifier
-                         elementID: (Clay_ElementId)elementID designated_initaliser;
+                         elementID: (Clay_ElementId)elementID [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -103,7 +107,7 @@
 @property(readonly, nonatomic) AUIApplication *nillable application;
 @property(readonly, nonatomic) AUIComponent *nillable parent;
 @property(readonly, nonatomic) OFArray<AUIComponent *> *renderedChildren;
-@property(readonly, nonatomic, getter=_isMounted) bool mounted;
+@property(readonly, nonatomic) bool _isMounted;
 
 - (void)_attachToApplication: (AUIApplication *nillable)application
                       parent: (AUIComponent *nillable)parent;
@@ -114,9 +118,10 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUIRenderObserver : OFObject<DependencyTrackingObserver>
 
-- (instancetype)initWithInvalidationHandler: (void (^nillable)(void))invalidationHandler designated_initaliser;
+- (instancetype)initWithInvalidationHandler: (void (^nillable)(void))invalidationHandler [[designated_initailiser]];
 - (void)beginTracking;
 - (void)endTracking;
 - (void)invalidate;

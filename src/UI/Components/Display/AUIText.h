@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIText : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable text;

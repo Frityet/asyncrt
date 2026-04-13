@@ -11,35 +11,35 @@
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface SignalObserverEntry : OFObject
 
 @property(readonly, nonatomic) id nillable owner;
 
 - (instancetype)initWithOwner: (id nillable)owner
-                       notify: (void (^)(id _Null_unspecified value))notify designated_initaliser;
+                       notify: (void (^)(id _Null_unspecified value))notify [[designated_initailiser]];
 - (void)notifyWithValue: (id _Null_unspecified)value;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface ComputedTrackingContext : OFObject<SignalTrackingContext>
 
-- (instancetype)initWithOwner: (Computed *)owner designated_initaliser;
+- (instancetype)initWithOwner: (Computed *)owner [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface EffectTrackingContext : OFObject<SignalTrackingContext>
 
-- (instancetype)initWithOwner: (Effect *)owner designated_initaliser;
+- (instancetype)initWithOwner: (Effect *)owner [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface Computed ()
 
 - (void)_cleanupSources;
@@ -49,7 +49,7 @@
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface Effect ()
 
 - (void)_cleanupSources;
@@ -179,7 +179,6 @@
     void (^_notify)(id _Null_unspecified value);
 }
 
-@synthesize owner = _owner;
 
 - (instancetype)initWithOwner: (id nillable)owner
                        notify: (void (^)(id _Null_unspecified value))notify
@@ -202,7 +201,6 @@
     OFMutableArray<SignalObserverEntry *> *_subscribers;
 }
 
-@synthesize value = _value;
 
 + (instancetype)withValue: (id _Null_unspecified)value
 {

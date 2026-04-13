@@ -26,7 +26,7 @@
 
 @interface AUIText ()
 
-- (instancetype)initWithText: (OFString *nillable)text style: (AUITextStyle)style designated_initaliser;
+- (instancetype)initWithText: (OFString *nillable)text style: (AUITextStyle)style [[designated_initailiser]];
 
 @end
 
@@ -35,8 +35,6 @@
     AUITextStyle _style;
 }
 
-@synthesize text = _text;
-@synthesize style = _style;
 
 + (instancetype)string: (OFString *nillable)text
 {

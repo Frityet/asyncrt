@@ -46,9 +46,7 @@
     bool _repeat;
 }
 
-@synthesize key = _key;
-@synthesize modifiers = _modifiers;
-@synthesize repeat = _repeat;
+@synthesize isRepeat = _repeat;
 
 + (instancetype)key: (AUIKey)key modifiers: (AUIModifierFlags)modifiers repeat: (bool)repeat
 {
@@ -83,18 +81,8 @@
     OFMutableArray<AUIKeyEvent *> *_keyEvents;
 }
 
-@synthesize pointerX = _pointerX;
-@synthesize pointerY = _pointerY;
-@synthesize primaryButtonDown = _primaryButtonDown;
-@synthesize primaryButtonPressedThisFrame = _primaryButtonPressedThisFrame;
-@synthesize primaryButtonReleasedThisFrame = _primaryButtonReleasedThisFrame;
-@synthesize secondaryButtonDown = _secondaryButtonDown;
-@synthesize secondaryButtonPressedThisFrame = _secondaryButtonPressedThisFrame;
-@synthesize secondaryButtonReleasedThisFrame = _secondaryButtonReleasedThisFrame;
-@synthesize scrollDeltaX = _scrollDeltaX;
-@synthesize scrollDeltaY = _scrollDeltaY;
-@synthesize typedText = _typedText;
-@synthesize keyEvents = _keyEvents;
+@synthesize isPrimaryButtonDown = _primaryButtonDown;
+@synthesize isSecondaryButtonDown = _secondaryButtonDown;
 
 - (instancetype)init
 {
@@ -197,9 +185,6 @@
     size_t _selectionFocusIndex;
 }
 
-@synthesize caretIndex = _caretIndex;
-@synthesize selectionAnchorIndex = _selectionAnchorIndex;
-@synthesize selectionFocusIndex = _selectionFocusIndex;
 
 + (instancetype)caretIndex: (size_t)caretIndex
       selectionAnchorIndex: (size_t)selectionAnchorIndex
@@ -244,17 +229,9 @@
     void (^nillable _submitHandler)(OFString *text);
 }
 
-@synthesize identifier = _identifier;
-@synthesize elementID = _elementID;
-@synthesize enabled = _enabled;
-@synthesize focusable = _focusable;
-@synthesize multiline = _multiline;
-@synthesize text = _text;
-@synthesize cursorStyle = _cursorStyle;
-@synthesize contextMenu = _contextMenu;
-@synthesize activateHandler = _activateHandler;
-@synthesize textChangeHandler = _textChangeHandler;
-@synthesize submitHandler = _submitHandler;
+@synthesize isEnabled = _enabled;
+@synthesize isFocusable = _focusable;
+@synthesize isMultiline = _multiline;
 
 + (instancetype)identifier: (OFString *nillable)identifier
                   elementID: (Clay_ElementId)elementID

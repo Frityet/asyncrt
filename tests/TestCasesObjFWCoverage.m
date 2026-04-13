@@ -4,45 +4,50 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AsyncObjFWTimerTarget : OFObject
 
-- (instancetype)initWithBlock: (void (^)(void))block designated_initaliser;
+- (instancetype)initWithBlock: (void (^)(void))block [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)fire;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncDNSResolverQueryPromiseDelegate : OFObject<OFDNSResolverQueryDelegate>
 
 - (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge
                       resolver: (OFDNSResolver *)resolver
-                         query: (OFDNSQuery *)query designated_initaliser;
+                         query: (OFDNSQuery *)query [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncDNSResolverHostPromiseDelegate : OFObject<OFDNSResolverHostDelegate>
 
 - (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge
                       resolver: (OFDNSResolver *)resolver
-                          host: (OFString *)host designated_initaliser;
+                          host: (OFString *)host [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncTLSStreamPromiseDelegate : OFObject<OFTLSStreamDelegate>
 
 - (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge
                         stream: (OFTLSStream *)stream
                forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate
                           host: (OFString *nillable)host
-        performsClientHandshake: (bool)performsClientHandshake designated_initaliser;
+        performsClientHandshake: (bool)performsClientHandshake [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)start;
 - (void)cancel;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncHTTPClientPromiseBridge : OFObject<OFHTTPClientDelegate>
 
 - (instancetype)initWithClient: (OFHTTPClient *)client
@@ -50,13 +55,14 @@
                        request: (OFHTTPRequest *)request
                      redirects: (unsigned int)redirects
                      scheduler: (AsyncScheduler *)scheduler
-                      resolver: (PromiseResolver<OFHTTPResponse *> *)resolver designated_initaliser;
+                      resolver: (PromiseResolver<OFHTTPResponse *> *)resolver [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)start;
 - (void)cancel;
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageScheduledTarget : OFObject
 
 @property(nonatomic) bool fired;
@@ -75,6 +81,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageTLSStreamHarness : OFObject
 
 @property(assign, nonatomic) id<OFTLSStreamDelegate> nillable delegate;
@@ -134,6 +141,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageTLSForwardDelegate : OFObject<OFTLSStreamDelegate>
 
 @property(readonly, nonatomic) size_t clientHandshakeCallbackCount;
@@ -253,6 +261,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageHTTPClientHarness : OFObject
 
 @property(assign, nonatomic) OFObject<OFHTTPClientDelegate> *nillable delegate;
@@ -307,6 +316,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageHTTPForwardDelegate : OFObject<OFHTTPClientDelegate>
 
 @property(readonly, nonatomic) size_t performedRequestCallbackCount;

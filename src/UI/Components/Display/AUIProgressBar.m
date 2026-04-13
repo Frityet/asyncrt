@@ -2,7 +2,15 @@
 
 #pragma clang assume_nonnull begin
 
-static float AUIClampFloat(float value, float minimum, float maximum)
+@namespace(AUIProgressSupport)
+
++ (float)clampFloat: (float)value minimum: (float)minimum maximum: (float)maximum;
+
+@end
+
+@namespace_implementation(AUIProgressSupport)
+
++ (float)clampFloat: (float)value minimum: (float)minimum maximum: (float)maximum
 {
     if (value < minimum)
         return minimum;
@@ -11,10 +19,12 @@ static float AUIClampFloat(float value, float minimum, float maximum)
     return value;
 }
 
+@end
+
 @interface AUIProgressBar ()
 
 - (instancetype)initWithProgress: (float)progress
-                         variant: (AUIControlVariant)variant designated_initaliser;
+                         variant: (AUIControlVariant)variant [[designated_initailiser]];
 
 @end
 
@@ -23,8 +33,6 @@ static float AUIClampFloat(float value, float minimum, float maximum)
     AUIControlVariant _variant;
 }
 
-@synthesize progress = _progress;
-@synthesize variant = _variant;
 
 + (instancetype)progress: (float)progress
 {
@@ -40,7 +48,7 @@ static float AUIClampFloat(float value, float minimum, float maximum)
                          variant: (AUIControlVariant)variant
 {
     self = [super init];
-    _progress = AUIClampFloat(progress, 0.0f, 1.0f);
+    _progress = [AUIProgressSupport clampFloat: progress minimum: 0.0f maximum: 1.0f];
     _variant = variant;
     return self;
 }
@@ -48,7 +56,7 @@ static float AUIClampFloat(float value, float minimum, float maximum)
 - (id<AUIRenderable>)renderableBody
 {
     AUIBoxProps trackProps = [AUIComponents progressTrackProps];
-    float clamped = AUIClampFloat(_progress, 0.0f, 1.0f);
+    float clamped = [AUIProgressSupport clampFloat: _progress minimum: 0.0f maximum: 1.0f];
 
     trackProps.layout.height = [AUI axisFixed: 10];
     trackProps.layout.width = [AUI axisGrow: 0];

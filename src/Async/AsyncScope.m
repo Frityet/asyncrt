@@ -2,7 +2,7 @@
 
 #pragma clang assume_nonnull begin
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncScope ()
 
 - (void)_resolveCompletionIfNeeded;
@@ -16,8 +16,6 @@
 
 @implementation AsyncScopeException
 
-@synthesize scope = _scope;
-@synthesize exceptions = _exceptions;
 
 - (instancetype)initWithScope: (AsyncScope *)scope exceptions: (OFArray<OFException *> *)exceptions
 {
@@ -44,8 +42,6 @@
 
 @implementation AsyncTimeoutException
 
-@synthesize scope = _scope;
-@synthesize deadline = _deadline;
 
 - (instancetype)initWithScope: (AsyncScope *)scope deadline: (OFDate *)deadline
 {
@@ -72,11 +68,6 @@
     bool _cancellationRequested;
 }
 
-@synthesize scheduler = _scheduler;
-@synthesize parentScope = _parentScope;
-@synthesize ownerTask = _ownerTask;
-@synthesize name = _name;
-@synthesize deadline = _deadline;
 
 + (AsyncScope *nillable)currentScope
 {

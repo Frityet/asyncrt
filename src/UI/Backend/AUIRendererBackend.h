@@ -10,7 +10,7 @@
 
 @property(readonly, nonatomic) AUIApplication *application;
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application designated_initaliser;
+- (instancetype)initWithApplication: (AUIApplication *nillable)application [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

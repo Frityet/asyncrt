@@ -2,16 +2,17 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AsyncTLSStreamPromiseDelegate : OFObject<OFTLSStreamDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake designated_initaliser;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge stream: (OFTLSStream *)stream forwardDelegate: (id<OFTLSStreamDelegate> nillable)forwardDelegate host: (OFString *nillable)host performsClientHandshake: (bool)performsClientHandshake [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
-- (void)_cleanup [[clang::objc_direct]];
+- (void)_cleanup [[direct]];
 + (Promise<OFTLSStream *> *)promiseHandshakeForStream: (OFTLSStream *)stream
                                                  host: (OFString *nillable)host
                                       clientHandshake: (bool)clientHandshake
                                           onScheduler: (AsyncScheduler *)scheduler
-                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation [[clang::objc_direct]];
+                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation [[direct]];
 - (void)start;
 - (void)cancel;
 

@@ -35,7 +35,7 @@ static atomic_t(size_t) coroutine_default_stack_size = 256 * 1024;
 static thread_local unretained Coroutine *nillable current_coroutine;
 static OFConstantString *coroutine_root_key = @"asyncrt.Coroutine.root";
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface Coroutine ()
 
 - (instancetype)_initAsRootCoroutine;
@@ -57,7 +57,6 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
 
 @implementation CoroutineException
 
-@synthesize coroutine = _coroutine;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine
 {
@@ -81,8 +80,6 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
 
 @implementation CoroutineStateTransitionFailedException
 
-@synthesize fromState = _fromState;
-@synthesize toState = _toState;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine fromState: (enum CoroutineStatus)fromState toState: (enum CoroutineStatus)toState
 {
@@ -101,7 +98,6 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
 
 @implementation CoroutineMissingCallerException
 
-@synthesize operation = _operation;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation
 {
@@ -125,8 +121,6 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
 
 @implementation CoroutineStackSetupFailedException
 
-@synthesize operation = _operation;
-@synthesize errorCode = _errorCode;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation errorCode: (int)errorCode
 {

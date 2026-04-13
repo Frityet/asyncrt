@@ -4,7 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
-[[clang::objc_subclassing_restricted, clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface Optional<T> : OFObject
 
 @property (readonly, nonatomic) bool hasValue;

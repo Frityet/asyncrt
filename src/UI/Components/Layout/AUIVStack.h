@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIVStack : OFObject<AUICompositeRenderable>
 
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;

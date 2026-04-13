@@ -8,8 +8,6 @@
     AUIWindowOptions *_options;
 }
 
-@synthesize application = _application;
-@synthesize options = _options;
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
                             options: (AUIWindowOptions *nillable)options

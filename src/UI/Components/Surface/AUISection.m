@@ -5,7 +5,7 @@
 @interface AUISection ()
 
 - (instancetype)initWithTitle: (OFString *nillable)title
-                     children: (OFArray<id<AUIRenderable>> *nillable)children designated_initaliser;
+                     children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
@@ -14,8 +14,6 @@
     OFArray<id<AUIRenderable>> *_children;
 }
 
-@synthesize title = _title;
-@synthesize children = _children;
 
 + (instancetype)children: (OFArray<id<AUIRenderable>> *nillable)children
 {

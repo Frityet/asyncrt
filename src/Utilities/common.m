@@ -16,7 +16,7 @@
 
 + (id)createWithTag: (uintptr_t)tag payload: (id)payload
 {
-    return nil;
+    return nilptr;
 }
 
 @end

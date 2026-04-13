@@ -2,9 +2,10 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AsyncIRIHandlerPromiseDelegate : OFObject<OFIRIHandlerDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge handler: (OFIRIHandler *nillable)handler IRI: (OFIRI *)IRI designated_initaliser;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge handler: (OFIRIHandler *nillable)handler IRI: (OFIRI *)IRI [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

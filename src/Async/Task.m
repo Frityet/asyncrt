@@ -5,7 +5,7 @@
 
 static atomic_t(uint64_t) async_next_task_id = 1;
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface Task ()
 
 - (AsyncPromiseCompletion *)_completionForBlockExecution;
@@ -14,7 +14,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 @implementation TaskReturnedNilException
 
-@synthesize task = _task;
 
 - (instancetype)initWithTask: (Task *)task
 {
@@ -32,7 +31,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 @implementation TaskCancelledException
 
-@synthesize task = _task;
 
 - (instancetype)initWithTask: (Task *)task
 {
@@ -64,10 +62,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     unretained AsyncScope *nillable _currentExecutionScope;
 }
 
-@synthesize scheduler = _scheduler;
-@synthesize scope = _scope;
-@synthesize taskID = _taskID;
-@synthesize name = _name;
 
 + (Task *nillable)currentTask
 {

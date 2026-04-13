@@ -34,6 +34,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUITestComponent : AUIComponent
 
 @property(readonly, nonatomic) size_t mountCount;
@@ -62,6 +63,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestGroupComponent : AUITestComponent
 
 @property(copy, nonatomic) OFArray<id<AUIRenderable>> *bodyChildren;
@@ -93,11 +95,12 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestSignalComponent : AUIComponent
 
 @property(readonly, nonatomic) Signal<OFString *> *signal;
 
-- (instancetype)initWithSignal: (Signal<OFString *> *nillable)signal designated_initaliser;
+- (instancetype)initWithSignal: (Signal<OFString *> *nillable)signal [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -126,11 +129,12 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestAsyncSignalComponent : AUIComponent
 
 @property(readonly, nonatomic) AsyncSignal<OFString *> *signal;
 
-- (instancetype)initWithSignal: (AsyncSignal<OFString *> *nillable)signal designated_initaliser;
+- (instancetype)initWithSignal: (AsyncSignal<OFString *> *nillable)signal [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -159,6 +163,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestAsyncRenderLoopComponent : AUIComponent
 
 @property(readonly, nonatomic) uint32_t lastRenderedPhase;
@@ -201,6 +206,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestCatalogComponent : AUIComponent @end
 
 @implementation AUITestCatalogComponent
@@ -256,6 +262,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestButtonComponent : AUIComponent
 
 @property(readonly, nonatomic) size_t pressCount;
@@ -294,9 +301,10 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestToggleComponent : AUIComponent
 
-@property(readonly, nonatomic, getter=isChecked) bool checked;
+@property(readonly, nonatomic) bool isChecked;
 
 @end
 
@@ -304,7 +312,7 @@
     bool _checked;
 }
 
-@synthesize checked = _checked;
+@synthesize isChecked = _checked;
 
 - (id<AUIRenderable>)body
 {
@@ -331,6 +339,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestRadioComponent : AUIComponent
 
 @property(readonly, nonatomic) size_t selectedIndex;
@@ -367,6 +376,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestTextFieldComponent : AUIComponent
 
 @property(readonly, copy, nonatomic) OFString *text;
@@ -418,6 +428,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestTwoFieldComponent : AUIComponent
 
 @property(readonly, copy, nonatomic) OFString *first;
@@ -474,6 +485,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestTextAreaComponent : AUIComponent
 
 @property(readonly, copy, nonatomic) OFString *text;
@@ -519,6 +531,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestSecureFieldComponent : AUIComponent @end
 
 @implementation AUITestSecureFieldComponent
@@ -534,6 +547,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestScrollComponent : AUIComponent @end
 
 @implementation AUITestScrollComponent
@@ -580,6 +594,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestStableFocusComponent : AUIComponent
 
 @property(readonly, copy, nonatomic) OFString *text;
@@ -636,6 +651,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestClipboardComponent : AUIComponent
 
 @property(readonly, copy, nonatomic) OFString *first;
@@ -692,6 +708,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestContextMenuComponent : AUIComponent
 
 @property(readonly, nonatomic) size_t selectionCount;
@@ -735,6 +752,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestSpyWindowBackend : AUIWindowBackend
 
 @property(nonatomic) bool failOpen;
@@ -939,6 +957,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestSpyRendererBackend : AUIRendererBackend
 
 @property(readonly, nonatomic) size_t prepareCount;
@@ -981,6 +1000,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestLifecycleApplication : AUIApplication
 
 @property(retain, nonatomic) AUIComponent *nillable providedRootComponent;
@@ -1023,6 +1043,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface AUITestApplication : AUIApplication @end
 
 @interface AUITestApplication ()
@@ -1676,7 +1697,7 @@ static void toggle_and_radio_controls_dispatch_controlled_changes(AsyncScope *ro
     AUITestAttachAndMountRoot(app, toggleRoot, rootScope);
     AUITestRenderApplication(app, 320, 240);
     AUITestClick(app, 32, 32);
-    [AsyncRuntimeTestSupport assertCondition: (toggleRoot.checked) message: @"toggle should flip its controlled value on click"];
+    [AsyncRuntimeTestSupport assertCondition: (toggleRoot.isChecked) message: @"toggle should flip its controlled value on click"];
     AUITestDetachAndUnmountRoot(app, toggleRoot);
 
     AUITestAttachAndMountRoot(app, radioRoot, rootScope);

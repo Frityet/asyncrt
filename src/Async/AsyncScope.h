@@ -13,21 +13,23 @@
 @property(readonly, nonatomic) OFArray<OFException *> *exceptions;
 @property(readonly, nonatomic) OFException *primaryException;
 
-- (instancetype)initWithScope: (AsyncScope *)scope exceptions: (OFArray<OFException *> *)exceptions designated_initaliser;
+- (instancetype)initWithScope: (AsyncScope *)scope exceptions: (OFArray<OFException *> *)exceptions [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncTimeoutException : OFException
 
 @property(readonly, nonatomic) AsyncScope *nillable scope;
 @property(readonly, nonatomic) OFDate *deadline;
 
-- (instancetype)initWithScope: (AsyncScope *)scope deadline: (OFDate *)deadline designated_initaliser;
+- (instancetype)initWithScope: (AsyncScope *)scope deadline: (OFDate *)deadline [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncScope : OFObject
 
 @property(class, readonly, nonatomic) AsyncScope *nillable currentScope;

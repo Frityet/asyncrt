@@ -18,7 +18,7 @@
                 [bridge reject: $as_nonnil((OFException *)exception)];
                 return false;
             }
-            if ((OFStreamSocket *nillable)acceptedSocket == nilptr) {
+            if (acceptedSocket == nilptr) {
                 [bridge rejectInvalidCompletionWithReason: @"ObjFW accepted a stream socket without returning a socket or exception"];
                 return false;
             }

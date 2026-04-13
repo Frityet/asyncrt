@@ -4,7 +4,7 @@
 
 @interface AUIHStack ()
 
-- (instancetype)initWithGap: (uint16_t)gap children: (OFArray<id<AUIRenderable>> *nillable)children designated_initaliser;
+- (instancetype)initWithGap: (uint16_t)gap children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
@@ -13,8 +13,6 @@
     uint16_t _gap;
 }
 
-@synthesize children = _children;
-@synthesize gap = _gap;
 
 + (instancetype)children: (OFArray<id<AUIRenderable>> *nillable)children
 {

@@ -76,7 +76,7 @@
                 [bridge reject: $as_nonnil((OFException *)exception)];
                 return false;
             }
-            if ((OFSequencedPacketSocket *nillable)acceptedSocket == nilptr) {
+            if (acceptedSocket == nilptr) {
                 [bridge rejectInvalidCompletionWithReason: @"ObjFW accepted a sequenced packet socket without returning a socket or exception"];
                 return false;
             }

@@ -4,8 +4,6 @@
 
 @implementation AUIException
 
-@synthesize reason = _reason;
-@synthesize underlyingException = _underlyingException;
 
 - (instancetype)initWithReason: (OFString *nillable)reason
 {
@@ -13,7 +11,7 @@
 }
 
 - (instancetype)initWithReason: (OFString *nillable)reason
-             underlyingException: (OFException *nillable)underlyingException
+           underlyingException: (OFException *nillable)underlyingException
 {
     if (reason == nilptr)
         @throw [OFInvalidArgumentException exception];

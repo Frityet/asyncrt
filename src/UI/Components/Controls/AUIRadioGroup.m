@@ -7,7 +7,7 @@
 
 - (instancetype)initWithOptions: (OFArray<OFString *> *nillable)options
                   selectedIndex: (size_t)selectedIndex
-                       onChange: (void (^nillable)(size_t index))changeHandler designated_initaliser;
+                       onChange: (void (^nillable)(size_t index))changeHandler [[designated_initailiser]];
 
 @end
 
@@ -17,9 +17,6 @@
     void (^nillable _changeHandler)(size_t index);
 }
 
-@synthesize options = _options;
-@synthesize selectedIndex = _selectedIndex;
-@synthesize changeHandler = _changeHandler;
 
 + (instancetype)options: (OFArray<OFString *> *nillable)options
           selectedIndex: (size_t)selectedIndex

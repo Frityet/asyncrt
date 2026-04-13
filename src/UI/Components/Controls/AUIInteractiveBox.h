@@ -4,14 +4,15 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIInteractiveBox : OFObject<AUIRenderable>
 
 @property(readonly, nonatomic) AUILayout layout;
 @property(readonly, nonatomic) AUIControlColors backgrounds;
 @property(readonly, nonatomic) float cornerRadius;
 @property(readonly, nonatomic) AUIBorder border;
-@property(readonly, nonatomic, getter=isEnabled) bool enabled;
-@property(readonly, nonatomic, getter=isFocusable) bool focusable;
+@property(readonly, nonatomic) bool isEnabled;
+@property(readonly, nonatomic) bool isFocusable;
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;
 @property(readonly, copy, nonatomic) void (^nillable activateHandler)(void);
 

@@ -11,6 +11,7 @@ typedef struct AUISize {
     float height;
 } AUISize;
 
+[[subclassing_restricted]]
 @interface AUIRenderContext : OFObject
 
 @property(class, readonly, nonatomic) AUIRenderContext *nillable currentContext;
@@ -23,7 +24,7 @@ typedef struct AUISize {
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
                        viewportSize: (AUISize)viewportSize
                           frameDate: (OFDate *nillable)frameDate
-                        elapsedTime: (OFTimeInterval)elapsedTime designated_initaliser;
+                        elapsedTime: (OFTimeInterval)elapsedTime [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

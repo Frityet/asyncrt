@@ -5,7 +5,7 @@
 @interface AUIBadge ()
 
 - (instancetype)initWithText: (OFString *nillable)text
-                     variant: (AUIControlVariant)variant designated_initaliser;
+                     variant: (AUIControlVariant)variant [[designated_initailiser]];
 
 @end
 
@@ -14,8 +14,6 @@
     AUIControlVariant _variant;
 }
 
-@synthesize text = _text;
-@synthesize variant = _variant;
 
 + (instancetype)text: (OFString *nillable)text
 {

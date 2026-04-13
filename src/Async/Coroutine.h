@@ -17,44 +17,47 @@ enum [[clang::enum_extensibility(closed)]] CoroutineStatus {
 
 @property(readonly) Coroutine *coroutine;
 
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine designated_initaliser;
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface CoroutineStateTransitionFailedException : CoroutineException
 
 @property(readonly) enum CoroutineStatus fromState;
 @property(readonly) enum CoroutineStatus toState;
 
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine fromState: (enum CoroutineStatus)fromState toState: (enum CoroutineStatus)toState designated_initaliser;
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine fromState: (enum CoroutineStatus)fromState toState: (enum CoroutineStatus)toState [[designated_initailiser]];
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface CoroutineMissingCallerException : CoroutineException
 
 @property(readonly) OFString *operation;
 
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation designated_initaliser;
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation [[designated_initailiser]];
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface CoroutineStackSetupFailedException : CoroutineException
 
 @property(readonly) OFString *operation;
 @property(readonly) int errorCode;
 
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation errorCode: (int)errorCode designated_initaliser;
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation errorCode: (int)errorCode [[designated_initailiser]];
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine OF_UNAVAILABLE;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-[[clang::objc_subclassing_restricted, clang::objc_direct_members]]
+[[subclassing_restricted, direct_members]]
 @interface Coroutine<__covariant T> : OFObject<OFFastEnumeration> {
 @public // public so that the assembly trampoline can access these fields directly
     enum CoroutineStatus _status;

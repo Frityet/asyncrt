@@ -43,8 +43,6 @@ void AsyncRetainForTSAN(id nillable object)
 
 @implementation AsyncTaskWaitRegistration
 
-@synthesize scheduler = _scheduler;
-@synthesize task = _task;
 
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task
 {
@@ -68,8 +66,6 @@ void AsyncRetainForTSAN(id nillable object)
 
 @implementation AsyncWaitInstruction
 
-@synthesize registration = _registration;
-@synthesize waitReason = _waitReason;
 
 - (instancetype)initWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason
 {
@@ -83,8 +79,6 @@ void AsyncRetainForTSAN(id nillable object)
 
 @implementation AsyncPromiseCompletion
 
-@synthesize value = _value;
-@synthesize exception = _exception;
 
 - (instancetype)initWithValue: (id)value
 {

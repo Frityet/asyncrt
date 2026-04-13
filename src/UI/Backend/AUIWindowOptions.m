@@ -6,7 +6,7 @@
 
 - (instancetype)initWithTitle: (OFString *nillable)title
                          size: (AUISize)initialSize
-                    resizable: (bool)resizable designated_initaliser;
+                    resizable: (bool)resizable [[designated_initailiser]];
 
 @end
 
@@ -16,9 +16,7 @@
     bool _resizable;
 }
 
-@synthesize title = _title;
-@synthesize initialSize = _initialSize;
-@synthesize resizable = _resizable;
+@synthesize isResizable = _resizable;
 
 + (instancetype)title: (OFString *nillable)title
                  size: (AUISize)initialSize

@@ -2,12 +2,15 @@
 
 #pragma clang assume_nonnull begin
 
-static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+@namespace_implementation(AUIComponents)
+
++ (AUIColor)componentColorWithRed: (uint8_t)red
+                            green: (uint8_t)green
+                             blue: (uint8_t)blue
+                            alpha: (uint8_t)alpha
 {
     return [AUI colorWithRed: red green: green blue: blue alpha: alpha];
 }
-
-@namespace_implementation(AUIComponents)
 
 + (OFArray<id<AUIRenderable>> *)childrenOrEmpty: (OFArray<id<AUIRenderable>> *nillable)children
 {
@@ -71,7 +74,7 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
     AUITextStyle style = [AUI textStyle];
     style.fontSize = 16;
     style.lineHeight = 20;
-    style.color = AUIComponentColor(31, 36, 40, 255);
+    style.color = [self componentColorWithRed: 31 green: 36 blue: 40 alpha: 255];
     return style;
 }
 
@@ -80,7 +83,7 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
     AUITextStyle style = [AUI textStyle];
     style.fontSize = 12;
     style.lineHeight = 14;
-    style.color = AUIComponentColor(31, 36, 40, 255);
+    style.color = [self componentColorWithRed: 31 green: 36 blue: 40 alpha: 255];
     return style;
 }
 
@@ -91,9 +94,9 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
     style.lineHeight = (uint16_t)(style.fontSize + 4);
     style.alignment = AUITextAlignmentCenter;
     style.color = enabled ? (variant == AUIControlVariantSecondary || variant == AUIControlVariantNeutral
-        ? AUIComponentColor(28, 33, 38, 255)
-        : AUIComponentColor(255, 255, 255, 255))
-        : AUIComponentColor(150, 155, 160, 255);
+        ? [self componentColorWithRed: 28 green: 33 blue: 38 alpha: 255]
+        : [self componentColorWithRed: 255 green: 255 blue: 255 alpha: 255])
+        : [self componentColorWithRed: 150 green: 155 blue: 160 alpha: 255];
     return style;
 }
 
@@ -102,7 +105,7 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
     AUITextStyle style = [AUI textStyle];
     style.fontSize = (uint16_t)(size == AUIControlSizeSmall ? 13 : (size == AUIControlSizeLarge ? 17 : 15));
     style.lineHeight = (uint16_t)(style.fontSize + 6);
-    style.color = AUIComponentColor(28, 33, 38, 255);
+    style.color = [self componentColorWithRed: 28 green: 33 blue: 38 alpha: 255];
     style.alignment = AUITextAlignmentLeft;
     return style;
 }
@@ -110,34 +113,34 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
 + (AUIControlColors)controlColorsForVariant: (AUIControlVariant)variant enabled: (bool)enabled
 {
     if (enabled == false) {
-        return [AUI controlColorsWithNormal: AUIComponentColor(241, 243, 245, 255)
-                                      hover: AUIComponentColor(241, 243, 245, 255)
-                                     pressed: AUIComponentColor(241, 243, 245, 255)
-                                    disabled: AUIComponentColor(241, 243, 245, 255)];
+        return [AUI controlColorsWithNormal: [self componentColorWithRed: 241 green: 243 blue: 245 alpha: 255]
+                                      hover: [self componentColorWithRed: 241 green: 243 blue: 245 alpha: 255]
+                                     pressed: [self componentColorWithRed: 241 green: 243 blue: 245 alpha: 255]
+                                    disabled: [self componentColorWithRed: 241 green: 243 blue: 245 alpha: 255]];
     }
 
     switch (variant) {
         case AUIControlVariantPrimary:
-            return [AUI controlColorsWithNormal: AUIComponentColor(54, 101, 185, 255)
-                                          hover: AUIComponentColor(43, 89, 170, 255)
-                                         pressed: AUIComponentColor(32, 74, 150, 255)
-                                        disabled: AUIComponentColor(184, 194, 208, 255)];
+            return [AUI controlColorsWithNormal: [self componentColorWithRed: 54 green: 101 blue: 185 alpha: 255]
+                                          hover: [self componentColorWithRed: 43 green: 89 blue: 170 alpha: 255]
+                                         pressed: [self componentColorWithRed: 32 green: 74 blue: 150 alpha: 255]
+                                        disabled: [self componentColorWithRed: 184 green: 194 blue: 208 alpha: 255]];
         case AUIControlVariantSecondary:
-            return [AUI controlColorsWithNormal: AUIComponentColor(226, 229, 234, 255)
-                                          hover: AUIComponentColor(216, 220, 226, 255)
-                                         pressed: AUIComponentColor(206, 212, 219, 255)
-                                        disabled: AUIComponentColor(236, 238, 241, 255)];
+            return [AUI controlColorsWithNormal: [self componentColorWithRed: 226 green: 229 blue: 234 alpha: 255]
+                                          hover: [self componentColorWithRed: 216 green: 220 blue: 226 alpha: 255]
+                                         pressed: [self componentColorWithRed: 206 green: 212 blue: 219 alpha: 255]
+                                        disabled: [self componentColorWithRed: 236 green: 238 blue: 241 alpha: 255]];
         case AUIControlVariantDanger:
-            return [AUI controlColorsWithNormal: AUIComponentColor(200, 67, 63, 255)
-                                          hover: AUIComponentColor(184, 59, 56, 255)
-                                         pressed: AUIComponentColor(163, 50, 48, 255)
-                                        disabled: AUIComponentColor(224, 186, 184, 255)];
+            return [AUI controlColorsWithNormal: [self componentColorWithRed: 200 green: 67 blue: 63 alpha: 255]
+                                          hover: [self componentColorWithRed: 184 green: 59 blue: 56 alpha: 255]
+                                         pressed: [self componentColorWithRed: 163 green: 50 blue: 48 alpha: 255]
+                                        disabled: [self componentColorWithRed: 224 green: 186 blue: 184 alpha: 255]];
         case AUIControlVariantNeutral:
         default:
-            return [AUI controlColorsWithNormal: AUIComponentColor(227, 230, 234, 255)
-                                          hover: AUIComponentColor(218, 222, 227, 255)
-                                         pressed: AUIComponentColor(208, 213, 219, 255)
-                                        disabled: AUIComponentColor(236, 238, 241, 255)];
+            return [AUI controlColorsWithNormal: [self componentColorWithRed: 227 green: 230 blue: 234 alpha: 255]
+                                          hover: [self componentColorWithRed: 218 green: 222 blue: 227 alpha: 255]
+                                         pressed: [self componentColorWithRed: 208 green: 213 blue: 219 alpha: 255]
+                                        disabled: [self componentColorWithRed: 236 green: 238 blue: 241 alpha: 255]];
     }
 }
 
@@ -146,11 +149,11 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
     AUIColor color;
 
     if (enabled == false)
-        color = AUIComponentColor(220, 224, 228, 255);
+        color = [self componentColorWithRed: 220 green: 224 blue: 228 alpha: 255];
     else if (variant == AUIControlVariantPrimary || variant == AUIControlVariantDanger)
-        color = AUIComponentColor(0, 0, 0, 0);
+        color = [self componentColorWithRed: 0 green: 0 blue: 0 alpha: 0];
     else
-        color = AUIComponentColor(198, 204, 210, 255);
+        color = [self componentColorWithRed: 198 green: 204 blue: 210 alpha: 255];
 
     return [AUI borderAll: 1 color: color];
 }
@@ -166,9 +169,9 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
 
     props.layout.padding = [AUI insetsWithLeft: 18 right: 18 top: 18 bottom: 18];
     props.layout.childGap = 12;
-    props.backgroundColor = AUIComponentColor(247, 245, 240, 255);
+    props.backgroundColor = [self componentColorWithRed: 247 green: 245 blue: 240 alpha: 255];
     props.cornerRadius = 18;
-    props.border = [AUI borderAll: 1 color: AUIComponentColor(226, 220, 208, 255)];
+    props.border = [AUI borderAll: 1 color: [self componentColorWithRed: 226 green: 220 blue: 208 alpha: 255]];
     return props;
 }
 
@@ -178,7 +181,7 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
 
     props.layout.padding = [AUI insetsWithLeft: 0 right: 0 top: 0 bottom: 0];
     props.layout.childGap = 10;
-    props.backgroundColor = AUIComponentColor(0, 0, 0, 0);
+    props.backgroundColor = [self componentColorWithRed: 0 green: 0 blue: 0 alpha: 0];
     props.cornerRadius = 0;
     props.border = [AUI borderNone];
     return props;
@@ -202,7 +205,7 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
 
     props.layout.padding = [AUI insetsWithLeft: 0 right: 0 top: 0 bottom: 0];
     props.layout.childGap = 0;
-    props.backgroundColor = AUIComponentColor(226, 229, 234, 255);
+    props.backgroundColor = [self componentColorWithRed: 226 green: 229 blue: 234 alpha: 255];
     props.cornerRadius = 999;
     props.border = [AUI borderNone];
     return props;
@@ -212,14 +215,14 @@ static AUIColor AUIComponentColor(uint8_t red, uint8_t green, uint8_t blue, uint
 {
     switch (variant) {
         case AUIControlVariantSecondary:
-            return AUIComponentColor(70, 78, 92, 255);
+            return [self componentColorWithRed: 70 green: 78 blue: 92 alpha: 255];
         case AUIControlVariantDanger:
-            return AUIComponentColor(200, 67, 63, 255);
+            return [self componentColorWithRed: 200 green: 67 blue: 63 alpha: 255];
         case AUIControlVariantNeutral:
-            return AUIComponentColor(95, 104, 118, 255);
+            return [self componentColorWithRed: 95 green: 104 blue: 118 alpha: 255];
         case AUIControlVariantPrimary:
         default:
-            return AUIComponentColor(54, 101, 185, 255);
+            return [self componentColorWithRed: 54 green: 101 blue: 185 alpha: 255];
     }
 }
 

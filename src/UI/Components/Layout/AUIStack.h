@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIStack : AUIBox
 
 + (instancetype)rowWithLayout: (AUILayout)layout

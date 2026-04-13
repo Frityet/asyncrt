@@ -8,6 +8,7 @@
 - (void)cli_setParsedValue: (id)value;
 @end
 
+[[subclassing_restricted]]
 @interface CLIResolvedOption : OFObject
 + (instancetype)optionWithPropertyName: (OFString *)propertyName
                                 option: (CLIOption *)option;
@@ -18,11 +19,13 @@
 - (OFString *)helpSyntax;
 @end
 
+[[subclassing_restricted]]
 @interface CLICommandSchema : OFObject
 - (void)resetValues;
 - (OFString *)helpTextForCommandPath: (OFString *)commandPath;
 @end
 
+[[subclassing_restricted]]
 @interface CLINameTransform : OFObject
 + (OFString *)kebabCaseForString: (OFString *)string;
 + (OFString *)upperValueNameForPropertyName: (OFString *)propertyName;
@@ -30,19 +33,22 @@
 + (OFString *)shortNameString: (char)shortName;
 @end
 
+[[subclassing_restricted]]
 @interface CLIValueCodec : OFObject
 + (id)parseToken: (OFString *)token forValueClass: (Class nillable)valueClass;
 @end
 
+[[subclassing_restricted]]
 @interface CLICommandIntrospection : OFObject
 + (CLICommandSchema *)schemaForCommand: (CLICommand *)command;
 @end
 
+[[subclassing_restricted]]
 @interface ParserCustomParsedValue : OFObject<CLIValueParsing>
 
 @property(readonly, copy, nonatomic) OFString *rawValue;
 
-- (instancetype)initWithRawValue: (OFString *)rawValue designated_initaliser;
+- (instancetype)initWithRawValue: (OFString *)rawValue [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -65,11 +71,12 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserStringConstructedValue : OFObject
 
 @property(readonly, copy, nonatomic) OFString *rawValue;
 
-- (instancetype)initWithString: (OFString *)string designated_initaliser;
+- (instancetype)initWithString: (OFString *)string [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -87,9 +94,11 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserOpaqueValue : OFObject @end
 @implementation ParserOpaqueValue @end
 
+[[subclassing_restricted]]
 @interface ParserIvarFallbackCommand : CLICommand {
     CLIOption<OFString *> *_mysteryOption;
 }
@@ -114,6 +123,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserLeafCoverageCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *leafValue;
@@ -133,6 +143,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserErrorCoverageCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFNumber *> *count;
@@ -172,6 +183,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserSubcommandOnlyCommand : CLICommand
 
 @property(readonly, nonatomic) ParserLeafCoverageCommand *serve;
@@ -191,6 +203,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserUnexpectedArgumentCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFNumber *> *verbose;
@@ -210,6 +223,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserDuplicateLongCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *first;
@@ -232,6 +246,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserDuplicateShortCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *first;
@@ -254,6 +269,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserDuplicateSubcommandCommand : CLICommand
 
 @property(readonly, nonatomic) ParserLeafCoverageCommand *dupValue;

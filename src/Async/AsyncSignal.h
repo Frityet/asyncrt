@@ -4,26 +4,26 @@
 
 #pragma clang assume_nonnull begin
 
-[[clang::objc_subclassing_restricted, clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncSignal<T> : OFObject
 
 @property T _Null_unspecified value;
 
 + (instancetype)withValue: (T _Null_unspecified)value;
-- (instancetype)initWithValue: (T _Null_unspecified)value designated_initaliser;
+- (instancetype)initWithValue: (T _Null_unspecified)value [[designated_initailiser]];
 - (void (^)(void))subscribe: (void (^)(T _Null_unspecified))subscriber;
 - (T _Null_unspecified)next;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
-[[clang::objc_subclassing_restricted, clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncComputed<T> : OFObject
 
 @property(readonly) T _Null_unspecified value;
 
 + (instancetype)withBlock: (T (^)(void))computeBlock;
-- (instancetype)initWithBlock: (T (^)(void))computeBlock designated_initaliser;
+- (instancetype)initWithBlock: (T (^)(void))computeBlock [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

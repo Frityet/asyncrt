@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUITextInput : OFObject<AUIRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable text;
@@ -12,9 +13,9 @@
 @property(readonly, nonatomic) AUITextInputColors colors;
 @property(readonly, nonatomic) AUILayout layout;
 @property(readonly, nonatomic) float cornerRadius;
-@property(readonly, nonatomic, getter=isEnabled) bool enabled;
-@property(readonly, nonatomic, getter=isSecure) bool secure;
-@property(readonly, nonatomic, getter=isMultiline) bool multiline;
+@property(readonly, nonatomic) bool isEnabled;
+@property(readonly, nonatomic) bool isSecure;
+@property(readonly, nonatomic) bool isMultiline;
 @property(readonly, copy, nonatomic) void (^nillable changeHandler)(OFString *text);
 @property(readonly, copy, nonatomic) void (^nillable submitHandler)(OFString *text);
 

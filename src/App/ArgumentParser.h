@@ -15,11 +15,12 @@ typedef enum : uint8_t {
 
 @end
 
+[[subclassing_restricted]]
 @interface CLIOption<T> : OFObject
 
 @property (readonly, nonatomic) CLIOptionKind kind;
 @property (readonly, nonatomic) Class valueClass;
-@property (readonly, nonatomic, getter=isRequired) bool required;
+@property (readonly, nonatomic) bool isRequired;
 @property (readonly, copy, nonatomic) OFString *nillable longName;
 @property (readonly, nonatomic) char shortName;
 @property (readonly, copy, nonatomic) OFString *nillable help;
@@ -56,13 +57,15 @@ typedef enum : uint8_t {
 @property (readonly, copy, nonatomic) OFString *nillable usage;
 
 - (instancetype)initWithMessage: (OFString *)message
-                          usage: (OFString *nillable)usage designated_initaliser;
+                          usage: (OFString *nillable)usage [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface ArgumentParserHelpException : ArgumentParserException @end
 
+[[subclassing_restricted]]
 @interface ArgumentParser<T> : OFObject
 
 @property (readonly, nonatomic) T command;

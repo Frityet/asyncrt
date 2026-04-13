@@ -4,11 +4,12 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUISecureField : OFObject<AUICompositeRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable text;
 @property(readonly, copy, nonatomic) OFString *placeholder;
-@property(readonly, nonatomic, getter=isEnabled) bool enabled;
+@property(readonly, nonatomic) bool isEnabled;
 @property(readonly, copy, nonatomic) void (^nillable changeHandler)(OFString *text);
 @property(readonly, copy, nonatomic) void (^nillable submitHandler)(OFString *text);
 

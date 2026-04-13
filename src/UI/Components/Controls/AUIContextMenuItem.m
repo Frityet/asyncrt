@@ -6,7 +6,7 @@
 
 - (instancetype)initWithTitle: (OFString *nillable)title
                       enabled: (bool)enabled
-                     onSelect: (void (^nillable)(void))selectHandler designated_initaliser;
+                     onSelect: (void (^nillable)(void))selectHandler [[designated_initailiser]];
 
 @end
 
@@ -16,9 +16,7 @@
     void (^nillable _selectHandler)(void);
 }
 
-@synthesize title = _title;
-@synthesize enabled = _enabled;
-@synthesize selectHandler = _selectHandler;
+@synthesize isEnabled = _enabled;
 
 + (instancetype)title: (OFString *nillable)title
               enabled: (bool)enabled

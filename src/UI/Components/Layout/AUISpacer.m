@@ -4,7 +4,7 @@
 
 @interface AUISpacer ()
 
-- (instancetype)initWithWidth: (AUILayoutAxis)width height: (AUILayoutAxis)height designated_initaliser;
+- (instancetype)initWithWidth: (AUILayoutAxis)width height: (AUILayoutAxis)height [[designated_initailiser]];
 
 @end
 
@@ -13,8 +13,6 @@
     AUILayoutAxis _height;
 }
 
-@synthesize width = _width;
-@synthesize height = _height;
 
 + (instancetype)width: (AUILayoutAxis)width height: (AUILayoutAxis)height
 {

@@ -4,10 +4,11 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIContextMenuItem : OFObject
 
 @property(readonly, copy, nonatomic) OFString *title;
-@property(readonly, nonatomic, getter=isEnabled) bool enabled;
+@property(readonly, nonatomic) bool isEnabled;
 @property(readonly, copy, nonatomic) void (^nillable selectHandler)(void);
 
 + (instancetype)title: (OFString *nillable)title

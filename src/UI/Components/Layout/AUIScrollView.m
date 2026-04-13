@@ -4,7 +4,7 @@
 
 @interface AUIScrollView ()
 
-- (instancetype)initWithAxis: (AUIScrollAxis)axis child: (id<AUIRenderable>)child designated_initaliser;
+- (instancetype)initWithAxis: (AUIScrollAxis)axis child: (id<AUIRenderable>)child [[designated_initailiser]];
 
 @end
 
@@ -13,8 +13,6 @@
     id<AUIRenderable> _child;
 }
 
-@synthesize axis = _axis;
-@synthesize child = _child;
 
 + (instancetype)axis: (AUIScrollAxis)axis child: (id<AUIRenderable>)child
 {

@@ -19,6 +19,7 @@
 - (void)cli_setParsedValue: (id)value;
 @end
 
+[[subclassing_restricted]]
 @interface CLIResolvedOption : OFObject {
 @public
     OFString *_propertyName;
@@ -37,6 +38,7 @@
 - (OFString *)helpSyntax;
 @end
 
+[[subclassing_restricted]]
 @interface CLIResolvedSubcommand : OFObject {
 @public
     OFString *_propertyName;
@@ -48,6 +50,7 @@
                                    command: (CLICommand *)command;
 @end
 
+[[subclassing_restricted]]
 @interface CLICommandSchema : OFObject {
 @public
     CLICommand *_command;
@@ -65,6 +68,7 @@
 - (OFString *)helpTextForCommandPath: (OFString *)commandPath;
 @end
 
+[[subclassing_restricted]]
 @interface CLINameTransform : OFObject
 + (OFString *)kebabCaseForString: (OFString *)string;
 + (OFString *)upperValueNameForPropertyName: (OFString *)propertyName;
@@ -72,20 +76,24 @@
 + (OFString *)shortNameString: (char)shortName;
 @end
 
+[[subclassing_restricted]]
 @interface CLITypeInspector : OFObject
 + (Class nillable)propertyClassForProperty: (objc_property_t)property
                                     onClass: (Class)class_
                                propertyName: (OFString *)propertyName;
 @end
 
+[[subclassing_restricted]]
 @interface CLIValueCodec : OFObject
 + (id)parseToken: (OFString *)token forValueClass: (Class nillable)valueClass;
 @end
 
+[[subclassing_restricted]]
 @interface CLICommandIntrospection : OFObject
 + (CLICommandSchema *)schemaForCommand: (CLICommand *)command;
 @end
 
+[[subclassing_restricted]]
 @interface CLICommandParserEngine : OFObject
 + (size_t)parseCommand: (CLICommand *)command
                  schema: (CLICommandSchema *)schema
@@ -184,7 +192,7 @@
 
 - (bool)isRequired
 {
-    return _option.required;
+    return _option.isRequired;
 }
 
 - (OFString *)usageLabel
@@ -246,7 +254,7 @@
 
 + (Class nillable)_classFromQuotedObjectEncoding: (const char *nillable)encoding
 {
-    if (encoding == (const char *nillable)nullptr
+    if (encoding == nullptr
         or encoding[0] != '@'
         or encoding[1] != '"')
         return nullptr;
@@ -864,13 +872,7 @@
     bool _hasParsedValue;
 }
 
-@synthesize kind = _kind;
-@synthesize valueClass = _valueClass;
-@synthesize required = _required;
-@synthesize longName = _longName;
-@synthesize shortName = _shortName;
-@synthesize help = _help;
-@synthesize valueName = _valueName;
+@synthesize isRequired = _required;
 
 + (instancetype)_optionWithKind: (CLIOptionKind)kind
                       valueClass: (Class)valueClass
@@ -1026,8 +1028,6 @@
 
 @implementation ArgumentParserException
 
-@synthesize message = _message;
-@synthesize usage = _usage;
 
 - (instancetype)initWithMessage: (OFString *)message
                           usage: (OFString *nillable)usage
@@ -1059,7 +1059,6 @@
 
 @implementation ArgumentParser
 
-@synthesize command = _command;
 
 - (instancetype)initWithCommand: (CLICommand *)command
 {

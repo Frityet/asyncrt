@@ -14,6 +14,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AsyncRuntimeTestCase : OTTestCase
 
 - (void)runAsyncBlock: (void (^)(AsyncScope *rootScope))block;
@@ -54,31 +55,36 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface TestFailureException : OFException
 
 @property(readonly, nonatomic) OFString *message;
 
-- (instancetype)initWithMessage: (OFString *)message designated_initaliser;
+- (instancetype)initWithMessage: (OFString *)message [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface TestRejectionException : OFException @end
 
+[[subclassing_restricted]]
 @interface CrossThreadResolverThread : OFThread
 
-- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay designated_initaliser;
+- (instancetype)initWithResolver: (PromiseResolver<OFString *> *)resolver value: (OFString *)value delay: (OFTimeInterval)delay [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface TaskCancellationThread : OFThread
 
-- (instancetype)initWithTask: (Task *)task delay: (OFTimeInterval)delay cancelIssuedFlag: (atomic_t(bool) *)cancelIssuedFlag designated_initaliser;
+- (instancetype)initWithTask: (Task *)task delay: (OFTimeInterval)delay cancelIssuedFlag: (atomic_t(bool) *)cancelIssuedFlag [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface LocalHTTPTestServer : OFObject
 
 @property(readonly, nonatomic) uint16_t port;

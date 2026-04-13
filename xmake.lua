@@ -1,5 +1,5 @@
-add_rules("mode.debug", "mode.release", "mode.coverage", "mode.asan", "mode.tsan")
-set_allowedmodes("debug", "release", "coverage", "asan", "tsan")
+add_rules("mode.debug", "mode.release", "mode.minsizerel", "mode.coverage", "mode.asan", "mode.tsan")
+set_allowedmodes("debug", "release", "minsizerel", "coverage", "asan", "tsan")
 
 set_languages("gnulatest")
 set_toolchains("clang")
@@ -92,6 +92,43 @@ target("Async")
 target("UI")
     set_kind("static")
     add_deps("Async", { public = true })
+    add_packages("cairo", { public = true })
+    add_files("src/UI/*.m")
+    add_files("src/UI/Backend/*.m")
+    add_files("src/UI/Backend/Renderer/*.m")
+    add_files("src/UI/Backend/Window/AUIHeadlessWindowBackend.m")
+    add_files("src/UI/Components/**.m")
+    if is_plat("macosx") then
+        add_links("objfwbridge", { public = true })
+        add_frameworks("AppKit", "Cocoa", "Carbon", "CoreGraphics")
+        add_files("src/UI/Backend/Window/AUICocoaWindowBackend.m")
+    end
+    if is_plat("linux") then
+        add_syslinks("X11")
+        add_files("src/UI/Backend/Window/AUIX11WindowBackend.m")
+    end
+    add_files("src/UI/ClayRuntime.c")
+
+target("UtilitiesTest")
+    set_default(false)
+    set_kind("static")
+    add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    set_pmheader("src/Utilities/common.h")
+    add_files("src/Utilities/**.m")
+
+target("AsyncTest")
+    set_default(false)
+    set_kind("static")
+    add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    add_deps("UtilitiesTest", { public = true })
+    add_files("src/Async/Coroutine.m", {mflags = {"-fno-objc-arc"}})
+    add_files("src/Async/**.m|src/Async/Coroutine.m")
+
+target("UITest")
+    set_default(false)
+    set_kind("static")
+    add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    add_deps("AsyncTest", { public = true })
     add_packages("cairo", { public = true })
     add_files("src/UI/*.m")
     add_files("src/UI/Backend/*.m")
@@ -265,8 +302,9 @@ local async_runtime_test_cases = {
 target("async-runtime-tests")
     set_kind("binary")
     set_group("tests")
-    add_deps("Async", "UI")
+    add_deps("UITest")
     set_pmheader("src/Utilities/common.h")
+    add_defines("ASYNC_RUNTIME_TEST_BUILD")
     if is_plat("macosx") then
         add_ldflags("-ObjC", {force = true})
     end

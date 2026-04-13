@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUILabel : OFObject<AUICompositeRenderable>
 
 @property(readonly, copy, nonatomic) OFString *nillable text;

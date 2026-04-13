@@ -4,7 +4,7 @@
 
 @interface AUIGroup ()
 
-- (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nillable)children designated_initaliser;
+- (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
@@ -12,7 +12,6 @@
     OFArray<id<AUIRenderable>> *_children;
 }
 
-@synthesize children = _children;
 
 + (instancetype)children: (OFArray<id<AUIRenderable>> *nillable)children
 {

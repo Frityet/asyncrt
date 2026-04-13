@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface CoverageDNSResolverHarness : OFObject
 
 @property(retain, nonatomic) id<OFDNSResolverQueryDelegate> nillable queryDelegate;
@@ -58,6 +59,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageDatagramSocketHarness : OFObject
 
 @property(copy, nonatomic) bool (^nillable receiveHandler)(OFDatagramSocket *, void *, size_t, const OFSocketAddress *, id nillable);
@@ -115,6 +117,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageStreamSocketHarness : OFObject
 
 @property(copy, nonatomic) bool (^nillable acceptHandler)(OFStreamSocket *, OFStreamSocket *nillable, id nillable);
@@ -148,6 +151,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageTCPSocketHarness : OFObject
 
 @property(copy, nonatomic) void (^nillable connectHandler)(OFTCPSocket *, OFString *, uint16_t, id nillable);
@@ -187,6 +191,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface CoverageStreamHarness : OFObject
 
 @property(nonatomic) OFStringEncoding encoding;

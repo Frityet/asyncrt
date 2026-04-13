@@ -8,17 +8,18 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIBackend : OFObject
 
 @property(readonly, nonatomic) AUIApplication *application;
 @property(readonly, nonatomic) AUIWindowBackend *windowBackend;
 @property(readonly, nonatomic) AUIRendererBackend *rendererBackend;
-@property(readonly, nonatomic, getter=isOpen) bool open;
+@property(readonly, nonatomic) bool isOpen;
 @property(readonly, nonatomic) AUISize viewportSize;
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
                         windowBackend: (AUIWindowBackend *nillable)windowBackend
-                      rendererBackend: (AUIRendererBackend *nillable)rendererBackend designated_initaliser;
+                      rendererBackend: (AUIRendererBackend *nillable)rendererBackend [[designated_initailiser]];
 - (void)openWindow;
 - (void)pollEvents;
 - (void)renderFrame;

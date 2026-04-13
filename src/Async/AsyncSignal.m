@@ -15,7 +15,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 
 @class AsyncSignalWaitRegistration;
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncSignalSubscriber : OFObject
 
 @property(readonly, nonatomic) id nillable owner;
@@ -27,7 +27,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncComputedTrackingContext : OFObject<AsyncSignalTrackingContext>
 
 - (instancetype)initWithOwner: (AsyncComputed *)owner OF_DESIGNATED_INITIALIZER;
@@ -35,6 +35,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncSignalWaitRegistration : AsyncTaskWaitRegistration
 
 @property(readonly, nonatomic) AsyncSignal *signal;
@@ -45,9 +46,9 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 - (instancetype)initWithSignal: (AsyncSignal *)signal
                observedVersion: (uint64_t)observedVersion
                      scheduler: (AsyncScheduler *)scheduler
-                          task: (Task *)task OF_DESIGNATED_INITIALIZER [[clang::objc_direct]];
+                          task: (Task *)task OF_DESIGNATED_INITIALIZER [[direct]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
-- (bool)_finishOnce [[clang::objc_direct]];
+- (bool)_finishOnce [[direct]];
 - (void)signalValue: (id _Null_unspecified)value;
 
 @end
@@ -66,7 +67,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncSignal ()
 
 - (void)_registerCurrentContext;
@@ -75,7 +76,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 
 @end
 
-[[clang::objc_direct_members]]
+[[direct_members]]
 @interface AsyncComputed ()
 
 - (void)_cleanupSources;
@@ -191,7 +192,6 @@ typedef void (^AsyncSignalCleanupBlock)(void);
     void (^_notify)(id _Null_unspecified value);
 }
 
-@synthesize owner = _owner;
 
 - (instancetype)initWithOwner: (id nillable)owner
                        notify: (void (^)(id _Null_unspecified value))notify
@@ -217,7 +217,6 @@ typedef void (^AsyncSignalCleanupBlock)(void);
     OFMutableArray<AsyncSignalWaitRegistration *> *_waitRegistrations;
 }
 
-@synthesize value = _value;
 
 + (instancetype)withValue: (id _Null_unspecified)value
 {
@@ -571,9 +570,6 @@ typedef void (^AsyncSignalCleanupBlock)(void);
     id nillable _receivedValue;
 }
 
-@synthesize signal = _signal;
-@synthesize observedVersion = _observedVersion;
-@synthesize hasReceivedValue = _hasReceivedValue;
 
 - (instancetype)initWithSignal: (AsyncSignal *)signal
                observedVersion: (uint64_t)observedVersion

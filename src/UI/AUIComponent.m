@@ -41,12 +41,12 @@
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AUIRenderPassState : OFObject
 
 @property(readonly, nonatomic) AsyncScope *mountScope;
 
-- (instancetype)initWithMountScope: (AsyncScope *nillable)mountScope designated_initaliser;
+- (instancetype)initWithMountScope: (AsyncScope *nillable)mountScope [[designated_initailiser]];
 - (bool)isRenderingComponent: (AUIComponent *)component;
 - (void)pushRenderingComponent: (AUIComponent *nillable)component;
 - (void)popRenderingComponent;
@@ -68,7 +68,6 @@
     OFMutableArray<AUIComponent *> *_registeredParents;
 }
 
-@synthesize mountScope = _mountScope;
 
 - (instancetype)initWithMountScope: (AsyncScope *nillable)mountScope
 {
@@ -141,9 +140,6 @@
     AsyncScope *nillable _mountScope;
 }
 
-@synthesize application = _application;
-@synthesize parent = _parent;
-@synthesize renderedChildren = _renderedChildren;
 
 - (instancetype)init
 {
@@ -328,7 +324,7 @@
 {
     AUIApplication *nillable application = owner.application;
 
-    if (not box.enabled)
+    if (not box.isEnabled)
         return box.backgrounds.disabled;
     if (application != nilptr and [application _identifierIsPressed: identifier])
         return box.backgrounds.pressed;
@@ -364,7 +360,7 @@
         caretIndex = editingState.caretIndex;
     }
 
-    if (textInput.secure)
+    if (textInput.isSecure)
         displayText = [self maskedStringWithLength: value.length];
 
     if (displayText.length == 0 and not focused)
@@ -409,7 +405,7 @@
     if (child.parent == nilptr or child.application != owner.application)
         [child _attachToApplication: owner.application parent: owner];
 
-    if (not child.mounted) {
+    if (not child._isMounted) {
         [child _mountRecursivelyInScope: state.mountScope];
         [newlyMountedChildren addObject: $assert_nonnil(child)];
     }
@@ -471,7 +467,7 @@
             AUIInteractionRegistration *registration = [AUIInteractionRegistration identifier: path
                                                                                      elementID: [AUIClay elementIDFromString: path]];
 
-            registration.enabled = true;
+            registration.isEnabled = true;
             registration.contextMenu = region.menu;
             [owner.application _registerInteraction: registration];
         }
@@ -551,8 +547,8 @@
             if (owner.application != nilptr) {
                 AUIInteractionRegistration *registration = [AUIInteractionRegistration identifier: path elementID: elementID];
 
-                registration.enabled = box.enabled;
-                registration.focusable = box.focusable;
+                registration.isEnabled = box.isEnabled;
+                registration.isFocusable = box.isFocusable;
                 registration.cursorStyle = AUICursorStylePointer;
                 registration.activateHandler = box.activateHandler;
                 [owner.application _registerInteraction: registration];
@@ -574,16 +570,16 @@
         AUITextInput *textInput = (AUITextInput *)renderable;
         Clay_ElementId elementID = [AUIClay elementIDFromString: path];
         bool focused = (owner.application != nilptr and [owner.application _identifierIsFocused: path]);
-        AUIColor backgroundColor = (textInput.enabled ? textInput.colors.background : textInput.colors.disabledBackground);
+        AUIColor backgroundColor = (textInput.isEnabled ? textInput.colors.background : textInput.colors.disabledBackground);
         AUIColor borderColor = textInput.colors.border;
         AUITextStyle textStyle = textInput.style;
 
-        if (textInput.enabled and focused)
+        if (textInput.isEnabled and focused)
             borderColor = textInput.colors.focusedBorder;
-        else if (not textInput.enabled)
+        else if (not textInput.isEnabled)
             borderColor = textInput.colors.disabledBorder;
 
-        textStyle.color = textInput.enabled ? textInput.colors.text : textInput.colors.disabledText;
+        textStyle.color = textInput.isEnabled ? textInput.colors.text : textInput.colors.disabledText;
         if ((textInput.text ?: @"").length == 0 and not focused)
             textStyle.color = textInput.colors.placeholder;
 
@@ -608,17 +604,17 @@
                 OFString *currentText = (textInput.text ?: @"");
                 OFString *nillable clipboardText = [owner.application _clipboardText];
 
-                registration.enabled = textInput.enabled;
-                registration.focusable = textInput.enabled;
-                registration.multiline = textInput.multiline;
+                registration.isEnabled = textInput.isEnabled;
+                registration.isFocusable = textInput.isEnabled;
+                registration.isMultiline = textInput.isMultiline;
                 registration.text = (textInput.text ?: @"");
                 registration.cursorStyle = AUICursorStyleText;
                 registration.textChangeHandler = textInput.changeHandler;
                 registration.submitHandler = textInput.submitHandler;
 
-                if (textInput.enabled) {
+                if (textInput.isEnabled) {
                     if (currentText.length > 0) {
-                        if (not textInput.secure) {
+                        if (not textInput.isSecure) {
                             [menuItems addObject: [AUIContextMenuItem title: @"Copy"
                                                                   enabled: true
                                                                  onSelect: ^{
@@ -626,7 +622,7 @@
                                                                  }]];
                         }
 
-                        if (textInput.changeHandler != nilptr and not textInput.secure) {
+                        if (textInput.changeHandler != nilptr and not textInput.isSecure) {
                             [menuItems addObject: [AUIContextMenuItem title: @"Cut"
                                                                   enabled: true
                                                                  onSelect: ^{

@@ -47,7 +47,7 @@ enum : uintptr_t {
         @throw [OFInitializationFailedException exceptionWithClass: Optional.class];
     return tagged_pointer;
 #else
-    return [[self alloc] initWithStoredValue: nil];
+    return [[self alloc] initWithStoredValue: nilptr];
 #endif
 }
 

@@ -37,10 +37,6 @@
 
 @implementation AUIRenderContext
 
-@synthesize application = _application;
-@synthesize viewportSize = _viewportSize;
-@synthesize frameDate = _frameDate;
-@synthesize elapsedTime = _elapsedTime;
 
 + (AUIRenderContext *nillable)currentContext
 {

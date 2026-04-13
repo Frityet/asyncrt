@@ -9,7 +9,7 @@
                         radius: (float)cornerRadius
                         border: (AUIBorder)border
                         scroll: (AUIScrollAxis)scrollAxis
-                      children: (OFArray<id<AUIRenderable>> *nillable)children designated_initaliser;
+                      children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
@@ -22,12 +22,6 @@
     OFArray<id<AUIRenderable>> *_children;
 }
 
-@synthesize layout = _layout;
-@synthesize backgroundColor = _backgroundColor;
-@synthesize cornerRadius = _cornerRadius;
-@synthesize border = _border;
-@synthesize scrollAxis = _scrollAxis;
-@synthesize children = _children;
 
 + (instancetype)layout: (AUILayout)layout
             background: (AUIColor)backgroundColor

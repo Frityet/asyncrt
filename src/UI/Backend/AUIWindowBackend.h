@@ -11,12 +11,12 @@
 
 @property(readonly, nonatomic) AUIApplication *application;
 @property(readonly, nonatomic) AUIWindowOptions *options;
-@property(readonly, nonatomic, getter=isOpen) bool open;
+@property(readonly, nonatomic) bool isOpen;
 @property(readonly, nonatomic) AUISize viewportSize;
 @property(readonly, nonatomic) double scaleFactor;
 
 - (instancetype)initWithApplication: (AUIApplication *nillable)application
-                            options: (AUIWindowOptions *nillable)options designated_initaliser;
+                            options: (AUIWindowOptions *nillable)options [[designated_initailiser]];
 - (void)openWindow;
 - (void)pollEvents;
 - (void)closeWindow;

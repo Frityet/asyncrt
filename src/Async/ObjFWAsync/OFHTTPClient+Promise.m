@@ -21,6 +21,7 @@ static void AsyncEnsureObjFWBindingsLoaded(void)
     (void)objfwTLSReference;
 }
 
+[[subclassing_restricted]]
 @interface AsyncHTTPClientPromiseBridge : OFObject<OFHTTPClientDelegate>
 
 @property(readonly, nonatomic) OFHTTPClient *client;
@@ -30,14 +31,14 @@ static void AsyncEnsureObjFWBindingsLoaded(void)
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) PromiseResolver<OFHTTPResponse *> *resolver;
 
-- (instancetype)initWithClient: (OFHTTPClient *)client forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate request: (OFHTTPRequest *)request redirects: (unsigned int)redirects scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<OFHTTPResponse *> *)resolver designated_initaliser;
-- (bool)_markCompletedOnce [[clang::objc_direct]];
-- (bool)_markCleanupOnce [[clang::objc_direct]];
-- (void)_cleanup [[clang::objc_direct]];
-- (void)_finishWithResponse: (OFHTTPResponse *nillable)response exception: (OFException *nillable)exception [[clang::objc_direct]];
-+ (void)_initializeBridgeState [[clang::objc_direct]];
-+ (void)_retainInflightBridge: (AsyncHTTPClientPromiseBridge *)bridge [[clang::objc_direct]];
-+ (void)_releaseInflightBridge: (AsyncHTTPClientPromiseBridge *)bridge [[clang::objc_direct]];
+- (instancetype)initWithClient: (OFHTTPClient *)client forwardDelegate: (OFObject<OFHTTPClientDelegate> *nillable)forwardDelegate request: (OFHTTPRequest *)request redirects: (unsigned int)redirects scheduler: (AsyncScheduler *)scheduler resolver: (PromiseResolver<OFHTTPResponse *> *)resolver [[designated_initailiser]];
+- (bool)_markCompletedOnce [[direct]];
+- (bool)_markCleanupOnce [[direct]];
+- (void)_cleanup [[direct]];
+- (void)_finishWithResponse: (OFHTTPResponse *nillable)response exception: (OFException *nillable)exception [[direct]];
++ (void)_initializeBridgeState [[direct]];
++ (void)_retainInflightBridge: (AsyncHTTPClientPromiseBridge *)bridge [[direct]];
++ (void)_releaseInflightBridge: (AsyncHTTPClientPromiseBridge *)bridge [[direct]];
 - (void)start;
 - (void)cancel;
 
@@ -50,9 +51,6 @@ static void InitaliseAsyncHTTPBridgeState(void)
 
 @implementation PromiseHTTPClientInvalidCompletionException
 
-@synthesize client = _client;
-@synthesize request = _request;
-@synthesize reason = _reason;
 
 - (instancetype)initWithPromise: (Promise *)promise client: (OFHTTPClient *)client request: (OFHTTPRequest *)request reason: (OFString *)reason
 {
@@ -72,7 +70,6 @@ static void InitaliseAsyncHTTPBridgeState(void)
 
 @implementation PromiseHTTPClientCancelledException
 
-@synthesize request = _request;
 
 - (instancetype)initWithPromise: (Promise *)promise request: (OFHTTPRequest *)request
 {

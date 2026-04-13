@@ -13,49 +13,49 @@
 
 - (instancetype)_initInternal;
 + (void)_scheduleBlock: (void (^)(void))block
-          onScheduler: (AsyncScheduler *)scheduler [[clang::objc_direct]];
+          onScheduler: (AsyncScheduler *)scheduler [[direct]];
 + (void)_rejectResolverIfPending: (PromiseResolver<id> *)resolver
-                       exception: (OFException *)exception [[clang::objc_direct]];
+                       exception: (OFException *)exception [[direct]];
 + (void)_resolveResolverOrReject: (PromiseResolver<id> *)resolver
-                            value: (id)value [[clang::objc_direct]];
-+ (Promise *)_promiseFromPromiseLike: (id<PromiseLike>)promiseLike [[clang::objc_direct]];
-+ (AsyncScheduler *)_continuationSchedulerOrThrowForPromise: (Promise *)promise [[clang::objc_direct]];
-+ (OFNumber *)_indexKeyForPromiseAtIndex: (size_t)index [[clang::objc_direct]];
-+ (void)_cancelUnresolvedTasksInPromises: (OFArray<Promise *> *)promises [[clang::objc_direct]];
+                            value: (id)value [[direct]];
++ (Promise *)_promiseFromPromiseLike: (id<PromiseLike>)promiseLike [[direct]];
++ (AsyncScheduler *)_continuationSchedulerOrThrowForPromise: (Promise *)promise [[direct]];
++ (OFNumber *)_indexKeyForPromiseAtIndex: (size_t)index [[direct]];
++ (void)_cancelUnresolvedTasksInPromises: (OFArray<Promise *> *)promises [[direct]];
 + (void)_pipePromise: (Promise *)promise
-          intoResolver: (PromiseResolver<id> *)resolver [[clang::objc_direct]];
+          intoResolver: (PromiseResolver<id> *)resolver [[direct]];
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncPromiseWaitRegistration : AsyncTaskWaitRegistration<AsyncPromiseObserver>
 
 @property(readonly, nonatomic) Promise *promise;
 
-- (instancetype)initWithPromise: (Promise *)promise scheduler: (AsyncScheduler *)scheduler task: (Task *)task designated_initaliser;
+- (instancetype)initWithPromise: (Promise *)promise scheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
 - (bool)_finishOnce;
 - (void)signal;
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncPromiseBlockObserver : OFObject<AsyncPromiseObserver>
 
 - (instancetype)initWithPromise: (Promise *)promise
                       onResolve: (void (^)(Promise *promise, id value))onResolve
-                       onReject: (void (^)(Promise *promise, OFException *exception))onReject designated_initaliser;
+                       onReject: (void (^)(Promise *promise, OFException *exception))onReject [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)attach;
 - (void)invalidate;
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncPromiseAllState : OFObject
 
 - (instancetype)initWithPromises: (OFArray<id<PromiseLike>> *)promises
-                        resolver: (PromiseResolver<OFArray<id> *> *)resolver designated_initaliser;
+                        resolver: (PromiseResolver<OFArray<id> *> *)resolver [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (bool)_isFinished;
 - (void)_cleanupObservers;
@@ -65,11 +65,11 @@
 
 @end
 
-[[clang::objc_direct_members]]
+[[subclassing_restricted]]
 @interface AsyncPromiseRaceState : OFObject
 
 - (instancetype)initWithPromises: (OFArray<id<PromiseLike>> *)promises
-                         resolver: (PromiseResolver<id> *)resolver designated_initaliser;
+                         resolver: (PromiseResolver<id> *)resolver [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (bool)_isFinished;
 - (bool)_finishOnce;
@@ -82,7 +82,6 @@
 
 @implementation PromiseException
 
-@synthesize promise = _promise;
 
 - (instancetype)initWithPromise: (Promise *)promise
 {
@@ -101,8 +100,6 @@
 
 @implementation PromiseAlreadyResolvedException
 
-@synthesize currentStatus = _currentStatus;
-@synthesize attemptedStatus = _attemptedStatus;
 
 - (instancetype)initWithPromise: (Promise *)promise currentStatus: (enum PromiseStatus)currentStatus attemptedStatus: (enum PromiseStatus)attemptedStatus
 {
@@ -152,8 +149,6 @@
 
 @implementation PromiseInvalidStateAccessException
 
-@synthesize operation = _operation;
-@synthesize status = _status;
 
 - (instancetype)initWithPromise: (Promise *)promise operation: (OFString *)operation status: (enum PromiseStatus)status
 {
@@ -747,7 +742,6 @@
 
 @implementation PromiseResolver
 
-@synthesize promise = _promise;
 
 - (instancetype)init
 {
@@ -774,7 +768,6 @@
     bool _completed;
 }
 
-@synthesize promise = _promise;
 
 - (instancetype)initWithPromise: (Promise *)promise scheduler: (AsyncScheduler *)scheduler task: (Task *)task
 {

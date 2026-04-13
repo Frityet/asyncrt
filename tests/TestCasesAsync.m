@@ -643,7 +643,7 @@ static void scheduler_snapshot_waiting_task(AsyncScope *rootScope)
         [AsyncRuntimeTestSupport assertCondition: (taskSnapshot.executionState == AsyncTaskExecutionState_WAITING) message: (@"scheduler.snapshot should report waiting execution state")];
         [AsyncRuntimeTestSupport assertCondition: ([taskSnapshot.waitReason isEqual: @"await promise"]) message: (@"scheduler.snapshot should report why a task is waiting")];
         [AsyncRuntimeTestSupport assertCondition: ([taskSnapshot.scopeName isEqual: @"snapshot-scope"]) message: (@"scheduler.snapshot should expose the current scope name")];
-        [AsyncRuntimeTestSupport assertCondition: (not taskSnapshot.cancellationRequested) message: (@"scheduler.snapshot should reflect cancellation state")];
+        [AsyncRuntimeTestSupport assertCondition: (not taskSnapshot.isCancellationRequested) message: (@"scheduler.snapshot should reflect cancellation state")];
         [AsyncRuntimeTestSupport assertCondition: (snapshot.tasks.count > 0) message: (@"scheduler.snapshot should expose active task entries")];
 
         [snapshotTask await];

@@ -2,16 +2,18 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AsyncDNSResolverQueryPromiseDelegate : OFObject<OFDNSResolverQueryDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver query: (OFDNSQuery *)query designated_initaliser;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver query: (OFDNSQuery *)query [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncDNSResolverHostPromiseDelegate : OFObject<OFDNSResolverHostDelegate>
 
-- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver host: (OFString *)host designated_initaliser;
+- (instancetype)initWithBridge: (AsyncObjFWPromiseBridge *)bridge resolver: (OFDNSResolver *)resolver host: (OFString *)host [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -40,7 +42,7 @@
 
     if (exception != nilptr) {
         [_bridge reject: $as_nonnil((OFException *)exception)];
-    } else if ((OFDNSResponse *nillable)response == nilptr) {
+    } else if (response == nilptr) {
         [_bridge rejectInvalidCompletionWithReason: @"ObjFW completed a DNS query without a response or exception"];
     } else {
         [_bridge resolve: $assert_nonnil(response)];
@@ -73,7 +75,7 @@
 
     if (exception != nilptr) {
         [_bridge reject: $as_nonnil((OFException *)exception)];
-    } else if ((OFData *nillable)addresses == nilptr) {
+    } else if (addresses == nilptr) {
         [_bridge rejectInvalidCompletionWithReason: @"ObjFW completed a host resolution without addresses or exception"];
     } else {
         [_bridge resolve: $assert_nonnil(addresses)];

@@ -7,7 +7,7 @@
 - (instancetype)initWithWidth: (AUILayoutAxis)width
                        height: (AUILayoutAxis)height
                     alignment: (AUIChildAlignment)alignment
-                        child: (id<AUIRenderable>)child designated_initaliser;
+                        child: (id<AUIRenderable>)child [[designated_initailiser]];
 
 @end
 
@@ -18,10 +18,6 @@
     id<AUIRenderable> _child;
 }
 
-@synthesize width = _width;
-@synthesize height = _height;
-@synthesize alignment = _alignment;
-@synthesize child = _child;
 
 + (instancetype)width: (AUILayoutAxis)width height: (AUILayoutAxis)height child: (id<AUIRenderable>)child
 {

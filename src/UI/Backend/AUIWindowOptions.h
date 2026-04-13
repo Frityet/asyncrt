@@ -4,11 +4,12 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIWindowOptions : OFObject
 
 @property(readonly, copy, nonatomic) OFString *title;
 @property(readonly, nonatomic) AUISize initialSize;
-@property(readonly, nonatomic, getter=isResizable) bool resizable;
+@property(readonly, nonatomic) bool isResizable;
 
 + (instancetype)title: (OFString *nillable)title
                  size: (AUISize)initialSize

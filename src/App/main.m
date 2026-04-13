@@ -3,6 +3,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AppRootComponent : AUIComponent
 
 + (AUITextStyle)heroTitleStyle;
@@ -275,6 +276,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface App : AUIApplication @end
 
 @implementation App

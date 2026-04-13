@@ -4,6 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface AUIPadding : OFObject<AUICompositeRenderable>
 
 @property(readonly, nonatomic) AUIInsets insets;

@@ -145,7 +145,7 @@
     for (size_t index = registrations.count; index > 0; index--) {
         AUIInteractionRegistration *registration = [registrations objectAtIndex: index - 1];
 
-        if (registration.enabled and [hoveredIdentifiers containsObject: registration.identifier])
+        if (registration.isEnabled and [hoveredIdentifiers containsObject: registration.identifier])
             return registration;
     }
 
@@ -155,9 +155,9 @@
 + (void)mergeRegistration: (AUIInteractionRegistration *)source
                      into: (AUIInteractionRegistration *)destination
 {
-    destination.enabled = source.enabled;
-    destination.focusable = source.focusable;
-    destination.multiline = source.multiline;
+    destination.isEnabled = source.isEnabled;
+    destination.isFocusable = source.isFocusable;
+    destination.isMultiline = source.isMultiline;
 
     if (source.text != nilptr)
         destination.text = source.text;
@@ -194,7 +194,6 @@
     atomic_t(bool) _needsRender;
 }
 
-@synthesize rootComponent = _rootComponent;
 
 - (void)_resetInteractionState
 {
@@ -261,7 +260,7 @@
                 didRender = true;
             }
 
-            if (_inputState.primaryButtonDown or _inputState.secondaryButtonDown)
+            if (_inputState.isPrimaryButtonDown or _inputState.isSecondaryButtonDown)
                 pollInterval = (1.0 / 60.0);
             else if (didRender)
                 pollInterval = (1.0 / 60.0);
@@ -421,7 +420,7 @@
 
         if (topHoveredRegistration != nilptr) {
             _pressedIdentifier = topHoveredRegistration.identifier;
-            _focusedIdentifier = (topHoveredRegistration.focusable ? topHoveredRegistration.identifier : nilptr);
+            _focusedIdentifier = (topHoveredRegistration.isFocusable ? topHoveredRegistration.identifier : nilptr);
         } else {
             _pressedIdentifier = nilptr;
             _focusedIdentifier = nilptr;
@@ -441,7 +440,7 @@
             if (registrationIndex != OFNotFound) {
                 AUIInteractionRegistration *registration = [registrations objectAtIndex: registrationIndex];
 
-                if (registration.enabled and [hoveredIdentifiers containsObject: releasedIdentifier] and registration.activateHandler != nilptr)
+                if (registration.isEnabled and [hoveredIdentifiers containsObject: releasedIdentifier] and registration.activateHandler != nilptr)
                     registration.activateHandler();
             }
         }
@@ -477,7 +476,7 @@
         size_t currentIndex = OFNotFound;
 
         for (AUIInteractionRegistration *registration in registrations) {
-            if (registration.enabled and registration.focusable)
+            if (registration.isEnabled and registration.isFocusable)
                 [focusables addObject: registration];
         }
 
@@ -515,7 +514,7 @@
                 if (_inputState.typedText.length > 0) {
                     OFString *insertedText = _inputState.typedText;
 
-                    if (not registration.multiline)
+                    if (not registration.isMultiline)
                         insertedText = [insertedText stringByReplacingOccurrencesOfString: @"\n" withString: @""];
 
                     if (insertedText.length > 0) {
@@ -614,7 +613,7 @@
                             break;
                         case AUIKeyEnter:
                         case AUIKeyKeypadEnter:
-                            if (registration.multiline) {
+                            if (registration.isMultiline) {
                                 text = [AUIAppInteractionSupport stringByReplacingSelectionIn: text
                                                                                         state: editingState
                                                                                   replacement: @"\n"];
@@ -640,7 +639,7 @@
     }
 
     if (_inputState.scrollDeltaX != 0 or _inputState.scrollDeltaY != 0 or
-        _inputState.primaryButtonDown or _inputState.secondaryButtonDown)
+        _inputState.isPrimaryButtonDown or _inputState.isSecondaryButtonDown)
         shouldScheduleRender = true;
 
     if (shouldScheduleRender)
@@ -674,7 +673,7 @@
     [AUIClay setLayoutDimensions: viewportSize];
     [AUIClay setPointerPositionX: _inputState.pointerX
                                 y: _inputState.pointerY
-                             down: _inputState.primaryButtonDown];
+                             down: _inputState.isPrimaryButtonDown];
     [_renderObserver beginTracking];
     [AUIRenderContext _pushCurrentContext: context];
     [self _beginInteractionFrame];
@@ -716,7 +715,7 @@
                     itemProps.layout.width = [AUI axisFit: 160];
                     itemProps.layout.height = [AUI axisFit: 0];
                     itemProps.layout.padding = [AUI insetsWithLeft: 12 right: 12 top: 8 bottom: 8];
-                    itemProps.backgroundColor = (item.enabled
+                    itemProps.backgroundColor = (item.isEnabled
                         ? ([self _identifierIsPressed: identifier]
                             ? [AUI colorWithRed: 221 green: 228 blue: 239 alpha: 255]
                             : ([self _identifierIsHovered: identifier]
@@ -727,11 +726,11 @@
                     itemProps.border = [AUI borderNone];
                     itemStyle.fontSize = 14;
                     itemStyle.lineHeight = 18;
-                    itemStyle.color = (item.enabled
+                    itemStyle.color = (item.isEnabled
                         ? [AUI colorWithRed: 32 green: 36 blue: 42 alpha: 255]
                         : [AUI colorWithRed: 142 green: 146 blue: 150 alpha: 255]);
 
-                    registration.enabled = item.enabled;
+                    registration.isEnabled = item.isEnabled;
                     registration.cursorStyle = AUICursorStylePointer;
                     registration.activateHandler = ^{
                         if (item.selectHandler != nilptr)

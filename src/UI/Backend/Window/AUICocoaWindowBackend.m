@@ -26,30 +26,16 @@
 
 #pragma clang assume_nonnull begin
 
-@interface AUICocoaRenderView : NSView {
-@private
-    unretained AUICocoaWindowBackend *_backend;
-    NSTrackingArea *nillable _trackingArea;
-    //TODO: decouple from cairo
-    cairo_surface_t *nillable _imageSurface;
-    cairo_t *nillable _imageContext;
-    unsigned char *nillable _imageData;
-    CGColorSpaceRef nillable _colorSpace;
-    CGDataProviderRef nillable _dataProvider;
-    CGImageRef nillable _image;
-    size_t _stride;
-    int _pixelWidth;
-    int _pixelHeight;
-}
+@namespace(AUICocoaEventSupport)
 
-- (instancetype)initWithBackend: (AUICocoaWindowBackend *)backend frame: (NSRect)frameRect;
-- (void)disconnectBackend;
-- (AUISize)pixelSize;
-- (void)renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock;
++ (AUIModifierFlags)modifierFlagsFromEvent: (NSEvent *)event;
++ (AUIKey)keyFromEvent: (NSEvent *)event;
 
 @end
 
-static AUIModifierFlags AUICocoaModifierFlagsFromEvent(NSEvent *event)
+@namespace_implementation(AUICocoaEventSupport)
+
++ (AUIModifierFlags)modifierFlagsFromEvent: (NSEvent *)event
 {
     NSEventModifierFlags flags = event.modifierFlags;
     AUIModifierFlags modifiers = AUIModifierFlagNone;
@@ -66,7 +52,7 @@ static AUIModifierFlags AUICocoaModifierFlagsFromEvent(NSEvent *event)
     return modifiers;
 }
 
-static AUIKey AUICocoaKeyFromEvent(NSEvent *event)
++ (AUIKey)keyFromEvent: (NSEvent *)event
 {
     switch (event.keyCode) {
         case kVK_Return:
@@ -107,6 +93,32 @@ static AUIKey AUICocoaKeyFromEvent(NSEvent *event)
             return AUIKeyUnknown;
     }
 }
+
+@end
+
+[[subclassing_restricted]]
+@interface AUICocoaRenderView : NSView {
+@private
+    unretained AUICocoaWindowBackend *_backend;
+    NSTrackingArea *nillable _trackingArea;
+    //TODO: decouple from cairo
+    cairo_surface_t *nillable _imageSurface;
+    cairo_t *nillable _imageContext;
+    unsigned char *nillable _imageData;
+    CGColorSpaceRef nillable _colorSpace;
+    CGDataProviderRef nillable _dataProvider;
+    CGImageRef nillable _image;
+    size_t _stride;
+    int _pixelWidth;
+    int _pixelHeight;
+}
+
+- (instancetype)initWithBackend: (AUICocoaWindowBackend *)backend frame: (NSRect)frameRect;
+- (void)disconnectBackend;
+- (AUISize)pixelSize;
+- (void)renderFrameWithBlock: (void (^)(cairo_t *cairo, AUISize viewportSize))renderBlock;
+
+@end
 
 @implementation AUICocoaRenderView
 
@@ -246,8 +258,8 @@ static AUIKey AUICocoaKeyFromEvent(NSEvent *event)
 - (void)ui_handleKeyEvent: (NSEvent *)event
 {
     AUIApplication *application = self.ui_application;
-    AUIKey key = AUICocoaKeyFromEvent(event);
-    AUIModifierFlags modifiers = AUICocoaModifierFlagsFromEvent(event);
+    AUIKey key = [AUICocoaEventSupport keyFromEvent: event];
+    AUIModifierFlags modifiers = [AUICocoaEventSupport modifierFlagsFromEvent: event];
     NSString *characters = event.characters;
 
     if (application == nilptr)
@@ -510,7 +522,7 @@ static AUIKey AUICocoaKeyFromEvent(NSEvent *event)
         return;
 
     graphicsContext = NSGraphicsContext.currentContext;
-    if (graphicsContext == nil)
+    if (graphicsContext == nilptr)
         return;
 
     cgContext = graphicsContext.CGContext;
@@ -533,10 +545,21 @@ static AUIKey AUICocoaKeyFromEvent(NSEvent *event)
 @interface AUICocoaWindowBackend ()<NSWindowDelegate>
 @end
 
+[[subclassing_restricted]]
 @interface AUICocoaApplicationDelegate : NSObject<NSApplicationDelegate>
 @end
 
-static void AUIConfigureSharedApplication(NSApplication *application)
+@namespace(AUICocoaApplicationSupport)
+
++ (void)configureSharedApplication: (NSApplication *nillable)application;
++ (void)promoteCurrentProcessToForeground;
++ (NSApplication *)ensureCocoaApplication;
+
+@end
+
+@namespace_implementation(AUICocoaApplicationSupport)
+
++ (void)configureSharedApplication: (NSApplication *nillable)application
 {
     NSString *applicationName;
     NSString *emptyString = ((OFString *)@"").NSObject;
@@ -553,21 +576,21 @@ static void AUIConfigureSharedApplication(NSApplication *application)
     NSMenuItem *windowMenuItem;
     NSMenu *windowMenu;
 
-    if (application == nil)
+    if (application == nilptr)
         return;
 
     [application setActivationPolicy: NSApplicationActivationPolicyRegular];
-    if (application.mainMenu != nil)
+    if (application.mainMenu != nilptr)
         return;
 
     applicationName = NSProcessInfo.processInfo.processName;
-    if (applicationName == nil)
+    if (applicationName == nilptr)
         applicationName = appString;
 
     mainMenu = [[NSMenu alloc] initWithTitle: emptyString];
 
     appMenuItem = [[NSMenuItem alloc] initWithTitle: emptyString
-                                             action: nil
+                                             action: nullptr
                                       keyEquivalent: emptyString];
     [mainMenu addItem: appMenuItem];
 
@@ -578,7 +601,7 @@ static void AUIConfigureSharedApplication(NSApplication *application)
     [appMenuItem setSubmenu: appMenu];
 
     windowMenuItem = [[NSMenuItem alloc] initWithTitle: windowString
-                                                action: nil
+                                                action: nullptr
                                          keyEquivalent: emptyString];
     [mainMenu addItem: windowMenuItem];
 
@@ -595,22 +618,7 @@ static void AUIConfigureSharedApplication(NSApplication *application)
     application.windowsMenu = windowMenu;
 }
 
-@implementation AUICocoaApplicationDelegate
-
-- (void)applicationDidFinishLaunching: (NSNotification *)notification
-{
-    NSApplication *application = notification.object;
-
-    if (application == nil)
-        return;
-
-    AUIConfigureSharedApplication(application);
-    [application activateIgnoringOtherApps: YES];
-}
-
-@end
-
-static void AUIPromoteCurrentProcessToForeground(void)
++ (void)promoteCurrentProcessToForeground
 {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -621,30 +629,47 @@ static void AUIPromoteCurrentProcessToForeground(void)
 #pragma clang diagnostic pop
 }
 
-static NSApplication *AUIEnsureCocoaApplication(void)
++ (NSApplication *)ensureCocoaApplication
 {
     static bool prepared = false;
-    static AUICocoaApplicationDelegate *delegate = nil;
-    NSApplication *application = NSApplication.sharedApplication;
+    static AUICocoaApplicationDelegate *delegate = nilptr;
+    NSApplication *nillable application = NSApplication.sharedApplication;
 
-    if (application == nil)
+    if (application == nilptr)
         @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the shared NSApplication instance"];
 
     if (not prepared) {
         delegate = [[AUICocoaApplicationDelegate alloc] init];
-        AUIPromoteCurrentProcessToForeground();
+        [self promoteCurrentProcessToForeground];
         application.delegate = delegate;
     }
 
-    AUIConfigureSharedApplication(application);
+    [self configureSharedApplication: application];
 
     if (not prepared) {
         [application finishLaunching];
         prepared = true;
     }
 
-    return application;
+    return $assert_nonnil(application);
 }
+
+@end
+
+@implementation AUICocoaApplicationDelegate
+
+- (void)applicationDidFinishLaunching: (NSNotification *)notification
+{
+    NSApplication *nillable application = notification.object;
+
+    if (application == nilptr)
+        return;
+
+    [AUICocoaApplicationSupport configureSharedApplication: application];
+    [application activateIgnoringOtherApps: YES];
+}
+
+@end
 
 @implementation AUICocoaWindowBackend {
     bool _open;
@@ -679,28 +704,29 @@ static NSApplication *AUIEnsureCocoaApplication(void)
 
 + (bool)_prepareSharedApplicationForTesting
 {
-    return (AUIEnsureCocoaApplication() != nil);
+    (void)[AUICocoaApplicationSupport ensureCocoaApplication];
+    return true;
 }
 
 + (bool)_sharedApplicationIsForegroundForTesting
 {
     NSRunningApplication *currentApplication = NSRunningApplication.currentApplication;
 
-    return (currentApplication != nil and currentApplication.activationPolicy == NSApplicationActivationPolicyRegular);
+    return (currentApplication != nilptr and currentApplication.activationPolicy == NSApplicationActivationPolicyRegular);
 }
 
 + (bool)_sharedApplicationIsActiveForTesting
 {
     NSApplication *application = NSApplication.sharedApplication;
 
-    return (application != nil and application.isActive);
+    return (application != nilptr and application.isActive);
 }
 
 + (bool)_sharedApplicationHasMainMenuForTesting
 {
     NSApplication *application = NSApplication.sharedApplication;
 
-    return (application != nil and application.mainMenu != nil);
+    return (application != nilptr and application.mainMenu != nilptr);
 }
 
 - (void)_performCloseForTesting
@@ -712,7 +738,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
 {
     NSApplication *application = NSApplication.sharedApplication;
 
-    return (application != nil ? application.windows.count : 0);
+    return (application != nilptr ? application.windows.count : 0);
 }
 
 - (bool)_windowIsVisibleForTesting
@@ -743,7 +769,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
         return nilptr;
 
     foundationString = $assert_nonnil(string).NSObject;
-    return (foundationString != nil ? foundationString.OFObject : nilptr);
+    return (foundationString != nilptr ? foundationString.OFObject : nilptr);
 }
 
 - (double)scaleFactor
@@ -771,11 +797,11 @@ static NSApplication *AUIEnsureCocoaApplication(void)
     if (window == nilptr or application == nilptr)
         return;
 
-    AUIConfigureSharedApplication($assert_nonnil(application));
+    [AUICocoaApplicationSupport configureSharedApplication: $assert_nonnil(application)];
     currentApplication = NSRunningApplication.currentApplication;
     [application unhide: nilptr];
     [application activateIgnoringOtherApps: YES];
-    if (currentApplication != nil)
+    if (currentApplication != nilptr)
         [currentApplication activateWithOptions: NSApplicationActivateIgnoringOtherApps | NSApplicationActivateAllWindows];
     [$assert_nonnil(window) makeKeyAndOrderFront: nilptr];
     [$assert_nonnil(window) orderFrontRegardless];
@@ -794,7 +820,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
     if (not NSThread.isMainThread)
         @throw [[AUIInitializationException alloc] initWithReason: @"AUICocoaWindowBackend must be used on the main thread"];
 
-    sharedApplication = AUIEnsureCocoaApplication();
+    sharedApplication = [AUICocoaApplicationSupport ensureCocoaApplication];
 
     if (_window != nilptr) {
         [self ui_activateWindow: $assert_nonnil(_window) application: sharedApplication];
@@ -820,7 +846,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
         NSString *title = self.options.title.NSObject;
         NSString *fallbackTitle = ((OFString *)@"asyncrt UI").NSObject;
 
-        _window.title = (title != nil ? title : fallbackTitle);
+        _window.title = (title != nilptr ? title : fallbackTitle);
     }
     if ([_window respondsToSelector: @selector(setTabbingMode:)])
         _window.tabbingMode = NSWindowTabbingModeDisallowed;
@@ -840,7 +866,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
 {
     NSApplication *application = NSApplication.sharedApplication;
 
-    if (application == nil)
+    if (application == nilptr)
         return;
 
     for (;;) {
@@ -849,7 +875,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
                                                      inMode: NSDefaultRunLoopMode
                                                     dequeue: YES];
 
-        if (event == nil)
+        if (event == nilptr)
             break;
 
         [application sendEvent: event];
@@ -916,7 +942,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
     NSPasteboard *pasteboard = NSPasteboard.generalPasteboard;
     NSString *string = [pasteboard stringForType: NSPasteboardTypeString];
 
-    if (string == nil)
+    if (string == nilptr)
         return nilptr;
 
     return string.OFObject;
@@ -930,7 +956,7 @@ static NSApplication *AUIEnsureCocoaApplication(void)
     if (text != nilptr) {
         NSString *string = $assert_nonnil(text).NSObject;
 
-        if (string != nil)
+        if (string != nilptr)
             [pasteboard setString: string forType: NSPasteboardTypeString];
     }
 }

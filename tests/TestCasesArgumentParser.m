@@ -3,6 +3,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
 @interface ParserServeCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *root;
@@ -39,6 +40,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserRootCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFNumber *> *verbose;
@@ -74,6 +76,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserPositionalCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *input;
@@ -98,6 +101,7 @@
 
 @end
 
+[[subclassing_restricted]]
 @interface ParserInitializationCommand : CLICommand
 
 @property(readonly, nonatomic) CLIOption<OFString *> *name;

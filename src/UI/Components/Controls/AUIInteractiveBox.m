@@ -11,7 +11,7 @@
                        enabled: (bool)enabled
                      focusable: (bool)focusable
                     onActivate: (void (^nillable)(void))activateHandler
-                      children: (OFArray<id<AUIRenderable>> *nillable)children designated_initaliser;
+                      children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
@@ -26,14 +26,8 @@
     void (^nillable _activateHandler)(void);
 }
 
-@synthesize layout = _layout;
-@synthesize backgrounds = _backgrounds;
-@synthesize cornerRadius = _cornerRadius;
-@synthesize border = _border;
-@synthesize enabled = _enabled;
-@synthesize focusable = _focusable;
-@synthesize children = _children;
-@synthesize activateHandler = _activateHandler;
+@synthesize isEnabled = _enabled;
+@synthesize isFocusable = _focusable;
 
 + (instancetype)layout: (AUILayout)layout
            backgrounds: (AUIControlColors)backgrounds

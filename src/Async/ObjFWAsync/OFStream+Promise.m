@@ -2,7 +2,39 @@
 
 #pragma clang assume_nonnull begin
 
-static Promise<AsyncBufferReadResult *> *PromiseReadStream(OFStream *stream, void *buffer, size_t length, bool exactLength, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
+@namespace(AsyncObjFWStreamPromiseSupport)
+
++ (Promise<AsyncBufferReadResult *> *)readStream: (OFStream *)stream
+                                      intoBuffer: (void *)buffer
+                                          length: (size_t)length
+                                     exactLength: (bool)exactLength
+                                     onScheduler: (AsyncScheduler *)scheduler
+                         cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
++ (Promise<Optional<OFString *> *> *)readStringFromStream: (OFStream *)stream
+                                                 encoding: (OFStringEncoding)encoding
+                                                     line: (bool)line
+                                              onScheduler: (AsyncScheduler *)scheduler
+                                  cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
++ (Promise<AsyncUnit *> *)writeData: (OFData *)data
+                                to: (OFStream *)stream
+                       onScheduler: (AsyncScheduler *)scheduler
+           cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
++ (Promise<AsyncUnit *> *)writeString: (OFString *)string
+                                   to: (OFStream *)stream
+                             encoding: (OFStringEncoding)encoding
+                          onScheduler: (AsyncScheduler *)scheduler
+              cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
+
+@end
+
+@namespace_implementation(AsyncObjFWStreamPromiseSupport)
+
++ (Promise<AsyncBufferReadResult *> *)readStream: (OFStream *)stream
+                                      intoBuffer: (void *)buffer
+                                          length: (size_t)length
+                                     exactLength: (bool)exactLength
+                                     onScheduler: (AsyncScheduler *)scheduler
+                         cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
     auto resolver = [[PromiseResolver<AsyncBufferReadResult *> alloc] init];
     OFString *operation = (exactLength ? @"asyncReadIntoBuffer:exactLength:" : @"asyncReadIntoBuffer:length:");
@@ -35,7 +67,11 @@ static Promise<AsyncBufferReadResult *> *PromiseReadStream(OFStream *stream, voi
     return resolver.promise;
 }
 
-static Promise<Optional<OFString *> *> *PromiseReadStringLike(OFStream *stream, OFStringEncoding encoding, bool line, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
++ (Promise<Optional<OFString *> *> *)readStringFromStream: (OFStream *)stream
+                                                 encoding: (OFStringEncoding)encoding
+                                                     line: (bool)line
+                                              onScheduler: (AsyncScheduler *)scheduler
+                                  cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
     auto resolver = [[PromiseResolver<Optional<OFString *> *> alloc] init];
     OFString *operation = (line ? @"asyncReadLineWithEncoding:" : @"asyncReadStringWithEncoding:");
@@ -64,7 +100,10 @@ static Promise<Optional<OFString *> *> *PromiseReadStringLike(OFStream *stream, 
     return resolver.promise;
 }
 
-static Promise<AsyncUnit *> *PromiseWriteStreamData(OFStream *stream, OFData *data, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
++ (Promise<AsyncUnit *> *)writeData: (OFData *)data
+                                to: (OFStream *)stream
+                       onScheduler: (AsyncScheduler *)scheduler
+           cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
     auto resolver = [[PromiseResolver<AsyncUnit *> alloc] init];
     auto bridge = [[AsyncObjFWPromiseBridge alloc] initWithObject: stream operation: @"asyncWriteData:" scheduler: scheduler resolver: (PromiseResolver<id> *)resolver startBlock: ^(AsyncObjFWPromiseBridge *bridge) {
@@ -90,7 +129,11 @@ static Promise<AsyncUnit *> *PromiseWriteStreamData(OFStream *stream, OFData *da
     return resolver.promise;
 }
 
-static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString *string, OFStringEncoding encoding, AsyncScheduler *scheduler, bool cancelOnTaskCancellation)
++ (Promise<AsyncUnit *> *)writeString: (OFString *)string
+                                   to: (OFStream *)stream
+                             encoding: (OFStringEncoding)encoding
+                          onScheduler: (AsyncScheduler *)scheduler
+              cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
     size_t expectedLength = [string cStringLengthWithEncoding: encoding];
     auto resolver = [[PromiseResolver<AsyncUnit *> alloc] init];
@@ -121,6 +164,8 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
     return resolver.promise;
 }
 
+@end
+
 @implementation OFStream (PromiseAdditions)
 
 - (Promise<AsyncBufferReadResult *> *)promiseToReadIntoBuffer: (void *)buffer length: (size_t)length onScheduler: (AsyncScheduler *)scheduler
@@ -130,7 +175,12 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
 
 - (Promise<AsyncBufferReadResult *> *)promiseToReadIntoBuffer: (void *)buffer length: (size_t)length onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseReadStream(self, buffer, length, false, scheduler, cancelOnTaskCancellation);
+    return [AsyncObjFWStreamPromiseSupport readStream: self
+                                           intoBuffer: buffer
+                                               length: length
+                                          exactLength: false
+                                          onScheduler: scheduler
+                              cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 - (Promise<AsyncBufferReadResult *> *)promiseToReadIntoBuffer: (void *)buffer exactLength: (size_t)length onScheduler: (AsyncScheduler *)scheduler
@@ -140,7 +190,12 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
 
 - (Promise<AsyncBufferReadResult *> *)promiseToReadIntoBuffer: (void *)buffer exactLength: (size_t)length onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseReadStream(self, buffer, length, true, scheduler, cancelOnTaskCancellation);
+    return [AsyncObjFWStreamPromiseSupport readStream: self
+                                           intoBuffer: buffer
+                                               length: length
+                                          exactLength: true
+                                          onScheduler: scheduler
+                              cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 - (Promise<Optional<OFString *> *> *)promiseToReadStringOnScheduler: (AsyncScheduler *)scheduler
@@ -160,7 +215,11 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
 
 - (Promise<Optional<OFString *> *> *)promiseToReadStringWithEncoding: (OFStringEncoding)encoding onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseReadStringLike(self, encoding, false, scheduler, cancelOnTaskCancellation);
+    return [AsyncObjFWStreamPromiseSupport readStringFromStream: self
+                                                       encoding: encoding
+                                                           line: false
+                                                    onScheduler: scheduler
+                                        cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 - (Promise<Optional<OFString *> *> *)promiseToReadLineOnScheduler: (AsyncScheduler *)scheduler
@@ -180,7 +239,11 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
 
 - (Promise<Optional<OFString *> *> *)promiseToReadLineWithEncoding: (OFStringEncoding)encoding onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseReadStringLike(self, encoding, true, scheduler, cancelOnTaskCancellation);
+    return [AsyncObjFWStreamPromiseSupport readStringFromStream: self
+                                                       encoding: encoding
+                                                           line: true
+                                                    onScheduler: scheduler
+                                        cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 - (Promise<AsyncUnit *> *)promiseToWriteData: (OFData *)data onScheduler: (AsyncScheduler *)scheduler
@@ -190,7 +253,10 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
 
 - (Promise<AsyncUnit *> *)promiseToWriteData: (OFData *)data onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseWriteStreamData(self, data, scheduler, cancelOnTaskCancellation);
+    return [AsyncObjFWStreamPromiseSupport writeData: data
+                                                  to: self
+                                         onScheduler: scheduler
+                             cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 - (Promise<AsyncUnit *> *)promiseToWriteString: (OFString *)string onScheduler: (AsyncScheduler *)scheduler
@@ -210,7 +276,11 @@ static Promise<AsyncUnit *> *PromiseWriteStreamString(OFStream *stream, OFString
 
 - (Promise<AsyncUnit *> *)promiseToWriteString: (OFString *)string encoding: (OFStringEncoding)encoding onScheduler: (AsyncScheduler *)scheduler cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
-    return PromiseWriteStreamString(self, string, encoding, scheduler, cancelOnTaskCancellation);
+    return [AsyncObjFWStreamPromiseSupport writeString: string
+                                                    to: self
+                                              encoding: encoding
+                                           onScheduler: scheduler
+                               cancelOnTaskCancellation: cancelOnTaskCancellation];
 }
 
 @end

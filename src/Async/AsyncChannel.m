@@ -5,30 +5,32 @@
 @class AsyncChannelSendWaitRegistration;
 @class AsyncChannelReceiveWaitRegistration;
 
+[[subclassing_restricted]]
 @interface AsyncChannelSendWaitRegistration : AsyncTaskWaitRegistration
 
 @property(readonly, nonatomic) AsyncChannel *channel;
 @property(readonly, nonatomic) id value;
-@property(readonly, nonatomic, getter=isClosed) bool closed;
+@property(readonly, nonatomic) bool isClosed;
 
-- (instancetype)initWithChannel: (AsyncChannel *)channel value: (id)value scheduler: (AsyncScheduler *)scheduler task: (Task *)task designated_initaliser;
+- (instancetype)initWithChannel: (AsyncChannel *)channel value: (id)value scheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
-- (bool)_finishOnce [[clang::objc_direct]];
+- (bool)_finishOnce [[direct]];
 - (void)signalDelivered;
 - (void)signalClosed;
 
 @end
 
+[[subclassing_restricted]]
 @interface AsyncChannelReceiveWaitRegistration : AsyncTaskWaitRegistration
 
 @property(readonly, nonatomic) AsyncChannel *channel;
 @property(readonly, nonatomic) id nillable receivedValue;
 @property(readonly, nonatomic) bool hasReceivedValue;
-@property(readonly, nonatomic, getter=isClosed) bool closed;
+@property(readonly, nonatomic) bool isClosed;
 
-- (instancetype)initWithChannel: (AsyncChannel *)channel scheduler: (AsyncScheduler *)scheduler task: (Task *)task designated_initaliser;
+- (instancetype)initWithChannel: (AsyncChannel *)channel scheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
-- (bool)_finishOnce [[clang::objc_direct]];
+- (bool)_finishOnce [[direct]];
 - (void)signalReceivedValue: (id)value;
 - (void)signalClosed;
 
@@ -36,8 +38,6 @@
 
 @implementation AsyncChannelClosedException
 
-@synthesize channel = _channel;
-@synthesize operation = _operation;
 
 - (instancetype)initWithChannel: (AsyncChannel *)channel operation: (OFString *)operation
 {
@@ -62,7 +62,6 @@
     OFMutableArray<AsyncChannelReceiveWaitRegistration *> *_receiveWaitRegistrations;
 }
 
-@synthesize capacity = _capacity;
 
 - (instancetype)initWithCapacity: (size_t)capacity
 {
@@ -313,8 +312,6 @@
     bool _closed;
 }
 
-@synthesize channel = _channel;
-@synthesize value = _value;
 
 - (instancetype)initWithChannel: (AsyncChannel *)channel value: (id)value scheduler: (AsyncScheduler *)scheduler task: (Task *)task
 {
@@ -400,11 +397,9 @@
     bool _completed;
     bool _closed;
     bool _hasReceivedValue;
+    id nillable _receivedValue;
 }
 
-@synthesize channel = _channel;
-@synthesize receivedValue = _receivedValue;
-@synthesize hasReceivedValue = _hasReceivedValue;
 
 - (instancetype)initWithChannel: (AsyncChannel *)channel scheduler: (AsyncScheduler *)scheduler task: (Task *)task
 {
