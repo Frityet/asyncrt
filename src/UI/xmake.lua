@@ -1,49 +1,63 @@
-local common = asyncrt_build
-local macos_x11 = common.macos_x11
+local function add_cairo_backends(export_package)
+    if export_package then
+        add_packages("cairo", { public = true })
+    else
+        add_packages("cairo")
+    end
 
-local function configure_ui_target(async_target)
+    add_files("Backend/AUICairoRenderSupport.m")
+    add_files("Backend/Window/AUIHeadlessWindow.m")
+end
+
+local function add_core_graphics_backend()
+    add_defines("AUI_HAS_CORE_GRAPHICS_WINDOW=1", { public = true })
+    add_defines("AUI_HAS_CAIRO_X11_WINDOW=0", { public = true })
+    add_links("objfwbridge", { public = true })
+    add_frameworks("Foundation", "AppKit", "Carbon", "CoreGraphics", "CoreText", "ImageIO", "QuartzCore", { public = true })
+    add_files("Backend/AUICoreGraphicsRenderSupport.m")
+    add_files("Backend/Window/AUICoreGraphicsWindow.m")
+end
+
+local function add_x11_backend()
+    add_defines("AUI_HAS_CORE_GRAPHICS_WINDOW=0", { public = true })
+    add_defines("AUI_HAS_CAIRO_X11_WINDOW=1", { public = true })
+    add_syslinks("X11")
+    add_files("Backend/Window/AUICairoX11Window.m")
+end
+
+local function configure_ui_target(async_target, options)
     add_deps(async_target, { public = true })
-    add_packages("cairo", { public = true })
 
     add_files("*.m")
-    add_files("Backend/AUIWindow.m", "Backend/AUIWindowOptions.m", "Backend/AUICairoRenderSupport.m")
-    add_files("Backend/Window/AUIHeadlessWindow.m")
+    add_files("Backend/AUIWindow.m", "Backend/AUIWindowOptions.m")
     add_files("Components/**.m")
+    add_files("ClayRuntime.c")
 
     if is_plat("macosx") then
-        add_defines("AUI_HAS_CORE_GRAPHICS_WINDOW=0", { public = true })
-        add_defines("AUI_HAS_CAIRO_X11_WINDOW=" .. (macos_x11 ~= nil and "1" or "0"), { public = true })
-        add_frameworks("CoreFoundation")
+        add_core_graphics_backend()
 
-        if macos_x11 ~= nil then
-            add_sysincludedirs(macos_x11.includedir)
-            add_linkdirs(macos_x11.libdir)
-            add_syslinks("X11")
-            add_files("Backend/Window/AUICairoX11Window.m")
+        if options.include_headless then
+            add_cairo_backends(options.export_cairo)
         end
+        return
     end
 
-    if is_plat("linux") then
-        add_defines("AUI_HAS_CAIRO_X11_WINDOW=1", { public = true })
-        add_syslinks("X11")
-        add_files("Backend/Window/AUICairoX11Window.m")
-    end
-
-    add_files("ClayRuntime.c")
+    add_cairo_backends(true)
+    add_x11_backend()
 end
 
 target("AsyncRTUI")
     set_kind("static")
-    configure_ui_target("AsyncRT")
-    after_config(function (target)
-        common.strip_default_macos_frameworks(target)
-    end)
+    configure_ui_target("AsyncRT", {
+        include_headless = false,
+        export_cairo = false
+    })
 
 target("AsyncRTUITest")
     set_default(false)
     set_kind("static")
     add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
-    configure_ui_target("AsyncRTTest")
-    after_config(function (target)
-        common.strip_default_macos_frameworks(target)
-    end)
+    configure_ui_target("AsyncRTTest", {
+        include_headless = true,
+        export_cairo = true
+    })

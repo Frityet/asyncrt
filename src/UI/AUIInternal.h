@@ -143,6 +143,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 - (bool)_identifierIsFocused: (OFString *nillable)identifier;
 - (bool)_identifierIsPressed: (OFString *nillable)identifier;
 - (bool)_identifierIsHovered: (OFString *nillable)identifier;
+- (bool)_updateHoverStateFromCurrentLayout;
 - (Clay_RenderCommandArray)_buildRenderCommandsWithViewportSize: (AUISize)viewportSize
                                                        deltaTime: (float)deltaTime;
 - (OFString *nillable)_clipboardText;
@@ -152,6 +153,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 - (void)_setWindowForTesting: (AUIWindow *nillable)window;
 - (void)_setRootComponentForTesting: (AUIComponent *nillable)rootComponent;
 - (bool)_consumePendingRenderRequest;
+- (bool)_hasPendingRenderRequest;
 
 @end
 

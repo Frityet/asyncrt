@@ -5,6 +5,7 @@
 #import <Foundation/Foundation.h>
 #import <CoreText/CoreText.h>
 #import <ImageIO/ImageIO.h>
+#import <dispatch/dispatch.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -21,6 +22,25 @@ typedef enum AUICoreGraphicsBorderSide {
     AUICoreGraphicsBorderSideLeft
 } AUICoreGraphicsBorderSide;
 
+[[subclassing_restricted, direct_members]]
+@interface AUICoreGraphicsTextLayout : OFObject
+
+@property(readonly, nonatomic) CTLineRef line;
+@property(readonly, nonatomic) double width;
+@property(readonly, nonatomic) CGFloat ascent;
+@property(readonly, nonatomic) CGFloat descent;
+@property(readonly, nonatomic) CGFloat leading;
+
+- (instancetype)initWithString: (CFStringRef)string
+                        fontID: (uint16_t)fontID
+                      fontSize: (uint16_t)fontSize
+                 letterSpacing: (uint16_t)letterSpacing
+                  fontFamilies: (CFStringRef const *nillable)fontFamilies [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
+[[direct_members]]
 @interface AUICoreGraphicsRenderSupport ()
 
 + (CGFloat)channelForValue: (uint8_t)value;
@@ -30,6 +50,19 @@ typedef enum AUICoreGraphicsBorderSide {
 + (CTFontRef)createFontInFamilies: (CFStringRef const *nillable)fontFamilies
                             fontID: (uint16_t)fontID
                               size: (CGFloat)size;
++ (NSCache *)textLayoutCache;
++ (NSString *)textLayoutCacheKeyForString: (CFStringRef)string
+                                   fontID: (uint16_t)fontID
+                                 fontSize: (uint16_t)fontSize
+                            letterSpacing: (uint16_t)letterSpacing
+                                lineHeight: (uint16_t)lineHeight
+                             fontFamilies: (CFStringRef const *nillable)fontFamilies;
++ (AUICoreGraphicsTextLayout *nillable)textLayoutForString: (CFStringRef)string
+                                                    fontID: (uint16_t)fontID
+                                                  fontSize: (uint16_t)fontSize
+                                             letterSpacing: (uint16_t)letterSpacing
+                                                 lineHeight: (uint16_t)lineHeight
+                                              fontFamilies: (CFStringRef const *nillable)fontFamilies;
 + (CGMutablePathRef)createRoundedRectPathForBoundingBox: (Clay_BoundingBox)boundingBox
                                                  radius: (Clay_CornerRadius)radius CF_RETURNS_RETAINED;
 + (void)setFillColor: (Clay_Color)color inContext: (CGContextRef)context;
@@ -60,6 +93,56 @@ typedef enum AUICoreGraphicsBorderSide {
                             command: (Clay_RenderCommand *)command
                        viewportSize: (AUISize)viewportSize
                        fontFamilies: (CFStringRef const *nillable)fontFamilies;
+
+@end
+
+@implementation AUICoreGraphicsTextLayout {
+    CTLineRef _line;
+    double _width;
+    CGFloat _ascent;
+    CGFloat _descent;
+    CGFloat _leading;
+}
+
+- (instancetype)initWithString: (CFStringRef)string
+                        fontID: (uint16_t)fontID
+                      fontSize: (uint16_t)fontSize
+                 letterSpacing: (uint16_t)letterSpacing
+                  fontFamilies: (CFStringRef const *nillable)fontFamilies
+{
+    CTFontRef font;
+    CFMutableAttributedStringRef attributedString;
+    CFRange range;
+
+    self = [super init];
+    font = [AUICoreGraphicsRenderSupport createFontInFamilies: fontFamilies
+                                                       fontID: fontID
+                                                         size: fontSize];
+    attributedString = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0);
+    CFAttributedStringReplaceString(attributedString, CFRangeMake(0, 0), string);
+    range = CFRangeMake(0, CFStringGetLength(string));
+    CFAttributedStringSetAttribute(attributedString, range, kCTFontAttributeName, font);
+
+    if (letterSpacing != 0) {
+        CFNumberRef kern = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &letterSpacing);
+
+        CFAttributedStringSetAttribute(attributedString, range, kCTKernAttributeName, kern);
+        CFRelease(kern);
+    }
+
+    _line = CTLineCreateWithAttributedString(attributedString);
+    _width = CTLineGetTypographicBounds($assert_nonnil(_line), &_ascent, &_descent, &_leading);
+
+    CFRelease(attributedString);
+    CFRelease(font);
+    return self;
+}
+
+- (void)dealloc
+{
+    if (_line != nullptr)
+        CFRelease(_line);
+}
 
 @end
 
@@ -103,6 +186,70 @@ typedef enum AUICoreGraphicsBorderSide {
                               size: (CGFloat)size
 {
     return CTFontCreateWithName([self fontFamilyInFamilies: fontFamilies fontID: fontID], size, nullptr);
+}
+
++ (NSCache *)textLayoutCache
+{
+    static NSCache *cache = nilptr;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        cache = [[NSCache alloc] init];
+        cache.countLimit = 4096;
+    });
+
+    return $assert_nonnil(cache);
+}
+
++ (NSString *)textLayoutCacheKeyForString: (CFStringRef)string
+                                   fontID: (uint16_t)fontID
+                                 fontSize: (uint16_t)fontSize
+                            letterSpacing: (uint16_t)letterSpacing
+                                lineHeight: (uint16_t)lineHeight
+                             fontFamilies: (CFStringRef const *nillable)fontFamilies
+{
+    NSString *format = (__bridge NSString *)CFSTR("%@|%u|%u|%u|%u|%@");
+    NSString *family = (__bridge NSString *)[self fontFamilyInFamilies: fontFamilies fontID: fontID];
+    NSString *text = (__bridge NSString *)string;
+
+    return [NSString stringWithFormat: format,
+                                      family,
+                                      (unsigned int)fontID,
+                                      (unsigned int)fontSize,
+                                      (unsigned int)letterSpacing,
+                                      (unsigned int)lineHeight,
+                                      text];
+}
+
++ (AUICoreGraphicsTextLayout *nillable)textLayoutForString: (CFStringRef)string
+                                                    fontID: (uint16_t)fontID
+                                                  fontSize: (uint16_t)fontSize
+                                             letterSpacing: (uint16_t)letterSpacing
+                                                 lineHeight: (uint16_t)lineHeight
+                                              fontFamilies: (CFStringRef const *nillable)fontFamilies
+{
+    NSCache *cache;
+    NSString *key;
+    AUICoreGraphicsTextLayout *nillable layout;
+
+    cache = self.textLayoutCache;
+    key = [self textLayoutCacheKeyForString: string
+                                     fontID: fontID
+                                   fontSize: fontSize
+                              letterSpacing: letterSpacing
+                                  lineHeight: lineHeight
+                               fontFamilies: fontFamilies];
+    layout = [cache objectForKey: key];
+    if (layout != nilptr)
+        return layout;
+
+    layout = [[AUICoreGraphicsTextLayout alloc] initWithString: string
+                                                        fontID: fontID
+                                                      fontSize: fontSize
+                                                 letterSpacing: letterSpacing
+                                                  fontFamilies: fontFamilies];
+    [cache setObject: $assert_nonnil(layout) forKey: key];
+    return layout;
 }
 
 + (CGMutablePathRef)createRoundedRectPathForBoundingBox: (Clay_BoundingBox)boundingBox
@@ -269,40 +416,26 @@ typedef enum AUICoreGraphicsBorderSide {
                  fontFamilies: (CFStringRef const *nillable)fontFamilies
 {
     CFStringRef nillable string = [self copyString: config->stringContents];
-    CTFontRef font;
-    CFMutableAttributedStringRef attributedString;
-    CFRange range;
-    CTLineRef line;
-    CGFloat ascent = 0.0;
-    CGFloat descent = 0.0;
-    CGFloat leading = 0.0;
+    AUICoreGraphicsTextLayout *nillable layout;
     CGFloat lineHeight;
-    double width;
     double baselineY;
 
     if (string == nullptr)
         return;
 
-    font = [self createFontInFamilies: fontFamilies fontID: config->fontId size: config->fontSize];
-    attributedString = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0);
-    CFAttributedStringReplaceString(attributedString, CFRangeMake(0, 0), string);
-    range = CFRangeMake(0, CFStringGetLength(string));
-    CFAttributedStringSetAttribute(attributedString, range, kCTFontAttributeName, font);
-    CFAttributedStringSetAttribute(attributedString,
-                                   range,
-                                   kCTForegroundColorFromContextAttributeName,
-                                   kCFBooleanTrue);
-    if (config->letterSpacing != 0) {
-        CFNumberRef kern = CFNumberCreate(kCFAllocatorDefault, kCFNumberFloat32Type, &config->letterSpacing);
-
-        CFAttributedStringSetAttribute(attributedString, range, kCTKernAttributeName, kern);
-        CFRelease(kern);
+    layout = [self textLayoutForString: $assert_nonnil(string)
+                                fontID: config->fontId
+                              fontSize: config->fontSize
+                         letterSpacing: config->letterSpacing
+                             lineHeight: config->lineHeight
+                          fontFamilies: fontFamilies];
+    if (layout == nilptr) {
+        CFRelease(string);
+        return;
     }
 
-    line = CTLineCreateWithAttributedString(attributedString);
-    width = CTLineGetTypographicBounds(line, &ascent, &descent, &leading);
-    lineHeight = (config->lineHeight > 0 ? config->lineHeight : (ascent + descent + leading));
-    baselineY = boundingBox.y + ((lineHeight - (ascent + descent)) / 2.0) + ascent;
+    lineHeight = (config->lineHeight > 0 ? config->lineHeight : (layout.ascent + layout.descent + layout.leading));
+    baselineY = boundingBox.y + ((lineHeight - (layout.ascent + layout.descent)) / 2.0) + layout.ascent;
 
     CGContextSaveGState(context);
     CGContextTranslateCTM(context, 0.0, viewportSize.height);
@@ -312,13 +445,9 @@ typedef enum AUICoreGraphicsBorderSide {
     CGContextSetTextPosition(context,
                              boundingBox.x,
                              viewportSize.height - baselineY);
-    CTLineDraw(line, context);
+    CTLineDraw($assert_nonnil(layout.line), context);
     CGContextRestoreGState(context);
 
-    (void)width;
-    CFRelease(line);
-    CFRelease(attributedString);
-    CFRelease(font);
     CFRelease(string);
 }
 
@@ -454,43 +583,24 @@ Clay_Dimensions AUICoreGraphicsMeasureText(Clay_StringSlice text,
     AUICoreGraphicsTextMeasureContext *measureContext = userData;
     CFStringRef const *fontFamilies = (measureContext != nullptr ? measureContext->fontFamilies : nullptr);
     CFStringRef nillable string = [AUICoreGraphicsRenderSupport copyString: text];
-    CTFontRef font;
-    CFMutableAttributedStringRef attributedString;
-    CFRange range;
-    CTLineRef line;
-    CGFloat ascent = 0.0;
-    CGFloat descent = 0.0;
-    CGFloat leading = 0.0;
-    double width;
+    AUICoreGraphicsTextLayout *nillable layout;
 
     if (string == nullptr)
         return (Clay_Dimensions){ 0, 0 };
 
-    font = [AUICoreGraphicsRenderSupport createFontInFamilies: fontFamilies
-                                                       fontID: config->fontId
-                                                         size: config->fontSize];
-    attributedString = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0);
-    CFAttributedStringReplaceString(attributedString, CFRangeMake(0, 0), string);
-    range = CFRangeMake(0, CFStringGetLength(string));
-    CFAttributedStringSetAttribute(attributedString, range, kCTFontAttributeName, font);
-    if (config->letterSpacing != 0) {
-        CFNumberRef kern = CFNumberCreate(kCFAllocatorDefault, kCFNumberFloat32Type, &config->letterSpacing);
-
-        CFAttributedStringSetAttribute(attributedString, range, kCTKernAttributeName, kern);
-        CFRelease(kern);
-    }
-
-    line = CTLineCreateWithAttributedString(attributedString);
-    width = CTLineGetTypographicBounds(line, &ascent, &descent, &leading);
-
-    CFRelease(line);
-    CFRelease(attributedString);
-    CFRelease(font);
+    layout = [AUICoreGraphicsRenderSupport textLayoutForString: $assert_nonnil(string)
+                                                        fontID: config->fontId
+                                                      fontSize: config->fontSize
+                                                 letterSpacing: config->letterSpacing
+                                                     lineHeight: config->lineHeight
+                                                  fontFamilies: fontFamilies];
     CFRelease(string);
 
     return (Clay_Dimensions){
-        .width = (float)width,
-        .height = (float)(config->lineHeight > 0 ? config->lineHeight : (ascent + descent + leading))
+        .width = (float)(layout != nilptr ? layout.width : 0.0),
+        .height = (float)(config->lineHeight > 0
+            ? config->lineHeight
+            : (layout != nilptr ? (layout.ascent + layout.descent + layout.leading) : 0.0))
     };
 }
 

@@ -27,6 +27,7 @@
               enabled: (bool)enabled
              onChange: (void (^nillable)(bool value))changeHandler
 {
+    
     return [[self alloc] initWithLabel: label checked: checked enabled: enabled onChange: changeHandler];
 }
 

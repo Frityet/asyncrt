@@ -17,6 +17,7 @@
 @namespace(AUIAppInteractionSupport)
 
 + (bool)set: (OFSet<OFString *> *)left isEqualToSet: (OFSet<OFString *> *)right;
++ (OFMutableSet<OFString *> *)hoveredIdentifiersInRegistrations: (OFArray<AUIInteractionRegistration *> *)registrations;
 + (OFString *)stringByInsertingString: (OFString *)inserted
                                into: (OFString *)source
                             atIndex: (size_t)index;
@@ -53,6 +54,18 @@
     }
 
     return true;
+}
+
++ (OFMutableSet<OFString *> *)hoveredIdentifiersInRegistrations: (OFArray<AUIInteractionRegistration *> *)registrations
+{
+    OFMutableSet<OFString *> *hoveredIdentifiers = [OFMutableSet set];
+
+    for (AUIInteractionRegistration *registration in registrations) {
+        if ([AUIClay pointerOverElementWithID: registration.elementID])
+            [hoveredIdentifiers addObject: registration.identifier];
+    }
+
+    return hoveredIdentifiers;
 }
 
 + (OFString *)stringByInsertingString: (OFString *)inserted
@@ -262,11 +275,11 @@
             }
 
             if (_inputState.isPrimaryButtonDown or _inputState.isSecondaryButtonDown)
-                pollInterval = (1.0 / 60.0);
+                pollInterval = (1.0 / 120.0);
             else if (didRender)
-                pollInterval = (1.0 / 60.0);
+                pollInterval = (1.0 / 120.0);
             else
-                pollInterval = (1.0 / 10.0);
+                pollInterval = (1.0 / 60.0);
 
             if ([self _hasPendingRenderRequest])
                 continue;
@@ -385,16 +398,45 @@
     return (identifier != nilptr and [_hoveredIdentifiers containsObject: $assert_nonnil(identifier)]);
 }
 
+- (bool)_updateHoverStateFromCurrentLayout
+{
+    OFArray<AUIInteractionRegistration *> *registrations = [_interactionsThisFrame copy];
+    OFMutableSet<OFString *> *hoveredIdentifiers;
+    AUIInteractionRegistration *nillable topHoveredRegistration;
+    bool didChange = false;
+
+    if ([AUIClay currentContext] == nullptr or registrations.count == 0) {
+        if (_hoveredIdentifiers.count > 0) {
+            _hoveredIdentifiers = [OFMutableSet set];
+            didChange = true;
+        }
+
+        [self _setCursorStyle: AUICursorStyleDefault];
+        return didChange;
+    }
+
+    [AUIClay setPointerPositionX: _inputState.pointerX
+                                y: _inputState.pointerY
+                             down: _inputState.isPrimaryButtonDown];
+    hoveredIdentifiers = [AUIAppInteractionSupport hoveredIdentifiersInRegistrations: registrations];
+
+    if (not [AUIAppInteractionSupport set: _hoveredIdentifiers isEqualToSet: hoveredIdentifiers]) {
+        _hoveredIdentifiers = hoveredIdentifiers;
+        didChange = true;
+    }
+
+    topHoveredRegistration = [AUIAppInteractionSupport topHoveredRegistrationIn: registrations hoveredIDs: hoveredIdentifiers];
+    [self _setCursorStyle: (topHoveredRegistration != nilptr ? topHoveredRegistration.cursorStyle : AUICursorStyleDefault)];
+    return didChange;
+}
+
 - (void)_completeInteractionFrame
 {
     OFArray<AUIInteractionRegistration *> *registrations = [_interactionsThisFrame copy];
-    OFMutableSet<OFString *> *hoveredIdentifiers = [OFMutableSet set];
+    OFMutableSet<OFString *> *hoveredIdentifiers;
     bool shouldScheduleRender = false;
 
-    for (AUIInteractionRegistration *registration in registrations) {
-        if ([AUIClay pointerOverElementWithID: registration.elementID])
-            [hoveredIdentifiers addObject: registration.identifier];
-    }
+    hoveredIdentifiers = [AUIAppInteractionSupport hoveredIdentifiersInRegistrations: registrations];
 
     if (not [AUIAppInteractionSupport set: _hoveredIdentifiers isEqualToSet: hoveredIdentifiers]) {
         _hoveredIdentifiers = hoveredIdentifiers;

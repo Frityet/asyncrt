@@ -1,5 +1,3 @@
-local common = asyncrt_build
-
 target("App")
     set_kind("binary")
     add_deps("AsyncRTUI")
@@ -27,6 +25,3 @@ target("App")
         end)
     end
     add_files("**.m")
-    after_config(function (target)
-        common.strip_default_macos_frameworks(target, "AppKit")
-    end)

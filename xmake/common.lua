@@ -1,52 +1,5 @@
 asyncrt_build = asyncrt_build or {}
 
-function asyncrt_build.first_existing_dir(patterns)
-    for _, pattern in ipairs(patterns) do
-        local matches = {}
-
-        if pattern:find("%*") ~= nil then
-            matches = os.dirs(pattern)
-            table.sort(matches)
-        elseif os.isdir(pattern) then
-            matches = {pattern}
-        end
-
-        if #matches > 0 then
-            return matches[#matches]
-        end
-    end
-
-    return nil
-end
-
-function asyncrt_build.detect_macos_x11()
-    local includedir, libdir
-
-    if not is_plat("macosx") then
-        return nil
-    end
-
-    includedir = asyncrt_build.first_existing_dir({
-        "/opt/X11/include",
-        "/opt/homebrew/Cellar/libx11/*/include",
-        "/usr/local/Cellar/libx11/*/include"
-    })
-    libdir = asyncrt_build.first_existing_dir({
-        "/opt/X11/lib",
-        "/opt/homebrew/Cellar/libx11/*/lib",
-        "/usr/local/Cellar/libx11/*/lib"
-    })
-
-    if includedir ~= nil and libdir ~= nil and os.isfile(includedir .. "/X11/Xlib.h") then
-        return {
-            includedir = includedir,
-            libdir = libdir
-        }
-    end
-
-    return nil
-end
-
 function asyncrt_build.append_all(dst, src)
     for _, value in ipairs(src) do
         table.insert(dst, value)
@@ -118,5 +71,3 @@ function asyncrt_build.strip_default_macos_frameworks(target, ...)
 
     target:set("frameworks", filtered_frameworks)
 end
-
-asyncrt_build.macos_x11 = asyncrt_build.detect_macos_x11()

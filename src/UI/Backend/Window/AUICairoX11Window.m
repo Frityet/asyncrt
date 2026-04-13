@@ -209,7 +209,8 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
             case MotionNotify:
                 [[self.application _inputState] movePointerToX: (float)event.xmotion.x
                                                             y: (float)event.xmotion.y];
-                [self.application setNeedsRender];
+                if ([self.application _updateHoverStateFromCurrentLayout])
+                    [self.application setNeedsRender];
                 break;
             case ButtonPress:
                 [[self.application _inputState] movePointerToX: (float)event.xbutton.x

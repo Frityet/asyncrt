@@ -4,15 +4,20 @@
 
 #import <ObjFWBridge/ObjFWBridge.h>
 
+#import <AppKit/NSColor.h>
 #import <AppKit/NSGraphicsContext.h>
 #import <AppKit/NSEvent.h>
 #import <AppKit/NSPasteboard.h>
 #import <AppKit/NSCursor.h>
+#import <AppKit/NSColorSpace.h>
 #import <AppKit/NSMenu.h>
+#import <AppKit/NSScreen.h>
 #import <AppKit/NSTrackingArea.h>
 #import <AppKit/NSView.h>
 #import <AppKit/NSWindow.h>
 #import <Foundation/NSThread.h>
+#import <QuartzCore/CALayer.h>
+#import <QuartzCore/CATransaction.h>
 #import <Carbon/Carbon.h>
 #import <CoreGraphics/CoreGraphics.h>
 
@@ -180,6 +185,7 @@
 - (void)disconnectBackend;
 - (AUISize)pixelSize;
 - (NSPoint)ui_backingPointForViewPoint: (NSPoint)point;
+- (void)ui_updateLayerConfiguration;
 - (void)ui_takeInputFocus;
 - (void)renderFrameWithBlock: (void (^)(CGContextRef context, AUISize viewportSize))renderBlock;
 
@@ -199,6 +205,8 @@
     _stride = 0;
     _pixelWidth = 0;
     _pixelHeight = 0;
+    self.wantsLayer = YES;
+    [self ui_updateLayerConfiguration];
     return self;
 }
 
@@ -256,6 +264,7 @@
 - (void)viewDidMoveToWindow
 {
     [super viewDidMoveToWindow];
+    [self ui_updateLayerConfiguration];
     [self ui_takeInputFocus];
 }
 
@@ -279,6 +288,7 @@
     AUIApplication *application;
 
     [super viewDidChangeBackingProperties];
+    [self ui_updateLayerConfiguration];
     application = self.ui_application;
     if (application != nilptr)
         [application setNeedsRender];
@@ -313,6 +323,24 @@
         self.window.acceptsMouseMovedEvents = true;
         [self.window makeFirstResponder: self];
     }
+}
+
+- (void)ui_updateLayerConfiguration
+{
+    CALayer *layer = self.layer;
+    CGFloat contentsScale;
+
+    if (layer == nilptr)
+        return;
+
+    contentsScale = (self.window != nilptr ? self.window.backingScaleFactor : [NSScreen mainScreen].backingScaleFactor);
+    if (contentsScale <= 0.0)
+        contentsScale = 1.0;
+
+    layer.opaque = YES;
+    layer.contentsGravity = kCAGravityResize;
+    layer.contentsScale = contentsScale;
+    layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
 }
 
 - (void)ui_updatePointerForEvent: (NSEvent *)event
@@ -363,6 +391,9 @@
         _image = nullptr;
     }
 
+    if (self.layer != nilptr)
+        self.layer.contents = nilptr;
+
     if (_colorSpace != nullptr) {
         CGColorSpaceRelease(_colorSpace);
         _colorSpace = nullptr;
@@ -408,7 +439,7 @@
     if (_imageData == nullptr)
         return false;
 
-    _colorSpace = CGColorSpaceCreateDeviceRGB();
+    _colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     if (_colorSpace == nullptr) {
         [self ui_discardBackingStore];
         return false;
@@ -460,7 +491,11 @@
     }
 
     _image = CGBitmapContextCreateImage($assert_nonnil(_bitmapContext));
-    self.needsDisplay = true;
+    [self ui_updateLayerConfiguration];
+    if (self.layer != nilptr)
+        self.layer.contents = (__bridge id)$assert_nonnil(_image);
+    else
+        self.needsDisplay = true;
 }
 
 - (void)mouseMoved: (NSEvent *)event
@@ -469,7 +504,7 @@
 
     [self ui_updatePointerForEvent: event];
     application = self.ui_application;
-    if (application != nilptr)
+    if (application != nilptr and [application _updateHoverStateFromCurrentLayout])
         [application setNeedsRender];
 }
 
@@ -571,6 +606,11 @@
         return;
 
     bounds = self.bounds;
+    // Clay leaves uncovered regions transparent, so the native view must
+    // paint the window background before compositing the bitmap.
+    [NSColor.windowBackgroundColor setFill];
+    NSRectFill(bounds);
+
     CGContextSaveGState($as_nonnil(cgContext));
     CGContextSetInterpolationQuality($as_nonnil(cgContext), kCGInterpolationNone);
     CGContextTranslateCTM($as_nonnil(cgContext), 0.0, bounds.size.height);
@@ -587,6 +627,10 @@
 
 - (bool)ui_systemUsesDarkModeForApplication: (NSApplication *nillable)application;
 - (void)ui_applyAppearance;
+- (bool)ui_shouldCoalesceEvent: (NSEvent *)event;
+- (void)ui_dispatchEvent: (NSEvent *nillable)event
+                 onApplication: (NSApplication *nillable)application
+               didProcessEvent: (bool *)didProcessEvent;
 
 @end
 
@@ -885,6 +929,30 @@
     [application updateWindows];
 }
 
+- (bool)ui_shouldCoalesceEvent: (NSEvent *)event
+{
+    switch (event.type) {
+        case NSEventTypeMouseMoved:
+        case NSEventTypeLeftMouseDragged:
+        case NSEventTypeRightMouseDragged:
+        case NSEventTypeOtherMouseDragged:
+            return true;
+        default:
+            return false;
+    }
+}
+
+- (void)ui_dispatchEvent: (NSEvent *nillable)event
+                 onApplication: (NSApplication *nillable)application
+               didProcessEvent: (bool *)didProcessEvent
+{
+    if (event == nilptr or application == nilptr)
+        return;
+
+    [$assert_nonnil(application) sendEvent: $assert_nonnil(event)];
+    *didProcessEvent = true;
+}
+
 - (void)ui_updateTestingPointerForViewX: (float)x y: (float)y
 {
     if (_renderView == nilptr)
@@ -970,6 +1038,8 @@
     if (_window == nilptr)
         @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the CoreGraphics window"];
 
+    _window.colorSpace = [NSColorSpace sRGBColorSpace];
+
     {
         NSString *title = self.options.title.NSObject;
         NSString *fallbackTitle = ((OFString *)@"asyncrt UI").NSObject;
@@ -994,6 +1064,8 @@
 - (void)pollEvents
 {
     NSApplication *application = NSApplication.sharedApplication;
+    bool didProcessEvent = false;
+    NSEvent *nillable pendingMotionEvent = nilptr;
 
     if (application == nilptr)
         return;
@@ -1007,13 +1079,33 @@
         if (event == nilptr)
             break;
 
-        [application sendEvent: event];
+        if ([self ui_shouldCoalesceEvent: event]) {
+            pendingMotionEvent = event;
+            continue;
+        }
+
+        if (pendingMotionEvent != nilptr) {
+            [self ui_dispatchEvent: pendingMotionEvent
+                     onApplication: application
+                   didProcessEvent: &didProcessEvent];
+            pendingMotionEvent = nilptr;
+        }
+
+        [self ui_dispatchEvent: event
+                 onApplication: application
+               didProcessEvent: &didProcessEvent];
     }
 
-    if (_open and _window != nilptr and application.active and (not [$assert_nonnil(_window) isKeyWindow] or not [$assert_nonnil(_window) isMainWindow]))
-        [self ui_activateWindow: $assert_nonnil(_window) application: application];
+    if (pendingMotionEvent != nilptr)
+        [self ui_dispatchEvent: pendingMotionEvent onApplication: application didProcessEvent: &didProcessEvent];
 
-    [application updateWindows];
+    if (_open and _window != nilptr and application.active and (not [$assert_nonnil(_window) isKeyWindow] or not [$assert_nonnil(_window) isMainWindow])) {
+        [self ui_activateWindow: $assert_nonnil(_window) application: application];
+        didProcessEvent = true;
+    }
+
+    if (didProcessEvent and not [self.application _hasPendingRenderRequest])
+        [application updateWindows];
 }
 
 - (void)closeWindow
@@ -1071,6 +1163,9 @@
 
 - (void)setCursorStyle: (AUICursorStyle)cursorStyle
 {
+    if (_cursorStyle == cursorStyle)
+        return;
+
     _cursorStyle = cursorStyle;
 
     switch (cursorStyle) {
@@ -1129,7 +1224,10 @@
                                         viewportSize: viewportSize
                                         fontFamilies: nullptr];
     }];
-    [_window displayIfNeeded];
+    if ($assert_nonnil(_renderView).layer != nilptr)
+        [CATransaction flush];
+    else
+        [$assert_nonnil(_renderView) displayIfNeeded];
 }
 
 @end

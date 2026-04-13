@@ -1,5 +1,3 @@
-local common = asyncrt_build
-
 local async_runtime_test_cases = {
     {name = "default_scheduler_lifecycle", group = "sync/scheduler"},
     {name = "coroutine_roundtrip_states", group = "sync/coroutine"},
@@ -62,6 +60,8 @@ local async_runtime_test_cases = {
     {name = "argument_parser_internal_helpers", group = "utilities/argument-parser"},
     {name = "argument_parser_error_branches", group = "utilities/argument-parser"},
     {name = "argument_parser_schema_validation", group = "utilities/argument-parser"},
+    {name = "calculator_evaluator_scientific_ops", group = "app/calculator"},
+    {name = "calculator_model_memory_and_history", group = "app/calculator"},
     {name = "promise_await_and_protocol", group = "async/promise"},
     {name = "promise_rejection_paths", group = "async/promise"},
     {name = "promise_combinators", group = "async/promise"},
@@ -143,7 +143,11 @@ target("async-runtime-tests")
         "-Wno-nullable-to-nonnull-conversion"
     )
     add_links("objfwtest", "objfwhid")
-    add_files("../src/App/ArgumentParser.m")
+    add_files(
+        "../src/App/ArgumentParser.m",
+        "../src/App/CalculatorEvaluator.m",
+        "../src/App/CalculatorModel.m"
+    )
     add_files("*.m")
     for _, test_case in ipairs(async_runtime_test_cases) do
         add_tests(test_case.name, {
@@ -152,6 +156,3 @@ target("async-runtime-tests")
             timeout = test_case.timeout or 5
         })
     end
-    after_config(function (target)
-        common.strip_default_macos_frameworks(target)
-    end)

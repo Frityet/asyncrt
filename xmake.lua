@@ -7,7 +7,6 @@ set_toolchains("clang")
 local mode_uses_lto = is_mode("release") or is_mode("minsizerel")
 
 includes("xmake/common.lua")
-includes("xmake/rules.lua")
 
 add_requires("objfw", {
     configs = {
