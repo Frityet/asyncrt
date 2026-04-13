@@ -36,7 +36,7 @@
 @property(readonly, nonatomic) Task *ownerTask;
 @property(readonly, nonatomic) OFString *nillable name;
 @property(readonly, nonatomic) OFDate *nillable deadline;
-@property(readonly, nonatomic, getter=isCancellationRequested) bool cancellationRequested;
+@property(readonly, nonatomic) bool isCancellationRequested;
 
 + (AsyncScope *nillable)currentScope;
 - (Task<id> *)spawn: (id (^)(void))block;

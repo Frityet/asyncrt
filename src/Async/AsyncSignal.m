@@ -1,4 +1,5 @@
 #import "Async/AsyncRuntimeInternal.h"
+#import "Utilities/DependencyTracking.h"
 
 #pragma clang assume_nonnull begin
 
@@ -239,6 +240,12 @@ typedef void (^AsyncSignalCleanupBlock)(void);
     block_reference id value = nilptr;
 
     [self _registerCurrentContext];
+    [DependencyTracking registerDependency: self registration: ^DependencyTrackingCleanupBlock(void (^notify)(void)) {
+        return [self subscribe: ^(id _Null_unspecified nextValue) {
+            (void)nextValue;
+            notify();
+        }];
+    }];
 
     [_lock lock];
     @try {

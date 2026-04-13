@@ -10,14 +10,6 @@ local function add_flags(...)
     return add_mflags(...)
 end
 
-local function add_unwind_safe_objc_flags()
-    add_flags(
-        "-O0",
-        "-fno-omit-frame-pointer",
-        "-fno-optimize-sibling-calls"
-    )
-end
-
 add_requires("objfw", {
     configs = {
         shared = false,
@@ -25,6 +17,7 @@ add_requires("objfw", {
         --tls = "openssl"
     }
 })
+add_requires("cairo")
 
 add_packages("objfw")
 
@@ -43,7 +36,11 @@ if is_mode("release") or is_mode("coverage") then
     -- Stackful coroutine exception propagation is only stable when we keep
     -- unwind metadata and frames conservative in optimized builds.
     set_optimize("none")
-    add_unwind_safe_objc_flags()
+    add_flags(
+        "-O0",
+        "-fno-omit-frame-pointer",
+        "-fno-optimize-sibling-calls"
+    )
 end
 
 if is_mode("coverage") then
@@ -92,10 +89,51 @@ target("Async")
     add_files("src/Async/Coroutine.m", {mflags = {"-fno-objc-arc"}})
     add_files("src/Async/**.m|src/Async/Coroutine.m")
 
+target("UI")
+    set_kind("static")
+    add_deps("Async", { public = true })
+    add_packages("cairo", { public = true })
+    add_files("src/UI/*.m")
+    add_files("src/UI/Backend/*.m")
+    add_files("src/UI/Backend/Renderer/*.m")
+    add_files("src/UI/Backend/Window/AUIHeadlessWindowBackend.m")
+    add_files("src/UI/Components/**.m")
+    if is_plat("macosx") then
+        add_links("objfwbridge", { public = true })
+        add_frameworks("AppKit", "Cocoa", "Carbon", "CoreGraphics")
+        add_files("src/UI/Backend/Window/AUICocoaWindowBackend.m")
+    end
+    if is_plat("linux") then
+        add_syslinks("X11")
+        add_files("src/UI/Backend/Window/AUIX11WindowBackend.m")
+    end
+    add_files("src/UI/ClayRuntime.c")
+
 target("App")
     set_kind("binary")
-    add_deps("Async")
+    add_deps("UI")
     set_pmheader("src/Utilities/common.h")
+    if is_plat("macosx") then
+        add_rules("xcode.application")
+        add_ldflags("-ObjC", {force = true})
+        add_files("src/App/Info.plist")
+        on_run(function (target)
+            import("core.base.option")
+
+            local bundledir = path.absolute(target:data("xcode.bundle.rootdir"))
+            local argv = {"-W", "-n", bundledir}
+            local arguments = option.get("arguments")
+
+            if arguments then
+                table.insert(argv, "--args")
+                for _, argument in ipairs(arguments) do
+                    table.insert(argv, argument)
+                end
+            end
+
+            os.execv("open", argv)
+        end)
+    end
     add_files("src/App/**.m")
 
 target("async-runtime-benchmarks")
@@ -138,6 +176,24 @@ local async_runtime_test_cases = {
     {name = "optional_roundtrip_equality_and_description", group = "utilities/optional"},
     {name = "optional_some_retains_payload_across_autorelease_pool", group = "utilities/optional"},
     {name = "optional_some_accepts_tagged_payloads", group = "utilities/optional"},
+    {name = "component_mount_unmount_recursion_and_child_replacement", group = "ui"},
+    {name = "set_needs_render_bubbles_to_application", group = "ui"},
+    {name = "render_dependency_tracking_for_signal", group = "ui"},
+    {name = "render_dependency_tracking_for_async_signal", group = "ui"},
+    {name = "duplicate_child_component_references_are_rejected", group = "ui"},
+    {name = "shared_child_component_under_multiple_parents_is_rejected", group = "ui"},
+    {name = "component_catalog_renders_commands", group = "ui"},
+    {name = "application_launch_closes_backend_on_open_failure", group = "ui"},
+    {name = "application_launch_renders_first_frame_and_cleans_up", group = "ui"},
+    {name = "application_launch_processes_multiple_async_render_requests", group = "ui"},
+    {name = "objfw_bridge_string_round_trip", group = "ui"},
+    {name = "cocoa_backend_prepares_foreground_application", group = "ui"},
+    {name = "button_press_invokes_callback", group = "ui"},
+    {name = "toggle_and_radio_controls_dispatch_controlled_changes", group = "ui"},
+    {name = "text_fields_focus_edit_submit_and_tab_navigation", group = "ui"},
+    {name = "text_area_secure_mask_scroll_and_stable_focus", group = "ui"},
+    {name = "clipboard_shortcuts_round_trip_through_backend", group = "ui"},
+    {name = "context_menu_opens_activates_and_dismisses", group = "ui"},
     {name = "argument_parser_binds_nested_command_instances", group = "utilities/argument-parser"},
     {name = "argument_parser_renders_help_text", group = "utilities/argument-parser"},
     {name = "argument_parser_reports_missing_required_positional", group = "utilities/argument-parser"},
@@ -209,8 +265,11 @@ local async_runtime_test_cases = {
 target("async-runtime-tests")
     set_kind("binary")
     set_group("tests")
-    add_deps("Async")
+    add_deps("Async", "UI")
     set_pmheader("src/Utilities/common.h")
+    if is_plat("macosx") then
+        add_ldflags("-ObjC", {force = true})
+    end
     add_flags(
         "-Wno-nonnull",
         "-Wno-nullability-completeness",

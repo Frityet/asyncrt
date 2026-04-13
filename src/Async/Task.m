@@ -221,7 +221,7 @@ static atomic_t(uint64_t) async_next_task_id = 1;
         return true;
 
     while (scope != nilptr) {
-        if (scope.cancellationRequested)
+        if (scope.isCancellationRequested)
             return true;
         scope = scope.parentScope;
     }

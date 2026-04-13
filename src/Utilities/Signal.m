@@ -1,4 +1,5 @@
 #include "Utilities/Signal.h"
+#include "Utilities/DependencyTracking.h"
 
 #pragma clang assume_nonnull begin
 
@@ -219,6 +220,12 @@
 - (id _Null_unspecified)value
 {
     [SignalSupport registerCurrentContextWithObservers: _subscribers];
+    [DependencyTracking registerDependency: self registration: ^(void (^notify)(void)) {
+        return [self subscribe: ^(id _Null_unspecified value) {
+            (void)value;
+            notify();
+        }];
+    }];
     return _value;
 }
 
