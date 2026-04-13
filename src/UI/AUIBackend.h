@@ -8,7 +8,7 @@
 
 #pragma clang assume_nonnull begin
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIBackend : OFObject
 
 @property(readonly, nonatomic) AUIApplication *application;

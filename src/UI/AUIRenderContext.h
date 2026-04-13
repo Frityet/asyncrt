@@ -11,7 +11,7 @@ typedef struct AUISize {
     float height;
 } AUISize;
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIRenderContext : OFObject
 
 @property(class, readonly, nonatomic) AUIRenderContext *nillable currentContext;

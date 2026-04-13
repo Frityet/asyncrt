@@ -41,7 +41,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIRenderPassState : OFObject
 
 @property(readonly, nonatomic) AsyncScope *mountScope;

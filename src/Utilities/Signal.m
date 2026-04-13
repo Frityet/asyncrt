@@ -11,7 +11,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface SignalObserverEntry : OFObject
 
 @property(readonly, nonatomic) id nillable owner;

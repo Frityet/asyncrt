@@ -18,7 +18,7 @@
 @class AsyncScheduler;
 @class Task;
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncRuntime : OFObject
 
 + (Task<id> *)run: (id (^)(AsyncScope *scope))block;

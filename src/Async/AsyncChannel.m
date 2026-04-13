@@ -15,8 +15,8 @@
 - (instancetype)initWithChannel: (AsyncChannel *)channel value: (id)value scheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
 - (bool)_finishOnce [[direct]];
-- (void)signalDelivered;
-- (void)signalClosed;
+- (void)signalDelivered [[direct]];
+- (void)signalClosed [[direct]];
 
 @end
 
@@ -31,8 +31,8 @@
 - (instancetype)initWithChannel: (AsyncChannel *)channel scheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
 - (bool)_finishOnce [[direct]];
-- (void)signalReceivedValue: (id)value;
-- (void)signalClosed;
+- (void)signalReceivedValue: (id)value [[direct]];
+- (void)signalClosed [[direct]];
 
 @end
 

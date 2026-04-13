@@ -49,7 +49,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncDatagramReceiveResult : AsyncBufferReadResult
 
 @property(readonly, nonatomic) OFData *senderAddressData;
@@ -62,7 +62,7 @@
 @end
 
 #ifdef OF_HAVE_SCTP
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncSCTPReceiveResult : AsyncBufferReadResult
 
 @property(readonly, nonatomic) OFSCTPMessageInfo nillable info;
@@ -74,7 +74,7 @@
 @end
 #endif
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncObjFWPromiseBridge : OFObject
 
 @property(readonly, nonatomic) id object;

@@ -9,7 +9,7 @@
 
 @property(class, readonly, nonatomic) AsyncUnit *unit;
 
-+ (AsyncUnit *)unit;
++ (AsyncUnit *)unit [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

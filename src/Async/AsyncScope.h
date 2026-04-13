@@ -40,19 +40,19 @@
 @property(readonly, nonatomic) OFDate *nillable deadline;
 @property(readonly, nonatomic) bool isCancellationRequested;
 
-+ (AsyncScope *nillable)currentScope;
-- (Task<id> *)spawn: (id (^)(void))block;
-- (Task<id> *)spawn: (id (^)(void))block name: (OFString *nillable)name;
-- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block;
-- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block name: (OFString *nillable)name;
-- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks;
-- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks name: (OFString *nillable)name;
++ (AsyncScope *nillable)currentScope [[direct]];
+- (Task<id> *)spawn: (id (^)(void))block [[direct]];
+- (Task<id> *)spawn: (id (^)(void))block name: (OFString *nillable)name [[direct]];
+- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block [[direct]];
+- (Task<id> *)spawnInChildScope: (id (^)(AsyncScope *scope))block name: (OFString *nillable)name [[direct]];
+- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks [[direct]];
+- (Task<OFArray<id> *> *)spawnAll: (OFArray<id (^)(void)> *)blocks name: (OFString *nillable)name [[direct]];
 
-- (id)withChildScope: (id (^)(AsyncScope *scope))block;
-- (id)withChildScopeNamed: (OFString *nillable)name block: (id (^)(AsyncScope *scope))block;
-- (id)withTimeout: (OFTimeInterval)timeout block: (id (^)(AsyncScope *scope))block;
-- (id)withDeadline: (OFDate *)deadline block: (id (^)(AsyncScope *scope))block;
-- (void)cancel;
+- (id)withChildScope: (id (^)(AsyncScope *scope))block [[direct]];
+- (id)withChildScopeNamed: (OFString *nillable)name block: (id (^)(AsyncScope *scope))block [[direct]];
+- (id)withTimeout: (OFTimeInterval)timeout block: (id (^)(AsyncScope *scope))block [[direct]];
+- (id)withDeadline: (OFDate *)deadline block: (id (^)(AsyncScope *scope))block [[direct]];
+- (void)cancel [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

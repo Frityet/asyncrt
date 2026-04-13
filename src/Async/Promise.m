@@ -34,8 +34,8 @@
 
 - (instancetype)initWithPromise: (Promise *)promise scheduler: (AsyncScheduler *)scheduler task: (Task *)task [[designated_initailiser]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
-- (bool)_finishOnce;
-- (void)signal;
+- (bool)_finishOnce [[direct]];
+- (void)signal [[direct]];
 
 @end
 
@@ -46,12 +46,12 @@
                       onResolve: (void (^)(Promise *promise, id value))onResolve
                        onReject: (void (^)(Promise *promise, OFException *exception))onReject [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
-- (void)attach;
-- (void)invalidate;
+- (void)attach [[direct]];
+- (void)invalidate [[direct]];
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncPromiseAllState : OFObject
 
 - (instancetype)initWithPromises: (OFArray<id<PromiseLike>> *)promises
@@ -65,7 +65,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncPromiseRaceState : OFObject
 
 - (instancetype)initWithPromises: (OFArray<id<PromiseLike>> *)promises

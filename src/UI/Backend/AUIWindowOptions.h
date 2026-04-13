@@ -4,7 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIWindowOptions : OFObject
 
 @property(readonly, copy, nonatomic) OFString *title;

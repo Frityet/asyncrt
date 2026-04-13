@@ -9,10 +9,10 @@
 
 @property T _Null_unspecified value;
 
-+ (instancetype)withValue: (T _Null_unspecified)value;
-- (instancetype)initWithValue: (T _Null_unspecified)value [[designated_initailiser]];
-- (void (^)(void))subscribe: (void (^)(T _Null_unspecified))subscriber;
-- (T _Null_unspecified)next;
++ (instancetype)withValue: (T _Null_unspecified)value [[direct]];
+- (instancetype)initWithValue: (T _Null_unspecified)value [[designated_initailiser]] [[direct]];
+- (void (^)(void))subscribe: (void (^)(T _Null_unspecified))subscriber [[direct]];
+- (T _Null_unspecified)next [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -22,8 +22,8 @@
 
 @property(readonly) T _Null_unspecified value;
 
-+ (instancetype)withBlock: (T (^)(void))computeBlock;
-- (instancetype)initWithBlock: (T (^)(void))computeBlock [[designated_initailiser]];
++ (instancetype)withBlock: (T (^)(void))computeBlock [[direct]];
+- (instancetype)initWithBlock: (T (^)(void))computeBlock [[designated_initailiser]] [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

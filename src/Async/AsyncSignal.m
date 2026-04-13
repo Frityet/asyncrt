@@ -15,7 +15,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
 
 @class AsyncSignalWaitRegistration;
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncSignalSubscriber : OFObject
 
 @property(readonly, nonatomic) id nillable owner;
@@ -49,7 +49,7 @@ typedef void (^AsyncSignalCleanupBlock)(void);
                           task: (Task *)task OF_DESIGNATED_INITIALIZER [[direct]];
 - (instancetype)initWithScheduler: (AsyncScheduler *)scheduler task: (Task *)task OF_UNAVAILABLE;
 - (bool)_finishOnce [[direct]];
-- (void)signalValue: (id _Null_unspecified)value;
+- (void)signalValue: (id _Null_unspecified)value [[direct]];
 
 @end
 

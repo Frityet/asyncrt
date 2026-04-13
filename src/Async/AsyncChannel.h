@@ -23,10 +23,10 @@
 @property(readonly, nonatomic) size_t capacity;
 @property(readonly, nonatomic) bool isClosed;
 
-- (instancetype)initWithCapacity: (size_t)capacity [[designated_initailiser]];
-- (void)send: (T)value;
-- (T)receive;
-- (void)close;
+- (instancetype)initWithCapacity: (size_t)capacity [[designated_initailiser]] [[direct]];
+- (void)send: (T)value [[direct]];
+- (T)receive [[direct]];
+- (void)close [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

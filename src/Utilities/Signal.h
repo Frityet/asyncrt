@@ -4,15 +4,15 @@
 
 typedef void (^SignalCleanupBlock)(void);
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface Signal<T> : OFObject
 
 @property T _Null_unspecified value;
-+ (instancetype)withValue: (T _Null_unspecified)value;
-- (instancetype)initWithValue: (T _Null_unspecified)value [[designated_initailiser]];
++ (instancetype)withValue: (T _Null_unspecified)value [[direct]];
+- (instancetype)initWithValue: (T _Null_unspecified)value [[designated_initailiser]] [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
-- (SignalCleanupBlock)subscribe: (void (^)(T _Null_unspecified))subscriber;
+- (SignalCleanupBlock)subscribe: (void (^)(T _Null_unspecified))subscriber [[direct]];
 
 @end
 
@@ -21,8 +21,8 @@ typedef void (^SignalCleanupBlock)(void);
 
 @property(readonly) T _Null_unspecified value;
 
-+ (instancetype)withBlock: (T (^)(void))computeBlock;
-- (instancetype)initWithBlock: (T (^)(void))computeBlock [[designated_initailiser]];
++ (instancetype)withBlock: (T (^)(void))computeBlock [[direct]];
+- (instancetype)initWithBlock: (T (^)(void))computeBlock [[designated_initailiser]] [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -30,9 +30,9 @@ typedef void (^SignalCleanupBlock)(void);
 [[subclassing_restricted]]
 @interface Effect : OFObject
 
-+ (instancetype)withBlock: (void (^)(void))effectBlock;
-- (instancetype)initWithBlock: (void (^)(void))effectBlock [[designated_initailiser]];
-- (void)invalidate;
++ (instancetype)withBlock: (void (^)(void))effectBlock [[direct]];
+- (instancetype)initWithBlock: (void (^)(void))effectBlock [[designated_initailiser]] [[direct]];
+- (void)invalidate [[direct]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

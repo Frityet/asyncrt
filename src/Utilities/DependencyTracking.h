@@ -13,7 +13,7 @@ typedef DependencyTrackingCleanupBlock nillable (^DependencyTrackingRegistration
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface DependencyTracking : OFObject
 
 + (void)pushObserver: (id<DependencyTrackingObserver>)observer;

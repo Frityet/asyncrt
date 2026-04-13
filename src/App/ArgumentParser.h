@@ -15,7 +15,7 @@ typedef enum : uint8_t {
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLIOption<T> : OFObject
 
 @property (readonly, nonatomic) CLIOptionKind kind;
@@ -65,7 +65,7 @@ typedef enum : uint8_t {
 [[subclassing_restricted]]
 @interface ArgumentParserHelpException : ArgumentParserException @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface ArgumentParser<T> : OFObject
 
 @property (readonly, nonatomic) T command;

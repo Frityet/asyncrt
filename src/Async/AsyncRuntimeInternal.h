@@ -52,7 +52,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncWaitInstruction : OFObject
 
 @property(readonly, nonatomic) AsyncTaskWaitRegistration *registration;
@@ -63,7 +63,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncPromiseCompletion : OFObject
 
 @property(readonly, nonatomic) id nillable value;

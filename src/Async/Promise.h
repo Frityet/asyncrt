@@ -118,7 +118,7 @@ enum [[clang::enum_extensibility(closed)]] PromiseStatus {
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface PromiseResolver<__covariant T> : OFObject
 
 @property(readonly, nonatomic) Promise<T> *promise;

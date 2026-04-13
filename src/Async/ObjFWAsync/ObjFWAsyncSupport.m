@@ -19,7 +19,7 @@ void async_link_objfw_ofspxstreamsocket_promise_category(void);
 
 #pragma clang assume_nonnull begin
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AsyncObjFWTimerTarget : OFObject
 
 - (instancetype)initWithBlock: (void (^)(void))block [[designated_initailiser]];

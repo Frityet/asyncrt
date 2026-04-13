@@ -19,7 +19,7 @@
 - (void)cli_setParsedValue: (id)value;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLIResolvedOption : OFObject {
 @public
     OFString *_propertyName;
@@ -38,7 +38,7 @@
 - (OFString *)helpSyntax;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLIResolvedSubcommand : OFObject {
 @public
     OFString *_propertyName;
@@ -50,7 +50,7 @@
                                    command: (CLICommand *)command;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLICommandSchema : OFObject {
 @public
     CLICommand *_command;
@@ -68,7 +68,7 @@
 - (OFString *)helpTextForCommandPath: (OFString *)commandPath;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLINameTransform : OFObject
 + (OFString *)kebabCaseForString: (OFString *)string;
 + (OFString *)upperValueNameForPropertyName: (OFString *)propertyName;
@@ -76,24 +76,24 @@
 + (OFString *)shortNameString: (char)shortName;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLITypeInspector : OFObject
 + (Class nillable)propertyClassForProperty: (objc_property_t)property
                                     onClass: (Class)class_
                                propertyName: (OFString *)propertyName;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLIValueCodec : OFObject
 + (id)parseToken: (OFString *)token forValueClass: (Class nillable)valueClass;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLICommandIntrospection : OFObject
 + (CLICommandSchema *)schemaForCommand: (CLICommand *)command;
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface CLICommandParserEngine : OFObject
 + (size_t)parseCommand: (CLICommand *)command
                  schema: (CLICommandSchema *)schema

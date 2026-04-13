@@ -5,7 +5,7 @@
 
 #pragma clang assume_nonnull begin
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIContextMenu : OFObject
 
 @property(readonly, copy, nonatomic) OFArray<AUIContextMenuItem *> *items;

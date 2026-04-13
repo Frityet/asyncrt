@@ -12,7 +12,7 @@
 
 @class AUIBackend;
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIKeyEvent : OFObject
 
 @property(readonly, nonatomic) AUIKey key;
@@ -27,7 +27,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIInputState : OFObject
 
 @property(nonatomic) float pointerX;
@@ -54,7 +54,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUITextEditingState : OFObject
 
 @property(nonatomic) size_t caretIndex;
@@ -72,7 +72,7 @@
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIInteractionRegistration : OFObject
 
 @property(readonly, copy, nonatomic) OFString *identifier;
@@ -97,8 +97,8 @@
 
 @interface AUIRenderContext ()
 
-+ (void)_pushCurrentContext: (AUIRenderContext *nillable)context;
-+ (void)_popCurrentContext;
++ (void)_pushCurrentContext: (AUIRenderContext *nillable)context [[direct]];
++ (void)_popCurrentContext [[direct]];
 
 @end
 
@@ -122,9 +122,9 @@
 @interface AUIRenderObserver : OFObject<DependencyTrackingObserver>
 
 - (instancetype)initWithInvalidationHandler: (void (^nillable)(void))invalidationHandler [[designated_initailiser]];
-- (void)beginTracking;
-- (void)endTracking;
-- (void)invalidate;
+- (void)beginTracking [[direct]];
+- (void)endTracking [[direct]];
+- (void)invalidate [[direct]];
 
 @end
 
