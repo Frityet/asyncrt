@@ -313,7 +313,6 @@ static void coroutine_guard_and_common_coverage(void)
     bool caughtNilEnumeration = false;
     bool caughtNilBlock = false;
     bool caughtZeroStack = false;
-    uintptr_t tagValue;
     auto exception = [[CoroutineException alloc] initWithCoroutine: rootCoroutine];
     auto stateException = [[CoroutineStateTransitionFailedException alloc]
         initWithCoroutine: rootCoroutine
@@ -446,11 +445,6 @@ static void coroutine_guard_and_common_coverage(void)
     [AsyncRuntimeTestSupport assertCondition: ([NamespaceClass class] == NamespaceClass.class)
                                      message: (@"NamespaceClass +class should mirror Objective-C class lookup")];
 
-    tagValue = [TaggedPointer registerClass: NamespaceClass.class];
-    [AsyncRuntimeTestSupport assertCondition: (tagValue == 0)
-                                     message: (@"TaggedPointer placeholder registration should currently return zero")];
-    [AsyncRuntimeTestSupport assertCondition: ([TaggedPointer createWithTag: 7 payload: @"payload"] == nilptr)
-                                     message: (@"TaggedPointer placeholder creation should currently return nilptr")];
 }
 
 static void argument_parser_internal_helpers(void)

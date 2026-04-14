@@ -49,7 +49,7 @@
     return (AUIChildAlignment){ x, y };
 }
 
-+ (AUILayout)layout
++ (AUILayout)defaultLayout
 {
     return (AUILayout){
         .width = [self axisGrow: 0],
@@ -85,10 +85,10 @@
     };
 }
 
-+ (AUIBoxProps)boxProps
++ (AUIBoxProps)defaultBoxProps
 {
     return (AUIBoxProps){
-        .layout = [self layout],
+        .layout = [self defaultLayout],
         .backgroundColor = [self colorWithRed: 0 green: 0 blue: 0 alpha: 0],
         .cornerRadius = 0,
         .border = [self borderNone],
@@ -96,7 +96,7 @@
     };
 }
 
-+ (AUITextStyle)textStyle
++ (AUITextStyle)defaultTextStyle
 {
     return (AUITextStyle){
         .fontID = 0,
@@ -109,9 +109,9 @@
     };
 }
 
-+ (AUITextProps)textProps
++ (AUITextProps)defaultTextProps
 {
-    return (AUITextProps){ .style = [self textStyle] };
+    return (AUITextProps){ .style = [self defaultTextStyle] };
 }
 
 + (AUIControlColors)controlColorsWithNormal: (AUIColor)normal
@@ -127,7 +127,7 @@
     };
 }
 
-+ (AUITextInputColors)textInputColors
++ (AUITextInputColors)defaultTextInputColors
 {
     return (AUITextInputColors){
         .background = [self colorWithRed: 255 green: 255 blue: 255 alpha: 255],

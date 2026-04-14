@@ -9,10 +9,10 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted, direct_members]]
-@interface AsyncRTCalculatorParser : OFObject
+@interface CalculatorParser : OFObject
 
 - (instancetype)initWithExpression: (OFString *)expression
-                         angleMode: (AsyncRTCalculatorAngleMode)angleMode
+                         angleMode: (CalculatorAngleMode)angleMode
                         lastAnswer: (double)lastAnswer [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
@@ -20,12 +20,12 @@
 
 @end
 
-@implementation AsyncRTCalculatorParser {
+@implementation CalculatorParser {
     OFString *_expression;
     const char *_source;
     size_t _index;
     size_t _length;
-    AsyncRTCalculatorAngleMode _angleMode;
+    CalculatorAngleMode _angleMode;
     double _lastAnswer;
     OFString *nillable _error;
 }
@@ -41,7 +41,7 @@
 }
 
 - (instancetype)initWithExpression: (OFString *)expression
-                         angleMode: (AsyncRTCalculatorAngleMode)angleMode
+                         angleMode: (CalculatorAngleMode)angleMode
                         lastAnswer: (double)lastAnswer
 {
     self = [super init];
@@ -113,13 +113,13 @@
 
     [self skipWhitespace];
 
-    if (_index >= _length or not [AsyncRTCalculatorParser isIdentifierHead: _source[_index]])
+    if (_index >= _length or not [CalculatorParser isIdentifierHead: _source[_index]])
         return nilptr;
 
     start = _index;
     _index++;
 
-    while (_index < _length and [AsyncRTCalculatorParser isIdentifierTail: _source[_index]])
+    while (_index < _length and [CalculatorParser isIdentifierTail: _source[_index]])
         _index++;
 
     return [[_expression substringWithRange: OFMakeRange(start, _index - start)] lowercaseString];
@@ -136,14 +136,14 @@
 
 - (double)angleInputForValue: (double)value
 {
-    if (_angleMode == AsyncRTCalculatorAngleModeDegrees)
+    if (_angleMode == CalculatorAngleModeDegrees)
         return value * (M_PI / 180.0);
     return value;
 }
 
 - (double)angleOutputForValue: (double)value
 {
-    if (_angleMode == AsyncRTCalculatorAngleModeDegrees)
+    if (_angleMode == CalculatorAngleModeDegrees)
         return value * (180.0 / M_PI);
     return value;
 }
@@ -512,15 +512,15 @@
 
 @end
 
-@namespace_implementation(AsyncRTCalculatorEvaluator)
+@namespace_implementation(CalculatorEvaluator)
 
 + (bool)evaluateExpression: (OFString *nillable)expression
-                 angleMode: (AsyncRTCalculatorAngleMode)angleMode
+                 angleMode: (CalculatorAngleMode)angleMode
                 lastAnswer: (double)lastAnswer
                     result: (double *)result
                      error: (OFString *nillable *)error
 {
-    AsyncRTCalculatorParser *parser;
+    CalculatorParser *parser;
 
     if (expression == nilptr) {
         if (error != nullptr)
@@ -530,7 +530,7 @@
     if ((double *nillable)result == nullptr)
         @throw [OFInvalidArgumentException exception];
 
-    parser = [[AsyncRTCalculatorParser alloc] initWithExpression: $assert_nonnil(expression)
+    parser = [[CalculatorParser alloc] initWithExpression: $assert_nonnil(expression)
                                                        angleMode: angleMode
                                                       lastAnswer: lastAnswer];
     return [parser parseResult: result error: error];

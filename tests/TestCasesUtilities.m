@@ -206,6 +206,26 @@ static void optional_some_accepts_tagged_payloads(void)
     // [AsyncRuntimeTestSupport assertCondition: (optional.copy == optional) message: (@"Optional.copy should preserve heap-backed optional identity for immutable payload wrappers")];
 }
 
+static void application_executable_iri_resolves_to_existing_absolute_file_iri(void)
+{
+    auto executableIRI = OFApplication.executableIRI;
+    auto executablePath = executableIRI.fileSystemRepresentation;
+    auto defaultFileManager = [OFFileManager defaultManager];
+
+    [AsyncRuntimeTestSupport assertCondition: (executableIRI != nilptr)
+                                    message: (@"OFApplication.executableIRI should return an IRI for the running test binary")];
+    [AsyncRuntimeTestSupport assertCondition: [($assert_nonnil(executableIRI).scheme) isEqual: @"file"]
+                                    message: (@"OFApplication.executableIRI should return a file IRI")];
+    [AsyncRuntimeTestSupport assertCondition: (executablePath != nilptr)
+                                    message: (@"OFApplication.executableIRI should expose a file-system path")];
+    [AsyncRuntimeTestSupport assertCondition: ($assert_nonnil(executablePath).absolutePath)
+                                    message: (@"OFApplication.executableIRI should resolve to an absolute file-system path")];
+    [AsyncRuntimeTestSupport assertCondition: [defaultFileManager fileExistsAtPath: executablePath]
+                                    message: (@"OFApplication.executableIRI should point to an existing file")];
+    [AsyncRuntimeTestSupport assertCondition: ($assert_nonnil(executableIRI).lastPathComponent.length > 0)
+                                    message: (@"OFApplication.executableIRI should include a final path component")];
+}
+
 ASYNC_RUNTIME_SYNC_TEST(pointer_basic_data_view)
 ASYNC_RUNTIME_SYNC_TEST(pointer_nullptr_roundtrip)
 ASYNC_RUNTIME_SYNC_TEST(pointer_ordering_and_copying)
@@ -215,5 +235,6 @@ ASYNC_RUNTIME_SYNC_TEST(optional_from_nillable_nil_is_none)
 ASYNC_RUNTIME_SYNC_TEST(optional_roundtrip_equality_and_description)
 ASYNC_RUNTIME_SYNC_TEST(optional_some_retains_payload_across_autorelease_pool)
 ASYNC_RUNTIME_SYNC_TEST(optional_some_accepts_tagged_payloads)
+ASYNC_RUNTIME_SYNC_TEST(application_executable_iri_resolves_to_existing_absolute_file_iri)
 
 #pragma clang assume_nonnull end

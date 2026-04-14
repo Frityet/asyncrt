@@ -170,7 +170,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
 - (AUIViewNode *)renderViewNode
 {
     _stateBinding = [self useStateWithInitialValue: @"alpha"];
-    return [AUIViewTextNode textNodeWithText: _stateBinding.value style: [AUI textStyle]];
+    return [AUIViewTextNode textNodeWithText: _stateBinding.value style: AUI.defaultTextStyle];
 }
 
 @end
@@ -210,7 +210,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
 - (AUIViewNode *)renderViewNode
 {
     _stateBinding = [self useStateWithInitialValue: _name];
-    return [AUIViewTextNode textNodeWithText: _stateBinding.value style: [AUI textStyle]];
+    return [AUIViewTextNode textNodeWithText: _stateBinding.value style: AUI.defaultTextStyle];
 }
 
 @end
@@ -283,7 +283,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
 
 - (AUIViewNode *)renderViewNode
 {
-    AUIBoxProps fieldProps = [AUI boxProps];
+    AUIBoxProps fieldProps = AUI.defaultBoxProps;
     OFMutableArray<id<AUIRenderable>> *children = [OFMutableArray array];
 
     fieldProps.layout.width = [AUI axisFixed: 220];
@@ -292,7 +292,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     fieldProps.layout.direction = AUILayoutDirectionColumn;
 
     if (_showsBanner)
-        [children addObject: [AUIViewTextNode textNodeWithText: @"Banner" style: [AUI textStyle]]];
+        [children addObject: [AUIViewTextNode textNodeWithText: @"Banner" style: AUI.defaultTextStyle]];
 
     [children addObject: [AUIViewEditableTextNode editableTextNodeWithKey: @"field"
                                                                      text: _latestText
@@ -355,7 +355,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
         };
     }];
 
-    return [AUIViewTextNode textNodeWithText: @"effect" style: [AUI textStyle]];
+    return [AUIViewTextNode textNodeWithText: @"effect" style: AUI.defaultTextStyle];
 }
 
 @end
@@ -375,7 +375,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
 
 - (AUIViewNode *)renderViewNode
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
     AUIContextMenu *menu = [AUIContextMenu items: @[
         [AUIContextMenuItem title: @"Inspect" enabled: true onSelect: ^{
             _didSelect = true;
@@ -395,7 +395,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
                                                                           onActivate: nilptr
                                                                          contextMenu: menu]
                                  children: @[
-        [AUIViewTextNode textNodeWithText: @"Context target" style: [AUI textStyle]]
+        [AUIViewTextNode textNodeWithText: @"Context target" style: AUI.defaultTextStyle]
     ]];
 }
 

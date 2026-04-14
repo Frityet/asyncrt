@@ -136,17 +136,17 @@ typedef struct AUITextInputColors {
 + (AUILayoutAxis)axisFixed: (float)size;
 + (AUILayoutAxis)axisPercent: (float)percent;
 + (AUIChildAlignment)childAlignmentX: (AUIAlignment)x y: (AUIAlignment)y;
-+ (AUILayout)layout;
++ (AUILayout)defaultLayout;
 + (AUIBorder)borderNone;
 + (AUIBorder)borderAll: (uint16_t)width color: (AUIColor)color;
-+ (AUIBoxProps)boxProps;
-+ (AUITextStyle)textStyle;
-+ (AUITextProps)textProps;
++ (AUIBoxProps)defaultBoxProps;
++ (AUITextStyle)defaultTextStyle;
++ (AUITextProps)defaultTextProps;
 + (AUIControlColors)controlColorsWithNormal: (AUIColor)normal
                                       hover: (AUIColor)hover
                                      pressed: (AUIColor)pressed
                                     disabled: (AUIColor)disabled;
-+ (AUITextInputColors)textInputColors;
++ (AUITextInputColors)defaultTextInputColors;
 
 @end
 

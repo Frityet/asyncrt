@@ -10,15 +10,17 @@
 
 - (AUIViewComponent *)makeRootViewComponent
 {
-    return [[AsyncRTCalculatorRootComponent alloc] init];
+    return [[CalculatorRootComponent alloc] init];
 }
 
 - (AUIWindowOptions *)windowOptions
 {
-    return [AUIWindowOptions title: @"AsyncRT Scientific Calculator"
+    auto exec = $assert_nonnil(OFApplication.executableIRI);
+    auto f = [exec;
+    return [AUIWindowOptions title: @"Scientific Calculator"
                               size: [AUI sizeWithWidth: 1360 height: 820]
                          resizable: true
-           autoResizeToRootComponent: false];
+         autoResizeToRootComponent: false];
 }
 
 @end

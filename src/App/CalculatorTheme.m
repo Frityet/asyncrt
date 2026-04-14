@@ -2,7 +2,7 @@
 
 #pragma clang assume_nonnull begin
 
-@namespace_implementation(AsyncRTCalculatorTheme)
+@namespace_implementation(CalculatorTheme)
 
 + (AUIColor)canvasColor
 {
@@ -61,7 +61,7 @@
 
 + (AUITextStyle)titleStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 36;
     style.lineHeight = 40;
     style.color = [self displayColor];
@@ -70,7 +70,7 @@
 
 + (AUITextStyle)subtitleStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 15;
     style.lineHeight = 20;
     style.color = [AUI colorWithRed: 185 green: 194 blue: 208 alpha: 255];
@@ -79,7 +79,7 @@
 
 + (AUITextStyle)eyebrowStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 12;
     style.lineHeight = 14;
     style.color = [AUI colorWithRed: 214 green: 224 blue: 240 alpha: 255];
@@ -88,7 +88,7 @@
 
 + (AUITextStyle)sectionTitleStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 18;
     style.lineHeight = 22;
     style.color = [self accentTextColor];
@@ -97,7 +97,7 @@
 
 + (AUITextStyle)displayLabelStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 13;
     style.lineHeight = 16;
     style.color = [self mutedTextColor];
@@ -107,7 +107,7 @@
 
 + (AUITextStyle)resultStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 46;
     style.lineHeight = 52;
     style.color = [self accentTextColor];
@@ -118,7 +118,7 @@
 
 + (AUITextStyle)statusStyleForError: (bool)isError
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 14;
     style.lineHeight = 18;
     style.color = (isError ? [self errorTextColor] : [self positiveTextColor]);
@@ -127,7 +127,7 @@
 
 + (AUITextStyle)metricLabelStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 12;
     style.lineHeight = 14;
     style.color = [self mutedTextColor];
@@ -136,7 +136,7 @@
 
 + (AUITextStyle)metricValueStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 24;
     style.lineHeight = 28;
     style.color = [self accentTextColor];
@@ -146,7 +146,7 @@
 
 + (AUITextStyle)historyExpressionStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 12;
     style.lineHeight = 16;
     style.color = [self mutedTextColor];
@@ -155,7 +155,7 @@
 
 + (AUITextStyle)historyResultStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 22;
     style.lineHeight = 26;
     style.color = [self accentTextColor];
@@ -165,7 +165,7 @@
 
 + (AUIBoxProps)mainPanelProps
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
     props.layout.padding = [AUI insetsAll: 24];
     props.layout.childGap = 18;
     props.backgroundColor = [self panelColor];
@@ -204,7 +204,7 @@
 
 + (AUIBoxProps)metricTileProps
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
     props.layout.padding = [AUI insetsAll: 14];
     props.layout.childGap = 6;
     props.backgroundColor = [AUI colorWithRed: 250 green: 244 blue: 233 alpha: 255];
@@ -215,7 +215,7 @@
 
 + (AUIBoxProps)historyTileProps
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
     props.layout.padding = [AUI insetsAll: 14];
     props.layout.childGap = 10;
     props.backgroundColor = [AUI colorWithRed: 248 green: 241 blue: 229 alpha: 255];

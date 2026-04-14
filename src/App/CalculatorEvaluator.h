@@ -4,15 +4,15 @@
 
 #pragma clang assume_nonnull begin
 
-typedef enum AsyncRTCalculatorAngleMode {
-    AsyncRTCalculatorAngleModeDegrees,
-    AsyncRTCalculatorAngleModeRadians
-} AsyncRTCalculatorAngleMode;
+typedef enum CalculatorAngleMode {
+    CalculatorAngleModeDegrees,
+    CalculatorAngleModeRadians
+} CalculatorAngleMode;
 
-@namespace(AsyncRTCalculatorEvaluator)
+@namespace(CalculatorEvaluator)
 
 + (bool)evaluateExpression: (OFString *nillable)expression
-                  angleMode: (AsyncRTCalculatorAngleMode)angleMode
+                  angleMode: (CalculatorAngleMode)angleMode
                  lastAnswer: (double)lastAnswer
                      result: (double *)result
                       error: (OFString *nillable *_Nullable)error;

@@ -71,7 +71,7 @@
 
 + (AUITextStyle)labelTextStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 16;
     style.lineHeight = 20;
     style.color = [self componentColorWithRed: 31 green: 36 blue: 40 alpha: 255];
@@ -80,7 +80,7 @@
 
 + (AUITextStyle)badgeTextStyle
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 12;
     style.lineHeight = 14;
     style.color = [self componentColorWithRed: 31 green: 36 blue: 40 alpha: 255];
@@ -89,7 +89,7 @@
 
 + (AUITextStyle)controlTextStyleForSize: (AUIControlSize)size variant: (AUIControlVariant)variant enabled: (bool)enabled
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = (uint16_t)(size == AUIControlSizeSmall ? 13 : (size == AUIControlSizeLarge ? 17 : 15));
     style.lineHeight = (uint16_t)(style.fontSize + 4);
     style.alignment = AUITextAlignmentCenter;
@@ -102,7 +102,7 @@
 
 + (AUITextStyle)inputTextStyleForSize: (AUIControlSize)size
 {
-    AUITextStyle style = [AUI textStyle];
+    AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = (uint16_t)(size == AUIControlSizeSmall ? 13 : (size == AUIControlSizeLarge ? 17 : 15));
     style.lineHeight = (uint16_t)(style.fontSize + 6);
     style.color = [self componentColorWithRed: 28 green: 33 blue: 38 alpha: 255];
@@ -160,12 +160,12 @@
 
 + (AUITextInputColors)inputColors
 {
-    return [AUI textInputColors];
+    return AUI.defaultTextInputColors;
 }
 
 + (AUIBoxProps)cardBoxProps
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
 
     props.layout.padding = [AUI insetsWithLeft: 18 right: 18 top: 18 bottom: 18];
     props.layout.childGap = 12;
@@ -177,7 +177,7 @@
 
 + (AUIBoxProps)sectionBoxProps
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
 
     props.layout.padding = [AUI insetsWithLeft: 0 right: 0 top: 0 bottom: 0];
     props.layout.childGap = 10;
@@ -189,7 +189,7 @@
 
 + (AUIBoxProps)badgeBoxPropsForVariant: (AUIControlVariant)variant
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
 
     props.layout.padding = [AUI insetsWithLeft: 10 right: 10 top: 5 bottom: 5];
     props.layout.childGap = 0;
@@ -201,7 +201,7 @@
 
 + (AUIBoxProps)progressTrackProps
 {
-    AUIBoxProps props = [AUI boxProps];
+    AUIBoxProps props = AUI.defaultBoxProps;
 
     props.layout.padding = [AUI insetsWithLeft: 0 right: 0 top: 0 bottom: 0];
     props.layout.childGap = 0;

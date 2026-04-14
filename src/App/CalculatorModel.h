@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted, direct_members]]
-@interface AsyncRTCalculatorHistoryEntry : OFObject
+@interface CalculatorHistoryEntry : OFObject
 
 @property(readonly, copy, nonatomic) OFString *expression;
 @property(readonly, copy, nonatomic) OFString *resultText;
@@ -15,13 +15,13 @@
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AsyncRTCalculatorModel : OFObject
+@interface CalculatorModel : OFObject
 
 @property(readonly, copy, nonatomic) OFString *expression;
 @property(readonly, copy, nonatomic) OFString *resultText;
 @property(readonly, copy, nonatomic) OFString *statusText;
-@property(readonly, copy, nonatomic) OFArray<AsyncRTCalculatorHistoryEntry *> *history;
-@property(readonly, nonatomic) AsyncRTCalculatorAngleMode angleMode;
+@property(readonly, copy, nonatomic) OFArray<CalculatorHistoryEntry *> *history;
+@property(readonly, nonatomic) CalculatorAngleMode angleMode;
 @property(readonly, nonatomic) double memoryValue;
 @property(readonly, nonatomic) double lastAnswer;
 @property(readonly, nonatomic) bool hasMemoryValue;

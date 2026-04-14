@@ -63,9 +63,4 @@
 #define namespace_implementation(Name) class Name;\
     @implementation Name\
 
-@namespace(TaggedPointer)
-
-+ (uintptr_t)registerClass: (Class)c;
-+ (id)createWithTag: (uintptr_t)tag payload: (id)payload;
-
-@end
+#import "Utilities/OFApplication+ExecutableIRI.h"

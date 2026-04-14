@@ -5,7 +5,7 @@
 
 #pragma clang assume_nonnull begin
 
-@implementation AsyncRTCalculatorHistoryEntry {
+@implementation CalculatorHistoryEntry {
     OFString *_expression;
     OFString *_resultText;
 }
@@ -23,7 +23,7 @@
 
 @end
 
-@interface AsyncRTCalculatorModel ()
+@interface CalculatorModel ()
 
 - (OFString *)formattedValue: (double)value;
 - (void)setStatusText: (OFString *)statusText hasError: (bool)hasError;
@@ -41,12 +41,12 @@
 
 @end
 
-@implementation AsyncRTCalculatorModel {
+@implementation CalculatorModel {
     OFString *_expression;
     OFString *_resultText;
     OFString *_statusText;
-    OFMutableArray<AsyncRTCalculatorHistoryEntry *> *_history;
-    AsyncRTCalculatorAngleMode _angleMode;
+    OFMutableArray<CalculatorHistoryEntry *> *_history;
+    CalculatorAngleMode _angleMode;
     double _memoryValue;
     double _lastAnswer;
     bool _hasMemoryValue;
@@ -75,7 +75,7 @@
     _resultText = @"0";
     _statusText = @"Type an expression, use the keypad, or press rand() for a quick start.";
     _history = [OFMutableArray array];
-    _angleMode = AsyncRTCalculatorAngleModeDegrees;
+    _angleMode = CalculatorAngleModeDegrees;
     _memoryValue = 0.0;
     _lastAnswer = 0.0;
     _hasMemoryValue = false;
@@ -116,7 +116,7 @@
 
 - (bool)evaluateCurrentExpressionInto: (double *)value error: (OFString *nillable *)error
 {
-    return [AsyncRTCalculatorEvaluator evaluateExpression: _expression
+    return [CalculatorEvaluator evaluateExpression: _expression
                                                 angleMode: _angleMode
                                                lastAnswer: (_hasLastAnswer ? _lastAnswer : 0.0)
                                                    result: value
@@ -234,7 +234,7 @@
 
 - (void)recordHistoryExpression: (OFString *)expression resultText: (OFString *)resultText
 {
-    [_history insertObject: [AsyncRTCalculatorHistoryEntry expression: expression resultText: resultText] atIndex: 0];
+    [_history insertObject: [CalculatorHistoryEntry expression: expression resultText: resultText] atIndex: 0];
 
     if (_history.count > 14)
         [_history removeObjectAtIndex: _history.count - 1];
@@ -575,9 +575,9 @@
 
 - (void)toggleAngleMode
 {
-    _angleMode = (_angleMode == AsyncRTCalculatorAngleModeDegrees
-        ? AsyncRTCalculatorAngleModeRadians
-        : AsyncRTCalculatorAngleModeDegrees);
+    _angleMode = (_angleMode == CalculatorAngleModeDegrees
+        ? CalculatorAngleModeRadians
+        : CalculatorAngleModeDegrees);
 
     if (_expression.length > 0)
         [self refreshPreview];
@@ -653,7 +653,7 @@
 
 - (void)loadHistoryExpressionAtIndex: (size_t)index
 {
-    AsyncRTCalculatorHistoryEntry *entry;
+    CalculatorHistoryEntry *entry;
 
     if (index >= _history.count)
         return;
@@ -666,7 +666,7 @@
 
 - (void)loadHistoryResultAtIndex: (size_t)index
 {
-    AsyncRTCalculatorHistoryEntry *entry;
+    CalculatorHistoryEntry *entry;
 
     if (index >= _history.count)
         return;
@@ -680,7 +680,7 @@
 
 - (OFString *)angleModeText
 {
-    return (_angleMode == AsyncRTCalculatorAngleModeDegrees ? @"DEG" : @"RAD");
+    return (_angleMode == CalculatorAngleModeDegrees ? @"DEG" : @"RAD");
 }
 
 - (OFString *)memoryDisplayText

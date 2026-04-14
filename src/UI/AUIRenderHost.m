@@ -454,7 +454,7 @@
         return;
 
     Clay_ElementId menuID = [AUIClay elementIDFromString: @"__context_menu__"];
-    AUIBoxProps menuProps = [AUI boxProps];
+    AUIBoxProps menuProps = AUI.defaultBoxProps;
     Clay_ElementDeclaration declaration;
 
     menuProps.layout.width = [AUI axisFit: 0];
@@ -478,8 +478,8 @@
             AUIContextMenuItem *item = [interactionController.activeContextMenu.items objectAtIndex: index];
             OFString *identifier = [OFString stringWithFormat: @"__context_menu__/%zu", index];
             Clay_ElementId itemID = [AUIClay elementIDFromString: identifier];
-            AUIBoxProps itemProps = [AUI boxProps];
-            AUITextStyle itemStyle = [AUI textStyle];
+            AUIBoxProps itemProps = AUI.defaultBoxProps;
+            AUITextStyle itemStyle = AUI.defaultTextStyle;
             AUIInteractionRegistration *registration = [AUIInteractionRegistration identifier: identifier elementID: itemID];
 
             itemProps.layout.width = [AUI axisFit: 160];

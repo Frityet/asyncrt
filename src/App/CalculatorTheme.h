@@ -4,7 +4,7 @@
 
 #pragma clang assume_nonnull begin
 
-@namespace(AsyncRTCalculatorTheme)
+@namespace(CalculatorTheme)
 
 + (AUIColor)canvasColor;
 + (AUIColor)panelColor;

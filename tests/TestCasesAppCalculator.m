@@ -11,8 +11,8 @@ static void calculator_evaluator_scientific_ops(void)
     double result = 0.0;
     OFString *nillable error = nilptr;
 
-    [AsyncRuntimeTestSupport assertCondition: ([AsyncRTCalculatorEvaluator evaluateExpression: @"sin(45)^2 + cos(45)^2"
-                                                                                     angleMode: AsyncRTCalculatorAngleModeDegrees
+    [AsyncRuntimeTestSupport assertCondition: ([CalculatorEvaluator evaluateExpression: @"sin(45)^2 + cos(45)^2"
+                                                                                     angleMode: CalculatorAngleModeDegrees
                                                                                     lastAnswer: 0.0
                                                                                         result: &result
                                                                                          error: &error])
@@ -20,8 +20,8 @@ static void calculator_evaluator_scientific_ops(void)
     [AsyncRuntimeTestSupport assertCondition: (fabs(result - 1.0) < 1e-9)
                                      message: @"calculator evaluator should preserve sin^2 + cos^2 = 1 in degree mode"];
 
-    [AsyncRuntimeTestSupport assertCondition: ([AsyncRTCalculatorEvaluator evaluateExpression: @"pow(2, 8) + max(3, 9) + mod(10, 4)"
-                                                                                     angleMode: AsyncRTCalculatorAngleModeRadians
+    [AsyncRuntimeTestSupport assertCondition: ([CalculatorEvaluator evaluateExpression: @"pow(2, 8) + max(3, 9) + mod(10, 4)"
+                                                                                     angleMode: CalculatorAngleModeRadians
                                                                                     lastAnswer: 0.0
                                                                                         result: &result
                                                                                          error: &error])
@@ -34,7 +34,7 @@ ASYNC_RUNTIME_SYNC_TEST(calculator_evaluator_scientific_ops)
 
 static void calculator_model_memory_and_history(void)
 {
-    auto model = [AsyncRTCalculatorModel model];
+    auto model = [CalculatorModel model];
 
     [model setExpressionFromText: @"pow(2, 10)"];
     [AsyncRuntimeTestSupport assertCondition: ([model evaluate])
