@@ -38,18 +38,42 @@ end
 
 local function _source_files(projectdir)
     local files = {}
+    local excluded_patterns = {
+        "^AsyncRT/UI/src/Backend/",
+        "^AsyncRT/Async/src/AsyncApplication%.m$",
+        "^AsyncRT/UI/src/AUIExceptions%.m$"
+    }
 
-    for _, pattern in ipairs({
-        path.join(projectdir, "src", "Async", "**.m"),
-        path.join(projectdir, "src", "Utilities", "**.m")
-    }) do
-        for _, file in ipairs(os.files(pattern)) do
-            local relative = path.relative(file, projectdir)
-            table.insert(files, relative)
+    local function is_excluded(relative)
+        for _, pattern in ipairs(excluded_patterns) do
+            if relative:match(pattern) then
+                return true
+            end
         end
+
+        return false
     end
 
-    table.insert(files, path.join("src", "App", "ArgumentParser.m"))
+    for _, pattern in ipairs({
+        path.join(projectdir, "AsyncRT", "Utilities", "src", "**.m"),
+        path.join(projectdir, "AsyncRT", "Async", "src", "**.m"),
+        path.join(projectdir, "AsyncRT", "UI", "src", "**.m"),
+        path.join(projectdir, "AsyncRT", "App", "src", "**.m")
+    }) do
+        for _, file in ipairs(os.files(pattern)) do
+            if path.filename(file) == "main.m" then
+                goto continue
+            end
+
+            local relative = path.relative(file, projectdir)
+            if is_excluded(relative) then
+                goto continue
+            end
+
+            table.insert(files, relative)
+            ::continue::
+        end
+    end
     table.sort(files)
     return files
 end
@@ -110,17 +134,17 @@ function main(options)
     task.run("config", {
         clean = true,
         mode = "coverage",
-        builddir = builddir
+        builddir = builddir,
+        asyncrt_test_access = true
     })
     task.run("build", {group = "tests"})
 
     targetfile = _find_test_binary(builddir)
 
-    print("Running coverage-mode test binary: " .. targetfile)
-    os.execv(targetfile, {}, {
-        curdir = projectdir,
-        envs = {LLVM_PROFILE_FILE = path.join(profilesdir, "%p.profraw")}
-    })
+    print("Running coverage-mode tests through xmake test")
+    os.setenv("LLVM_PROFILE_FILE", path.join(profilesdir, "%p.profraw"))
+    task.run("test")
+    os.setenv("LLVM_PROFILE_FILE", nil)
 
     profraw_files = os.files(path.join(profilesdir, "*.profraw"))
     assert(#profraw_files > 0, "Coverage run completed without producing any .profraw files.")

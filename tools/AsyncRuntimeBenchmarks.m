@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#import "Async/AsyncRuntime.h"
+#import "AsyncRuntime.h"
 
 #pragma clang assume_nonnull begin
 

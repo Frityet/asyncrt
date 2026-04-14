@@ -1,5 +1,5 @@
 add_rules("mode.debug", "mode.release", "mode.minsizerel", "mode.coverage", "mode.asan", "mode.tsan")
-set_allowedmodes("debug", "release", "minsizerel", "coverage", "asan", "tsan")
+set_allowedmodes("debug", "release", "minsizerel", "coverage", "asan", "tsan", "test")
 
 set_languages("gnulatest")
 set_toolchains("clang")
@@ -8,7 +8,18 @@ local mode_uses_lto = is_mode("release") or is_mode("minsizerel")
 
 includes("xmake/common.lua")
 
+local function add_c_and_objc_flags(...)
+    add_cxflags(...)
+    add_mflags(...)
+end
+
 add_repositories("asyncrt-xrepo xrepo", {rootdir = os.scriptdir()})
+
+option("asyncrt_test_access")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Relax objc_direct restrictions so white-box tests can call internal methods.")
+option_end()
 
 add_requires("objfw", {
     configs = {
@@ -17,7 +28,10 @@ add_requires("objfw", {
         --tls = "openssl"
     }
 })
-add_requires("cairo")
+
+if is_plat("linux") or has_config("asyncrt_test_access") then
+    add_requires("cairo")
+end
 
 add_packages("objfw")
 
@@ -40,60 +54,41 @@ if is_mode("coverage") then
     -- Coverage needs unoptimized frames for reliable source mapping and the
     -- coroutine path still needs conservative stack metadata.
     set_optimize("none")
-    add_cxflags("-O0", "-fno-omit-frame-pointer", "-fno-optimize-sibling-calls")
-    add_mflags("-O0", "-fno-omit-frame-pointer", "-fno-optimize-sibling-calls")
+    add_c_and_objc_flags("-O0", "-fno-omit-frame-pointer", "-fno-optimize-sibling-calls")
 end
 
 if is_mode("coverage") then
     set_symbols("debug")
-    add_cxflags("-fprofile-instr-generate", "-fcoverage-mapping")
-    add_mflags("-fprofile-instr-generate", "-fcoverage-mapping")
+    add_c_and_objc_flags("-fprofile-instr-generate", "-fcoverage-mapping")
     add_ldflags("-fprofile-instr-generate", "-fcoverage-mapping", {force = true})
 end
 
-add_cxflags("-Wall", "-Wextra")
-add_mflags("-Wall", "-Wextra")
-add_cxflags("-xobjective-c", "-fms-extensions", "-Wno-microsoft")
-add_mflags("-xobjective-c", "-fms-extensions", "-Wno-microsoft")
-add_cxflags("-Wno-unused-function")
-add_mflags("-Wno-unused-function")
-add_cxflags(
-    "-Wanon-enum-enum-conversion",
-    "-Wassign-enum",
-    "-Wenum-conversion",
-    "-Wenum-enum-conversion"
-)
-add_mflags(
-    "-Wanon-enum-enum-conversion",
-    "-Wassign-enum",
-    "-Wenum-conversion",
-    "-Wenum-enum-conversion"
-)
-add_cxflags(
-    "-Wnull-dereference",
-    "-Wnull-conversion",
-    "-Wnullability-completeness",
-    "-Wnullable-to-nonnull-conversion",
-    "-Wno-auto-var-id",
-    "-Wno-compare-distinct-pointer-types" --why the fuck is this a diagnostic?
-)
-add_mflags(
-    "-Wnull-dereference",
-    "-Wnull-conversion",
-    "-Wnullability-completeness",
-    "-Wnullable-to-nonnull-conversion",
-    "-Wno-auto-var-id",
-    "-Wno-compare-distinct-pointer-types" --why the fuck is this a diagnostic?
-)
-add_cxflags("-Wno-missing-braces")
-add_mflags("-Wno-missing-braces")
-
-if is_plat("linux") then
-    add_ldflags("-rdynamic")
-    add_cxflags("-fno-omit-frame-pointer")
-    add_mflags("-fno-omit-frame-pointer")
+if is_mode("test") then
+    set_symbols("debug")
+    set_optimize("none")
 end
 
-add_includedirs("src")
+add_c_and_objc_flags("-Wall", "-Wextra")
+add_c_and_objc_flags("-xobjective-c", "-fms-extensions", "-Wno-microsoft")
+add_c_and_objc_flags("-Wno-unused-function")
+add_c_and_objc_flags(
+    "-Wassign-enum",
+    "-Wenum-conversion",
+    "-Wenum-enum-conversion"
+)
+add_c_and_objc_flags(
+    "-Wnull-dereference",
+    "-Wnull-conversion",
+    "-Wnullability-completeness",
+    "-Wnullable-to-nonnull-conversion",
+    "-Wno-auto-var-id",
+    "-Wno-compare-distinct-pointer-types" --why the fuck is this a diagnostic?
+)
+add_c_and_objc_flags("-Wno-missing-braces")
 
-includes("src/Utilities", "src/Async", "src/UI", "src/App", "tools", "tests")
+if is_plat("linux") and is_mode("debug") then
+    add_ldflags("-rdynamic")
+    add_c_and_objc_flags("-fno-omit-frame-pointer")
+end
+
+includes("AsyncRT", "tools")

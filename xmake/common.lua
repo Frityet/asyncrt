@@ -40,11 +40,18 @@ function asyncrt_build.coroutine_mflags()
     return asyncrt_build.conservative_async_mflags({"-fno-objc-arc"})
 end
 
+function asyncrt_build.internal_test_access_enabled()
+    return has_config("asyncrt_test_access")
+end
+
+function asyncrt_build.add_internal_test_access_define()
+    if asyncrt_build.internal_test_access_enabled() then
+        add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    end
+end
+
 function asyncrt_build.strip_default_macos_frameworks(target, ...)
     local extra_frameworks = {...}
-    local filtered_frameworks = {}
-    local frameworks
-    local should_drop
     local function framework_should_drop(name)
         if name == "Foundation" then
             return true
@@ -63,9 +70,10 @@ function asyncrt_build.strip_default_macos_frameworks(target, ...)
         return
     end
 
-    frameworks = table.wrap(target:get("frameworks"))
+    local filtered_frameworks = {}
+    local frameworks = table.wrap(target:get("frameworks"))
     for _, framework in ipairs(frameworks) do
-        should_drop = framework_should_drop(framework)
+        local should_drop = framework_should_drop(framework)
         if not should_drop then
             table.insert(filtered_frameworks, framework)
         end

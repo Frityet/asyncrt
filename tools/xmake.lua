@@ -1,14 +1,38 @@
 local common = asyncrt_build
 
 target("async-runtime-benchmarks")
+    set_default(false)
     set_kind("binary")
     set_group("tools")
     add_deps("AsyncRT")
-    set_pmheader("../src/Utilities/common.h")
     set_symbols("debug")
     add_files("AsyncRuntimeBenchmarks.m")
     after_config(function (target)
         common.strip_default_macos_frameworks(target)
+    end)
+
+task("check")
+    set_menu {
+        usage = "xmake check [options]",
+        description = "Configure a test-access build in a separate output directory, build the test targets, and run the suite.",
+        options = {
+            {'o', "build-dir", "kv", "build-test", "Test build output directory."}
+        }
+    }
+    on_run(function ()
+        import("core.base.option")
+        import("core.base.task")
+
+        local builddir = option.get("build-dir")
+
+        task.run("config", {
+            clean = true,
+            mode = "test",
+            builddir = builddir,
+            asyncrt_test_access = true
+        })
+        task.run("build", {group = "tests"})
+        task.run("test")
     end)
 
 task("coverage")
@@ -24,7 +48,7 @@ task("coverage")
     }
     on_run(function ()
         import("core.base.option")
-        import("tools.coverage")
+        import("coverage", {rootdir = os.scriptdir()})
 
         coverage.main {
             build_dir = option.get("build-dir"),
