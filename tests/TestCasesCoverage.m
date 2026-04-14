@@ -397,7 +397,11 @@ static void coroutine_guard_and_common_coverage(void)
     }
 
     @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
         (void)[[Coroutine alloc] initWithBlock: (id (^)(Coroutine *))0];
+#pragma clang diagnostic pop
     } @catch (OFInvalidArgumentException *) {
         caughtNilBlock = true;
     }
@@ -500,7 +504,7 @@ static void argument_parser_internal_helpers(void)
     [AsyncRuntimeTestSupport assertCondition: ([(CLIOption<OFString *> *)fallbackCommand.mysteryOption hasValue])
                                      message: (@"Fallback CLIOption properties should report values after parsing")];
 
-    [AsyncRuntimeTestSupport assertCondition: ([CLIValueCodec parseToken: @"hello" forValueClass: OFString.class] != nilptr)
+    [AsyncRuntimeTestSupport assertCondition: ([(OFString *)[CLIValueCodec parseToken: @"hello" forValueClass: OFString.class] isEqual: @"hello"])
                                      message: (@"CLIValueCodec should parse OFString values by copying the token")];
     [AsyncRuntimeTestSupport assertCondition: ([[(OFNumber *)[CLIValueCodec parseToken: @"42" forValueClass: OFNumber.class] stringValue] isEqual: @"42"])
                                      message: (@"CLIValueCodec should parse unsigned numbers")];

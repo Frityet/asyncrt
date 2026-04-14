@@ -102,6 +102,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIWindow {
     AUIApplication *_application;
     AUIWindowOptions *_options;
@@ -240,8 +241,8 @@
             @throw [[AUIInitializationException alloc] initWithReason: $assert_nonnil(clayError)];
     }
 
-    [AUIClay setCurrentContext: _clayContext];
-    [AUIClay setLayoutDimensions: viewportSize];
+    AUIClay.currentContext = _clayContext;
+    AUIClay.layoutDimensions = viewportSize;
 }
 
 - (Clay_RenderCommandArray)_buildRenderCommandsOnceForViewportSize: (AUISize)viewportSize

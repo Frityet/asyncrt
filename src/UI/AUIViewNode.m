@@ -2,6 +2,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[direct_members]]
 @interface AUIViewInteractionConfiguration ()
 
 - (instancetype)initWithEnabled: (bool)isEnabled
@@ -17,31 +18,35 @@
 @interface AUIViewNode ()
 
 - (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
-                          stableKey: (OFString *nillable)stableKey;
+                         stableKey: (OFString *nillable)stableKey;
 
 @end
 
+[[direct_members]]
 @interface AUIViewFragmentNode ()
 
 - (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
+[[direct_members]]
 @interface AUIViewBoxNode ()
 
 - (instancetype)initWithStableKey: (OFString *nillable)stableKey
-                          boxProps: (AUIBoxProps)boxProps
-            interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
-                          children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
+                         boxProps: (AUIBoxProps)boxProps
+         interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
+                         children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
 
 @end
 
+[[direct_members]]
 @interface AUIViewTextNode ()
 
 - (instancetype)initWithText: (OFString *nillable)text style: (AUITextStyle)textStyle [[designated_initailiser]];
 
 @end
 
+[[direct_members]]
 @interface AUIViewEditableTextNode ()
 
 - (instancetype)initWithStableKey: (OFString *nillable)stableKey
@@ -60,6 +65,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIViewInteractionConfiguration {
     bool _enabled;
     bool _focusable;
@@ -136,7 +142,7 @@
 @synthesize nodeFamily = _nodeFamily;
 
 - (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
-                          stableKey: (OFString *nillable)stableKey
+                         stableKey: (OFString *nillable)stableKey
 {
     self = [super init];
     _nodeFamily = nodeFamily;
@@ -150,7 +156,7 @@
     OFArray<id<AUIRenderable>> *_children;
 }
 
-+ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nillable)children
++ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nillable)children [[direct]]
 {
     return [[self alloc] initWithChildren: children];
 }
@@ -167,6 +173,7 @@
 
 @end
 
+// [[direct_members]]
 @implementation AUIViewBoxNode {
     AUIBoxProps _boxProps;
     AUIViewInteractionConfiguration *nillable _interactionConfiguration;
@@ -175,19 +182,20 @@
 
 + (instancetype)boxNodeWithKey: (OFString *nillable)stableKey
                       boxProps: (AUIBoxProps)boxProps
-        interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
+      interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
                       children: (OFArray<id<AUIRenderable>> *nillable)children
+                      [[direct]]
 {
     return [[self alloc] initWithStableKey: stableKey
-                                   boxProps: boxProps
-                     interactionConfiguration: interactionConfiguration
-                                   children: children];
+                                  boxProps: boxProps
+                  interactionConfiguration: interactionConfiguration
+                                  children: children];
 }
 
 - (instancetype)initWithStableKey: (OFString *nillable)stableKey
-                          boxProps: (AUIBoxProps)boxProps
-            interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
-                          children: (OFArray<id<AUIRenderable>> *nillable)children
+                         boxProps: (AUIBoxProps)boxProps
+         interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
+                         children: (OFArray<id<AUIRenderable>> *nillable)children
 {
     if (children == nilptr)
         @throw [OFInvalidArgumentException exception];
@@ -201,6 +209,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIViewTextNode {
     OFString *_text;
     AUITextStyle _textStyle;
@@ -224,6 +233,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIViewEditableTextNode {
     OFString *nillable _text;
     OFString *_placeholder;

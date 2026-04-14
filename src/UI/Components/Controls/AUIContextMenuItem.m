@@ -2,6 +2,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[direct_members]]
 @interface AUIContextMenuItem ()
 
 - (instancetype)initWithTitle: (OFString *nillable)title
@@ -10,6 +11,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIContextMenuItem {
     OFString *_title;
     bool _enabled;

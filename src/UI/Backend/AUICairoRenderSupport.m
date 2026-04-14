@@ -14,6 +14,7 @@ typedef enum AUICairoBorderSide {
     AUICairoBorderSideLeft
 } AUICairoBorderSide;
 
+[[direct_members]]
 @interface AUICairoRenderSupport ()
 
 + (double)channelForValue: (uint8_t)value;

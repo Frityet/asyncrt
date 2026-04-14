@@ -68,6 +68,7 @@
 
 @end
 
+[[direct_members]]
 @interface AUIRenderHost ()
 
 - (void)_renderRenderable: (id nillable)renderable
@@ -96,6 +97,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIRenderHost {
     AUIApplication *nillable _application;
     AUIViewComponent *nillable _rootViewComponent;
@@ -205,7 +207,7 @@
 
     [_postRenderEffects removeAllObjects];
     [AUIClay clearError];
-    [AUIClay setLayoutDimensions: viewportSize];
+    AUIClay.layoutDimensions = viewportSize;
     [AUIClay setPointerPositionX: safeInputState.pointerX
                                 y: safeInputState.pointerY
                              down: safeInputState.isPrimaryButtonDown];

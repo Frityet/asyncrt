@@ -11,6 +11,7 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
     (char *)"Sans"
 };
 
+[[direct_members]]
 @implementation AUIHeadlessWindow {
     bool _open;
     AUISize _viewportSize;

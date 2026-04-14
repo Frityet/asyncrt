@@ -803,13 +803,21 @@ static void utility_internal_branch_coverage(void)
     }
 
     @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
         (void)[some valueOr: nilptr];
+#pragma clang diagnostic pop
     } @catch (OFInvalidArgumentException *) {
         caughtNilOptionalFallback = true;
     }
 
     @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
         (void)[Optional some: nilptr];
+#pragma clang diagnostic pop
     } @catch (OFInvalidArgumentException *) {
         caughtNilSome = true;
     }

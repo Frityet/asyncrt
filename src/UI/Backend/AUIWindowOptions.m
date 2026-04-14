@@ -2,6 +2,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[direct_members]]
 @interface AUIWindowOptions ()
 
 - (instancetype)initWithTitle: (OFString *nillable)title
@@ -11,6 +12,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIWindowOptions {
     OFString *_title;
     AUISize _initialSize;

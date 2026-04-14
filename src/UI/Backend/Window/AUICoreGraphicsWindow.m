@@ -623,6 +623,7 @@
 
 @end
 
+[[direct_members]]
 @interface AUICoreGraphicsWindow ()<AUINativeWindowDelegate>
 
 - (bool)ui_systemUsesDarkModeForApplication: (NSApplication *nillable)application;
@@ -668,7 +669,7 @@
     if (application == nilptr)
         return;
 
-    [application setActivationPolicy: NSApplicationActivationPolicyRegular];
+    application.activationPolicy = NSApplicationActivationPolicyRegular;
     if (application.mainMenu != nilptr)
         return;
 
@@ -687,7 +688,7 @@
     [appMenu addItemWithTitle: [NSString stringWithFormat: quitFormat, applicationName]
                        action: @selector(terminate:)
                 keyEquivalent: qString];
-    [appMenuItem setSubmenu: appMenu];
+    appMenuItem.submenu = appMenu;
 
     windowMenuItem = [[NSMenuItem alloc] initWithTitle: windowString
                                                 action: nullptr
@@ -701,7 +702,7 @@
     [windowMenu addItemWithTitle: zoomString
                           action: @selector(performZoom:)
                    keyEquivalent: emptyString];
-    [windowMenuItem setSubmenu: windowMenu];
+    windowMenuItem.submenu = windowMenu;
 
     application.mainMenu = mainMenu;
     application.windowsMenu = windowMenu;
@@ -760,6 +761,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUICoreGraphicsWindow {
     bool _open;
     AUICoreGraphicsNativeWindow *nillable _window;
@@ -993,7 +995,7 @@
         return;
 
     [self ui_detachRenderViewFromWindow: $assert_nonnil(window)];
-    [$assert_nonnil(window) setWindowDelegate: nilptr];
+    $assert_nonnil(window).windowDelegate = nilptr;
 
     if (_window == window)
         _window = nilptr;

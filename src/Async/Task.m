@@ -44,6 +44,7 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 @end
 
+[[direct_members]]
 @implementation Task {
     AsyncCompletionSource<id> *_resultCompletionSource;
     AsyncTaskState<id> *nillable _wrappedTaskState;

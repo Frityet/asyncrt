@@ -10,7 +10,7 @@ typedef struct {
     const char *name;
     const char *unit;
     size_t operationsPerInvocation;
-    void (*invoke)(AsyncScope *rootScope);
+    void (*invoke)(AsyncTaskGroup *rootTaskGroup);
 } BenchmarkScenario;
 
 typedef struct {
@@ -30,94 +30,94 @@ static uint64_t monotonic_nanoseconds(void)
 }
 
 enum {
-    promise_map_chain_rounds = 64,
-    promise_map_chain_depth = 512,
-    promise_all_resolved_rounds = 128,
-    promise_all_resolved_batch_size = 1024,
-    promise_all_trivial_tasks_rounds = 24,
-    promise_all_trivial_tasks_batch_size = 128,
-    scope_spawn_all_rounds = 24,
-    scope_spawn_all_batch_size = 128,
+    task_map_chain_rounds = 64,
+    task_map_chain_depth = 512,
+    task_all_resolved_rounds = 128,
+    task_all_resolved_batch_size = 1024,
+    task_all_trivial_tasks_rounds = 24,
+    task_all_trivial_tasks_batch_size = 128,
+    taskGroup_spawn_all_rounds = 24,
+    taskGroup_spawn_all_batch_size = 128,
     channel_ping_pong_message_count = 40000,
     scheduler_offload_roundtrips = 4000
 };
 
-static void benchmark_promise_map_chain(AsyncScope *rootScope)
+static void benchmark_task_map_chain(AsyncTaskGroup *rootTaskGroup)
 {
-    (void)rootScope;
+    (void)rootTaskGroup;
 
-    for (size_t round = 0; round < promise_map_chain_rounds; round++) {
-        Promise *promise = [Promise resolved: AsyncUnit.unit];
+    for (size_t round = 0; round < task_map_chain_rounds; round++) {
+        Task *task = [Task resolved: AsyncUnit.unit];
 
-        for (size_t depth = 0; depth < promise_map_chain_depth; depth++) {
-            promise = [promise map: ^id(id value) {
+        for (size_t depth = 0; depth < task_map_chain_depth; depth++) {
+            task = [task map: ^id(id value) {
                 return value;
             }];
         }
 
-        [promise await];
+        [task await];
     }
 }
 
-static void benchmark_promise_all_resolved(AsyncScope *rootScope)
+static void benchmark_task_all_resolved(AsyncTaskGroup *rootTaskGroup)
 {
-    (void)rootScope;
-    auto inputs = [OFMutableArray<id<PromiseLike>> arrayWithCapacity: promise_all_resolved_batch_size];
+    (void)rootTaskGroup;
+    auto inputs = [OFMutableArray<Task *> arrayWithCapacity: task_all_resolved_batch_size];
 
-    for (size_t index = 0; index < promise_all_resolved_batch_size; index++)
-        [inputs addObject: [Promise resolved: AsyncUnit.unit]];
+    for (size_t index = 0; index < task_all_resolved_batch_size; index++)
+        [inputs addObject: [Task resolved: AsyncUnit.unit]];
 
-    OFArray<id<PromiseLike>> *resolvedInputs = [inputs copy];
+    OFArray<Task *> *resolvedInputs = [inputs copy];
 
-    for (size_t round = 0; round < promise_all_resolved_rounds; round++)
-        [[Promise all: resolvedInputs] await];
+    for (size_t round = 0; round < task_all_resolved_rounds; round++)
+        [[Task all: resolvedInputs] await];
 }
 
-static void benchmark_promise_all_trivial_tasks(AsyncScope *rootScope)
+static void benchmark_task_all_trivial_tasks(AsyncTaskGroup *rootTaskGroup)
 {
     id (^trivialBlock)(void) = ^{
         return AsyncUnit.unit;
     };
 
-    for (size_t round = 0; round < promise_all_trivial_tasks_rounds; round++) {
-        auto promises = [OFMutableArray<id<PromiseLike>> arrayWithCapacity: promise_all_trivial_tasks_batch_size];
+    for (size_t round = 0; round < task_all_trivial_tasks_rounds; round++) {
+        auto tasks = [OFMutableArray<Task *> arrayWithCapacity: task_all_trivial_tasks_batch_size];
 
-        for (size_t index = 0; index < promise_all_trivial_tasks_batch_size; index++)
-            [promises addObject: [rootScope spawn: trivialBlock]];
+        for (size_t index = 0; index < task_all_trivial_tasks_batch_size; index++)
+            [tasks addObject: [rootTaskGroup spawnTask: trivialBlock]];
 
-        [[Promise all: promises] await];
+        [[Task all: tasks] await];
     }
 }
 
-static void benchmark_scope_spawn_all_trivial(AsyncScope *rootScope)
+static void benchmark_task_group_spawn_all_trivial(AsyncTaskGroup *rootTaskGroup)
 {
-    auto blocks = [OFMutableArray<id (^)(void)> arrayWithCapacity: scope_spawn_all_batch_size];
+    auto blocks = [OFMutableArray<id (^)(void)> arrayWithCapacity: taskGroup_spawn_all_batch_size];
     id (^trivialBlock)(void) = ^{
         return AsyncUnit.unit;
     };
 
-    for (size_t index = 0; index < scope_spawn_all_batch_size; index++)
+    for (size_t index = 0; index < taskGroup_spawn_all_batch_size; index++)
         [blocks addObject: trivialBlock];
 
     OFArray<id (^)(void)> *trivialBlocks = [blocks copy];
 
-    for (size_t round = 0; round < scope_spawn_all_rounds; round++)
-        [[rootScope spawnAll: trivialBlocks] await];
+    for (size_t round = 0; round < taskGroup_spawn_all_rounds; round++)
+        [[rootTaskGroup spawnAllTasks: trivialBlocks] await];
 }
 
-static void benchmark_channel_ping_pong(AsyncScope *rootScope)
+static void benchmark_channel_ping_pong(AsyncTaskGroup *rootTaskGroup)
 {
     auto channel = [[AsyncChannel<id> alloc] initWithCapacity: 0];
 
-    (void)[rootScope withChildScopeNamed: @"bench-channel" block: ^id(AsyncScope *scope) {
-        [scope spawn: ^{
+    (void)[rootTaskGroup performInChildTaskGroupNamed: @"bench-channel" block: ^id(AsyncTaskGroup *taskGroup) {
+        [taskGroup spawnTask: ^{
             for (size_t messageIndex = 0; messageIndex < channel_ping_pong_message_count; messageIndex++)
                 [channel send: AsyncUnit.unit];
 
             return AsyncUnit.unit;
         } name: @"bench-channel-producer"];
 
-        [scope spawn: ^{
+        [taskGroup spawnTask: ^{
             for (size_t messageIndex = 0; messageIndex < channel_ping_pong_message_count; messageIndex++)
                 (void)channel.receive;
 
@@ -128,9 +128,9 @@ static void benchmark_channel_ping_pong(AsyncScope *rootScope)
     }];
 }
 
-static void benchmark_scheduler_offload_roundtrip(AsyncScope *rootScope)
+static void benchmark_scheduler_offload_roundtrip(AsyncTaskGroup *rootTaskGroup)
 {
-    AsyncScheduler *scheduler = rootScope.scheduler;
+    auto scheduler = rootTaskGroup.scheduler;
 
     for (size_t iteration = 0; iteration < scheduler_offload_roundtrips; iteration++)
         (void)[scheduler offload: ^{
@@ -139,10 +139,10 @@ static void benchmark_scheduler_offload_roundtrip(AsyncScope *rootScope)
 }
 
 static BenchmarkScenario benchmark_scenarios[] = {
-    {.name = "promise-map-chain", .unit = "continuations", .operationsPerInvocation = promise_map_chain_rounds * promise_map_chain_depth, .invoke = benchmark_promise_map_chain},
-    {.name = "promise-all-resolved", .unit = "promises", .operationsPerInvocation = promise_all_resolved_rounds * promise_all_resolved_batch_size, .invoke = benchmark_promise_all_resolved},
-    {.name = "promise-all-trivial-tasks", .unit = "tasks", .operationsPerInvocation = promise_all_trivial_tasks_rounds * promise_all_trivial_tasks_batch_size, .invoke = benchmark_promise_all_trivial_tasks},
-    {.name = "scope-spawn-all-trivial", .unit = "tasks", .operationsPerInvocation = scope_spawn_all_rounds * scope_spawn_all_batch_size, .invoke = benchmark_scope_spawn_all_trivial},
+    {.name = "task-map-chain", .unit = "continuations", .operationsPerInvocation = task_map_chain_rounds * task_map_chain_depth, .invoke = benchmark_task_map_chain},
+    {.name = "task-all-resolved", .unit = "tasks", .operationsPerInvocation = task_all_resolved_rounds * task_all_resolved_batch_size, .invoke = benchmark_task_all_resolved},
+    {.name = "task-all-trivial-tasks", .unit = "tasks", .operationsPerInvocation = task_all_trivial_tasks_rounds * task_all_trivial_tasks_batch_size, .invoke = benchmark_task_all_trivial_tasks},
+    {.name = "task-group-spawn-all-trivial", .unit = "tasks", .operationsPerInvocation = taskGroup_spawn_all_rounds * taskGroup_spawn_all_batch_size, .invoke = benchmark_task_group_spawn_all_trivial},
     {.name = "channel-ping-pong", .unit = "messages", .operationsPerInvocation = channel_ping_pong_message_count, .invoke = benchmark_channel_ping_pong},
     {.name = "scheduler-offload-roundtrip", .unit = "roundtrips", .operationsPerInvocation = scheduler_offload_roundtrips, .invoke = benchmark_scheduler_offload_roundtrip},
 };
@@ -169,7 +169,7 @@ static BenchmarkScenario *nillable find_scenario(const char *name)
     return nullptr;
 }
 
-static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncScope *rootScope, double seconds)
+static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncTaskGroup *rootTaskGroup, double seconds)
 {
     uint64_t startNanoseconds = monotonic_nanoseconds();
     uint64_t minimumNanoseconds = (uint64_t)(seconds * 1000000000.0);
@@ -178,7 +178,7 @@ static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncScope 
     uint64_t elapsedNanoseconds = 0;
 
     do {
-        scenario->invoke(rootScope);
+        scenario->invoke(rootTaskGroup);
         invocationCount++;
         totalOperations += scenario->operationsPerInvocation;
         elapsedNanoseconds = monotonic_nanoseconds() - startNanoseconds;
@@ -191,7 +191,7 @@ static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncScope 
     };
 }
 
-static void print_scenario_summary(BenchmarkScenario *scenario, AsyncScope *rootScope, double seconds, size_t sampleCount)
+static void print_scenario_summary(BenchmarkScenario *scenario, AsyncTaskGroup *rootTaskGroup, double seconds, size_t sampleCount)
 {
     double rates[16];
     double nanosecondsPerOperation[16];
@@ -199,7 +199,7 @@ static void print_scenario_summary(BenchmarkScenario *scenario, AsyncScope *root
     if (sampleCount > 16)
         @throw [OFOutOfRangeException exception];
 
-    scenario->invoke(rootScope);
+    scenario->invoke(rootTaskGroup);
 
     printf("scenario=%s unit=%s target_seconds_per_sample=%.2f samples=%zu\n",
            scenario->name,
@@ -208,7 +208,7 @@ static void print_scenario_summary(BenchmarkScenario *scenario, AsyncScope *root
            sampleCount);
 
     for (size_t sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-        BenchmarkSample sample = measure_scenario(scenario, rootScope, seconds);
+        BenchmarkSample sample = measure_scenario(scenario, rootTaskGroup, seconds);
         double elapsedSeconds = (double)sample.elapsedNanoseconds / 1000000000.0;
         double rate = (double)sample.totalOperations / elapsedSeconds;
         double nsPerOperation = (double)sample.elapsedNanoseconds / (double)sample.totalOperations;
@@ -248,11 +248,13 @@ static void print_usage(const char *program)
         printf("  %s\n", benchmark_scenarios[index].name);
 }
 
+[[subclassing_restricted]]
 @interface AsyncRuntimeBenchmarksApp : AsyncApplication @end
 
 @implementation AsyncRuntimeBenchmarksApp
 
-- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification scope: (AsyncScope *)rootScope
+- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
+                               taskGroup: (AsyncTaskGroup *)rootTaskGroup
 {
     (void)notification;
 
@@ -269,7 +271,7 @@ static void print_usage(const char *program)
 
     if (strcmp(selectedScenario, "all") == 0) {
         for (size_t index = 0; index < sizeof(benchmark_scenarios) / sizeof(benchmark_scenarios[0]); index++)
-            print_scenario_summary(&benchmark_scenarios[index], rootScope, secondsPerSample, sampleCount);
+            print_scenario_summary(&benchmark_scenarios[index], rootTaskGroup, secondsPerSample, sampleCount);
 
         return AsyncUnit.unit;
     }
@@ -281,7 +283,7 @@ static void print_usage(const char *program)
         return @1;
     }
 
-    print_scenario_summary($assert_nonnil(scenario), rootScope, secondsPerSample, sampleCount);
+    print_scenario_summary($assert_nonnil(scenario), rootTaskGroup, secondsPerSample, sampleCount);
     return AsyncUnit.unit;
 }
 

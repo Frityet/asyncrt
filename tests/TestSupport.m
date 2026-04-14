@@ -124,7 +124,7 @@ static void AsyncRuntimeEnsureObjFWTLSBindingsLoadedForTests(void)
     [AsyncRuntimeTestHTTPClientTaskBridge retainInflightBridge: bridge];
 
     if (cancelOnTaskCancellation)
-        [completionSource setPendingTaskCancellationHandler: ^{ [bridge cancel]; }];
+        completionSource.pendingTaskCancellationHandler = ^{ [bridge cancel]; };
 
     [bridge start];
     return completionSource.task;
@@ -289,9 +289,9 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
 
     @try {
         if (response != nilptr)
-            [_completionSource fulfill: response];
+            [_completionSource fulfill: $assert_nonnil(response)];
         else if (exception != nilptr)
-            [_completionSource reject: exception];
+            [_completionSource reject: $assert_nonnil(exception)];
         else
             [_completionSource reject: [OFInvalidArgumentException exception]];
 

@@ -89,6 +89,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIInteractionController {
     OFMutableArray<AUIInteractionRegistration *> *_registrationsThisFrame;
     OFMutableSet<OFString *> *_hoveredIdentifiers;

@@ -36,7 +36,7 @@ static void calculator_model_memory_and_history(void)
 {
     auto model = [CalculatorModel model];
 
-    [model setExpressionFromText: @"pow(2, 10)"];
+    model.expressionFromText = @"pow(2, 10)";
     [AsyncRuntimeTestSupport assertCondition: ([model evaluate])
                                      message: @"calculator model should evaluate pow(2, 10)"];
     [AsyncRuntimeTestSupport assertCondition: ([model.resultText isEqual: @"1024"])

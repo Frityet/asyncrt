@@ -187,7 +187,11 @@ static void optional_some_accepts_tagged_payloads(void)
     [AsyncRuntimeTestSupport assertCondition: (object_isTaggedPointer(tagged_pointer_value)) message: (@"the nested tagged-pointer test needs a tagged pointer payload")];
 #endif
     @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
         (void)[Optional some: nilptr];
+#pragma clang diagnostic pop
     } @catch (OFInvalidArgumentException *) {
         caughtNilArgument = true;
     }
@@ -220,7 +224,7 @@ static void application_executable_iri_resolves_to_existing_absolute_file_iri(vo
                                     message: (@"OFApplication.executableIRI should expose a file-system path")];
     [AsyncRuntimeTestSupport assertCondition: ($assert_nonnil(executablePath).absolutePath)
                                     message: (@"OFApplication.executableIRI should resolve to an absolute file-system path")];
-    [AsyncRuntimeTestSupport assertCondition: [defaultFileManager fileExistsAtPath: executablePath]
+    [AsyncRuntimeTestSupport assertCondition: [defaultFileManager fileExistsAtPath: $assert_nonnil(executablePath)]
                                     message: (@"OFApplication.executableIRI should point to an existing file")];
     [AsyncRuntimeTestSupport assertCondition: ($assert_nonnil(executableIRI).lastPathComponent.length > 0)
                                     message: (@"OFApplication.executableIRI should include a final path component")];

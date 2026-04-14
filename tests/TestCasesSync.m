@@ -264,6 +264,9 @@ static void task_nil_resolution_and_rejection(void)
     bool caughtClassNilResolution = false;
     bool caughtClassNilRejection = false;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
     @try {
         [resolutionResolver fulfill: (id)0];
     } @catch (AsyncTaskNilResolutionValueException *exception) {
@@ -287,6 +290,7 @@ static void task_nil_resolution_and_rejection(void)
     } @catch (AsyncTaskNilRejectionException *) {
         caughtClassNilRejection = true;
     }
+#pragma clang diagnostic pop
 
     [AsyncRuntimeTestSupport assertCondition: (caughtNilResolution) message: (@"fulfilling a completion source with nilptr should throw AsyncTaskNilResolutionValueException")];
     [AsyncRuntimeTestSupport assertCondition: (caughtNilRejection) message: (@"rejecting a completion source with nilptr should throw AsyncTaskNilRejectionException")];

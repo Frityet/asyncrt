@@ -103,6 +103,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
+[[direct_members]]
 @interface AsyncTaskState ()
 
 - (instancetype)_initInternal;
@@ -120,6 +121,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
+[[direct_members]]
 @interface AsyncCompletionSource ()
 
 - (AsyncTaskState *)_internalTaskState [[direct]];
@@ -157,6 +159,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 @end
 
+[[direct_members]]
 @interface Task ()
 
 - (instancetype)initWithTaskState: (AsyncTaskState *)promise [[designated_initailiser]] [[direct]];

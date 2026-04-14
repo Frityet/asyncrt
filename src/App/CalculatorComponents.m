@@ -382,11 +382,11 @@ typedef struct CalculatorButtonSpec {
                                                    multiline: false
                                                  contextMenu: nilptr
                                                     onChange: ^(OFString *text) {
-                [_model setExpressionFromText: text];
+                _model.expressionFromText = text;
                 [self _refresh];
             }
                                                     onSubmit: ^(OFString *text) {
-                [_model setExpressionFromText: text];
+                _model.expressionFromText = text;
                 [_model evaluate];
                 [self _refresh];
             }]

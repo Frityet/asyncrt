@@ -20,6 +20,7 @@
 
 @end
 
+[[direct_members]]
 @implementation CalculatorParser {
     OFString *_expression;
     const char *_source;
@@ -130,7 +131,7 @@
     if (isfinite(value))
         return true;
 
-    [self setErrorMessage: @"Result overflowed the calculator range."];
+    self.errorMessage = @"Result overflowed the calculator range.";
     return false;
 }
 
@@ -154,12 +155,12 @@
     double accumulator = 1.0;
 
     if (value < 0.0 or fabs(value - rounded) > 1e-9) {
-        [self setErrorMessage: @"Factorial is only defined for whole numbers >= 0."];
+        self.errorMessage = @"Factorial is only defined for whole numbers >= 0.";
         return false;
     }
 
     if (rounded > 170.0) {
-        [self setErrorMessage: @"Factorial is too large to represent."];
+        self.errorMessage = @"Factorial is too large to represent.";
         return false;
     }
 
@@ -182,7 +183,7 @@
 
     if ([name isEqual: @"rand"]) {
         if (argumentCount != 0) {
-            [self setErrorMessage: @"rand() does not take arguments."];
+            self.errorMessage = @"rand() does not take arguments.";
             return false;
         }
 
@@ -192,7 +193,7 @@
 
     if ([name isEqual: @"pow"] or [name isEqual: @"min"] or [name isEqual: @"max"] or [name isEqual: @"mod"]) {
         if (argumentCount != 2) {
-            [self setErrorMessage: [OFString stringWithFormat: @"%@ expects two arguments.", name]];
+            self.errorMessage = [OFString stringWithFormat: @"%@ expects two arguments.", name];
             return false;
         }
 
@@ -204,7 +205,7 @@
             value = fmax(arguments[0], arguments[1]);
         else {
             if (arguments[1] == 0.0) {
-                [self setErrorMessage: @"mod(x, 0) is undefined."];
+                self.errorMessage = @"mod(x, 0) is undefined.";
                 return false;
             }
             value = fmod(arguments[0], arguments[1]);
@@ -218,7 +219,7 @@
     }
 
     if (argumentCount != 1) {
-        [self setErrorMessage: [OFString stringWithFormat: @"%@ expects one argument.", name]];
+        self.errorMessage = [OFString stringWithFormat: @"%@ expects one argument.", name];
         return false;
     }
 
@@ -242,13 +243,13 @@
         value = tanh(arguments[0]);
     else if ([name isEqual: @"ln"]) {
         if (arguments[0] <= 0.0) {
-            [self setErrorMessage: @"ln(x) requires x > 0."];
+            self.errorMessage = @"ln(x) requires x > 0.";
             return false;
         }
         value = log(arguments[0]);
     } else if ([name isEqual: @"log"]) {
         if (arguments[0] <= 0.0) {
-            [self setErrorMessage: @"log(x) requires x > 0."];
+            self.errorMessage = @"log(x) requires x > 0.";
             return false;
         }
         value = log10(arguments[0]);
@@ -256,7 +257,7 @@
         value = exp(arguments[0]);
     else if ([name isEqual: @"sqrt"]) {
         if (arguments[0] < 0.0) {
-            [self setErrorMessage: @"sqrt(x) requires x >= 0."];
+            self.errorMessage = @"sqrt(x) requires x >= 0.";
             return false;
         }
         value = sqrt(arguments[0]);
@@ -271,7 +272,7 @@
     else if ([name isEqual: @"cbrt"])
         value = cbrt(arguments[0]);
     else {
-        [self setErrorMessage: [OFString stringWithFormat: @"Unknown function %@.", name]];
+        self.errorMessage = [OFString stringWithFormat: @"Unknown function %@.", name];
         return false;
     }
 
@@ -301,7 +302,7 @@
         return true;
     }
 
-    [self setErrorMessage: [OFString stringWithFormat: @"Unknown symbol %@.", name]];
+    self.errorMessage = [OFString stringWithFormat: @"Unknown symbol %@.", name];
     return false;
 }
 
@@ -358,7 +359,7 @@
             *value *= rhs;
         else {
             if (rhs == 0.0) {
-                [self setErrorMessage: @"Division by zero is undefined."];
+                self.errorMessage = @"Division by zero is undefined.";
                 return false;
             }
             *value /= rhs;
@@ -433,7 +434,7 @@
         if (not [self parseExpressionValue: value])
             return false;
         if (not [self matchCharacter: ')']) {
-            [self setErrorMessage: @"Missing closing ')'."];
+            self.errorMessage = @"Missing closing ')'.";
             return false;
         }
         return true;
@@ -444,7 +445,7 @@
 
     identifier = [self readIdentifier];
     if (identifier == nilptr) {
-        [self setErrorMessage: @"Expected a number, symbol, or opening '('."];
+        self.errorMessage = @"Expected a number, symbol, or opening '('.";
         return false;
     }
 
@@ -454,7 +455,7 @@
     if (not [self matchCharacter: ')']) {
         while (true) {
             if (argumentCount >= 2) {
-                [self setErrorMessage: @"This calculator supports up to two function arguments."];
+                self.errorMessage = @"This calculator supports up to two function arguments.";
                 return false;
             }
 
@@ -467,7 +468,7 @@
         }
 
         if (not [self matchCharacter: ')']) {
-            [self setErrorMessage: @"Missing closing ')' after function arguments."];
+            self.errorMessage = @"Missing closing ')' after function arguments.";
             return false;
         }
     }

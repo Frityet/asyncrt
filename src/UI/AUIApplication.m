@@ -14,6 +14,7 @@
 
 #pragma clang assume_nonnull begin
 
+[[direct_members]]
 @interface AUIApplication ()
 
 - (Task<AsyncUnit *> *)_renderWakeTask;
@@ -22,6 +23,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIApplication {
     AUIWindow *nillable _window;
     AUIRenderHost *_renderHost;
@@ -186,13 +188,13 @@
 - (void)_setClipboardText: (OFString *nillable)text
 {
     if (_window != nilptr)
-        [_window setClipboardText: text];
+        _window.clipboardText = text;
 }
 
 - (void)_setCursorStyle: (AUICursorStyle)cursorStyle
 {
     if (_window != nilptr)
-        [_window setCursorStyle: cursorStyle];
+        _window.cursorStyle = cursorStyle;
 }
 
 - (AUIContextMenu *nillable)_activeContextMenuForTesting
@@ -208,7 +210,7 @@
 - (void)_setRootViewComponentForTesting: (AUIViewComponent *nillable)rootViewComponent
 {
     [self _resetRuntimeState];
-    [_renderHost setRootViewComponentForTesting: rootViewComponent];
+    _renderHost.rootViewComponentForTesting = rootViewComponent;
 }
 
 - (bool)_updateHoverStateFromCurrentLayout

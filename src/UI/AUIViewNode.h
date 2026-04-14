@@ -49,7 +49,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIViewFragmentNode : AUIViewNode
 
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;
@@ -59,7 +59,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIViewBoxNode : AUIViewNode
 
 @property(readonly, nonatomic) AUIBoxProps boxProps;
@@ -74,7 +74,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIViewTextNode : AUIViewNode
 
 @property(readonly, copy, nonatomic) OFString *text;
@@ -85,7 +85,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 @end
 
-[[subclassing_restricted]]
+[[subclassing_restricted, direct_members]]
 @interface AUIViewEditableTextNode : AUIViewNode
 
 @property(readonly, copy, nonatomic) OFString *nillable text;

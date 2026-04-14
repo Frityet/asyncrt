@@ -9,24 +9,6 @@
 
 @end
 
-@interface AsyncTaskState ()
-
-- (instancetype)_initInternal;
-+ (void)_scheduleBlock: (void (^)(void))block
-          onScheduler: (AsyncScheduler *)scheduler [[direct]];
-+ (void)_rejectCompletionSourceIfPending: (AsyncCompletionSource<id> *)completionSource
-                               exception: (OFException *)exception [[direct]];
-+ (void)_fulfillCompletionSourceOrReject: (AsyncCompletionSource<id> *)completionSource
-                                   value: (id)value [[direct]];
-+ (AsyncTaskState *)_taskStateFromTask: (Task *nillable)task [[direct]];
-+ (AsyncScheduler *)_continuationSchedulerOrThrowForTaskState: (AsyncTaskState *)promise [[direct]];
-+ (void)_cancelUnresolvedProducingTasksInTaskStates: (OFArray<AsyncTaskState *> *)promises [[direct]];
-+ (void)_pipeTaskState: (AsyncTaskState *)promise
- intoCompletionSource: (AsyncCompletionSource<id> *)completionSource [[direct]];
-- (Task *nillable)_taskForExceptions [[direct]];
-
-@end
-
 [[subclassing_restricted]]
 @interface AsyncTaskStateWaitRegistration : AsyncTaskWaitRegistration<AsyncTaskStateObserver>
 
@@ -215,6 +197,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AsyncTaskState {
     OFMutex *_lock;
     enum AsyncTaskStatus _status;
@@ -809,6 +792,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AsyncTaskStateWaitRegistration {
     AsyncTaskState *_promise;
     OFMutex *_lock;
@@ -885,6 +869,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AsyncTaskStateBlockObserver {
     OFMutex *_lock;
     AsyncTaskState *nillable _promise;
@@ -983,6 +968,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AsyncTaskStatePendingValueMarker
 
 + (instancetype)sharedMarker

@@ -99,6 +99,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUITextEditingController {
     OFMutableDictionary<OFString *, AUITextEditingState *> *_editingStates;
 }

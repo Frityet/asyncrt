@@ -102,6 +102,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 
 @end
 
+[[direct_members]]
 @interface AUIRenderContext ()
 
 + (void)_pushCurrentContext: (AUIRenderContext *nillable)context [[direct]];
@@ -109,6 +110,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 
 @end
 
+[[direct_members]]
 @interface AUIViewComponent ()
 
 @property(readwrite, nonatomic) AUIApplication *nillable application;
@@ -129,7 +131,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 @interface AUIViewNode ()
 
 - (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
-                          stableKey: (OFString *nillable)stableKey;
+                         stableKey: (OFString *nillable)stableKey;
 
 @end
 
@@ -145,6 +147,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 
 @end
 
+[[direct_members]]
 @interface AUIApplication ()
 
 - (AUIInputState *)_inputState;
@@ -169,10 +172,10 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 
 - (Clay_RenderCommandArray)_buildRenderCommandsForViewportSize: (AUISize)viewportSize
                                            textMeasureFunction: (AUITextMeasureFunction)textMeasureFunction
-                                                      userData: (void *nillable)userData;
+                                                      userData: (void *nillable)userData [[direct]];
 - (void)_setViewportSize: (AUISize)viewportSize;
 - (void)_setDarkMode: (bool)darkMode explicitly: (bool)explicitly;
-- (bool)_hasExplicitDarkMode;
+- (bool)_hasExplicitDarkMode [[direct]];
 
 @end
 

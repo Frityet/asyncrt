@@ -186,6 +186,7 @@ static size_t const async_default_drain_batch_size = 64;
 
 @end
 
+[[direct_members]]
 @implementation AsyncScheduler {
     OFMutex *_lock;
     OFMutableArray<id<AsyncSchedulerRunnable>> *_readyRunnables;
@@ -690,6 +691,7 @@ static size_t const async_default_drain_batch_size = 64;
 
 @end
 
+[[direct_members]]
 @implementation AsyncSchedulerTaskRunnable
 
 - (instancetype)initWithTask: (Task *)task
@@ -707,6 +709,7 @@ static size_t const async_default_drain_batch_size = 64;
 
 @end
 
+[[direct_members]]
 @implementation AsyncSchedulerBlockRunnable
 
 - (instancetype)initWithBlock: (void (^)(void))block

@@ -31,6 +31,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AsyncTaskGroup {
     OFMutex *_lock;
     OFMutableSet<Task *> *_liveTasks;

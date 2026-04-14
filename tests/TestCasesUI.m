@@ -28,8 +28,8 @@
 typedef struct AUITestRenderHarness {
     AUITestApplication *application;
     AUIHeadlessWindow *window;
-    Clay_Context *context;
-    void *memory;
+    Clay_Context *nillable context;
+    void *nillable memory;
     size_t memorySize;
 } AUITestRenderHarness;
 
@@ -60,10 +60,10 @@ static AUITestRenderHarness AUITestRenderHarnessMake(AUITestApplication *applica
 
     harness.memorySize = [AUIClay minimumMemorySize];
     harness.memory = malloc(harness.memorySize);
-    harness.context = [AUIClay initializeWithMemory: harness.memory
+    harness.context = [AUIClay initializeWithMemory: $assert_nonnil(harness.memory)
                                                size: harness.memorySize
                                          dimensions: harness.window.viewportSize];
-    [AUIClay setCurrentContext: harness.context];
+    AUIClay.currentContext = harness.context;
     Clay_SetMeasureTextFunction(AUITestMeasureText, nilptr);
     return harness;
 }
@@ -72,7 +72,7 @@ static void AUITestRenderHarnessDestroy(AUITestRenderHarness *harness)
 {
     [harness->application _setWindowForTesting: nilptr];
     [harness->window closeWindow];
-    [AUIClay setCurrentContext: nullptr];
+    AUIClay.currentContext = nullptr;
     free(harness->memory);
     harness->memory = nullptr;
     harness->context = nullptr;
@@ -96,8 +96,8 @@ static Clay_RenderCommandArray AUITestRenderMountedComponent(AUITestRenderHarnes
 
     for (size_t iteration = 0; iteration < 4; iteration++) {
         (void)[harness->application _consumePendingRenderRequest];
-        [AUIClay setCurrentContext: harness->context];
-        [AUIClay setLayoutDimensions: harness->window.viewportSize];
+        AUIClay.currentContext = harness->context;
+        AUIClay.layoutDimensions = harness->window.viewportSize;
         commands = [harness->application _buildRenderCommandsWithViewportSize: harness->window.viewportSize deltaTime: (1.0f / 60.0f)];
 
         if (not [harness->application _hasPendingRenderRequest])

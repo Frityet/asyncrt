@@ -5,6 +5,7 @@
 
 @class AUIRenderHost;
 
+[[direct_members]]
 @interface AUIStateBinding ()
 
 - (instancetype)initWithOwner: (AUIViewComponent *nillable)owner initialValue: (id nillable)initialValue [[designated_initailiser]];
@@ -39,6 +40,7 @@
 
 @end
 
+[[direct_members]]
 @interface AUIViewComponent ()
 
 - (AUIViewHookSlot *nillable)_hookSlotAtIndex: (size_t)index;
@@ -50,6 +52,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIStateBinding {
     unretained AUIViewComponent *_owner;
     id nillable _value;
@@ -91,7 +94,7 @@
     if (updateBlock == nilptr)
         @throw [OFInvalidArgumentException exception];
 
-    [self setValue: updateBlock(_value)];
+    self.value = updateBlock(_value);
 }
 
 @end
@@ -126,7 +129,7 @@
 }
 
 - (instancetype)initWithChildViewComponent: (AUIViewComponent *nillable)childViewComponent
-                               componentKey: (OFString *nillable)componentKey
+                              componentKey: (OFString *nillable)componentKey
 {
     if (childViewComponent == nilptr or componentKey == nilptr)
         @throw [OFInvalidArgumentException exception];
@@ -139,6 +142,7 @@
 
 @end
 
+[[direct_members]]
 @implementation AUIViewComponent {
     AUIApplication *nillable _application;
     AUIViewComponent *nillable _parentViewComponent;

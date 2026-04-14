@@ -23,6 +23,7 @@
 
 @end
 
+[[direct_members]]
 @interface CalculatorModel ()
 
 - (OFString *)formattedValue: (double)value;
@@ -41,6 +42,7 @@
 
 @end
 
+[[direct_members]]
 @implementation CalculatorModel {
     OFString *_expression;
     OFString *_resultText;
@@ -117,10 +119,10 @@
 - (bool)evaluateCurrentExpressionInto: (double *)value error: (OFString *nillable *)error
 {
     return [CalculatorEvaluator evaluateExpression: _expression
-                                                angleMode: _angleMode
-                                               lastAnswer: (_hasLastAnswer ? _lastAnswer : 0.0)
-                                                   result: value
-                                                    error: error];
+                                         angleMode: _angleMode
+                                        lastAnswer: (_hasLastAnswer ? _lastAnswer : 0.0)
+                                            result: value
+                                             error: error];
 }
 
 - (void)refreshPreview
