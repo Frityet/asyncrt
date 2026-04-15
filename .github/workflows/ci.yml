@@ -11,7 +11,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+          - os: macos-13
+            arch: x86_64
+          - os: macos-latest
+            arch: arm64
 
     runs-on: ${{ matrix.os }}
 
@@ -44,7 +52,20 @@ jobs:
         run: xmake test
 
   build-windows-msys2:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: windows-latest
+            arch: x86_64
+            msystem: MINGW64
+            packages: mingw-w64-x86_64-clang mingw-w64-x86_64-lld
+          - runs-on: windows-11-arm
+            arch: arm64
+            msystem: CLANGARM64
+            packages: mingw-w64-clang-aarch64-clang mingw-w64-clang-aarch64-lld
+
+    runs-on: ${{ matrix.runs-on }}
 
     defaults:
       run:
@@ -53,14 +74,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up MSYS2 (MINGW64 + clang)
+      - name: Set up MSYS2 (${{ matrix.msystem }} + clang)
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: ${{ matrix.msystem }}
           update: true
-          install: >-
-            mingw-w64-x86_64-clang
-            mingw-w64-x86_64-lld
+          install: ${{ matrix.packages }}
 
       - name: Set up xmake
         uses: xmake-io/github-action-setup-xmake@v1
