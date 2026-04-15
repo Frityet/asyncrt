@@ -103,9 +103,9 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 {
     char output[12];
     {
-        auto _pointerValue = self.pointer;
-        const unsigned char *inputBytes = (const unsigned char *)&_pointerValue;
-        size_t inputLength = sizeof(_pointerValue);
+        auto ptr = self.pointer;
+        const unsigned char *inputBytes = (const unsigned char *)&ptr;
+        size_t inputLength = sizeof(ptr);
 
         static const char encodingTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         size_t outputIndex = 0;

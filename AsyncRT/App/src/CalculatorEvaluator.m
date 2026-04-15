@@ -38,7 +38,7 @@
 
 + (bool)isIdentifierTail: (char)character
 {
-    return [self isIdentifierHead: character] or (character >= '0' and character <= '9');
+    return [CalculatorParser isIdentifierHead: character] or (character >= '0' and character <= '9');
 }
 
 - (instancetype)initWithExpression: (OFString *)expression

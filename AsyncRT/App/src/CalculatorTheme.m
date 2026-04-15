@@ -64,7 +64,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 36;
     style.lineHeight = 40;
-    style.color = [self displayColor];
+    style.color = CalculatorTheme.displayColor;
     return style;
 }
 
@@ -91,7 +91,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 18;
     style.lineHeight = 22;
-    style.color = [self accentTextColor];
+    style.color = CalculatorTheme.accentTextColor;
     return style;
 }
 
@@ -100,7 +100,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 13;
     style.lineHeight = 16;
-    style.color = [self mutedTextColor];
+    style.color = CalculatorTheme.mutedTextColor;
     style.alignment = AUITextAlignmentRight;
     return style;
 }
@@ -110,7 +110,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 46;
     style.lineHeight = 52;
-    style.color = [self accentTextColor];
+    style.color = CalculatorTheme.accentTextColor;
     style.wrapMode = AUITextWrapModeNone;
     style.alignment = AUITextAlignmentRight;
     return style;
@@ -121,7 +121,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 14;
     style.lineHeight = 18;
-    style.color = (isError ? [self errorTextColor] : [self positiveTextColor]);
+    style.color = (isError ? CalculatorTheme.errorTextColor : CalculatorTheme.positiveTextColor);
     return style;
 }
 
@@ -130,7 +130,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 12;
     style.lineHeight = 14;
-    style.color = [self mutedTextColor];
+    style.color = CalculatorTheme.mutedTextColor;
     return style;
 }
 
@@ -139,7 +139,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 24;
     style.lineHeight = 28;
-    style.color = [self accentTextColor];
+    style.color = CalculatorTheme.accentTextColor;
     style.wrapMode = AUITextWrapModeNone;
     return style;
 }
@@ -149,7 +149,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 12;
     style.lineHeight = 16;
-    style.color = [self mutedTextColor];
+    style.color = CalculatorTheme.mutedTextColor;
     return style;
 }
 
@@ -158,7 +158,7 @@
     AUITextStyle style = AUI.defaultTextStyle;
     style.fontSize = 22;
     style.lineHeight = 26;
-    style.color = [self accentTextColor];
+    style.color = CalculatorTheme.accentTextColor;
     style.wrapMode = AUITextWrapModeNone;
     return style;
 }
@@ -168,25 +168,25 @@
     AUIBoxProps props = AUI.defaultBoxProps;
     props.layout.padding = [AUI insetsAll: 24];
     props.layout.childGap = 18;
-    props.backgroundColor = [self panelColor];
+    props.backgroundColor = CalculatorTheme.panelColor;
     props.cornerRadius = 28;
-    props.border = [AUI borderAll: 1 color: [self panelBorderColor]];
+    props.border = [AUI borderAll: 1 color: CalculatorTheme.panelBorderColor];
     return props;
 }
 
 + (AUIBoxProps)displayPanelProps
 {
-    AUIBoxProps props = [self mainPanelProps];
+    AUIBoxProps props = CalculatorTheme.mainPanelProps;
     props.layout.padding = [AUI insetsAll: 22];
-    props.backgroundColor = [self displayColor];
+    props.backgroundColor = CalculatorTheme.displayColor;
     props.cornerRadius = 24;
-    props.border = [AUI borderAll: 1 color: [self displayBorderColor]];
+    props.border = [AUI borderAll: 1 color: CalculatorTheme.displayBorderColor];
     return props;
 }
 
 + (AUIBoxProps)keypadPanelProps
 {
-    AUIBoxProps props = [self mainPanelProps];
+    AUIBoxProps props = CalculatorTheme.mainPanelProps;
     props.layout.padding = [AUI insetsAll: 20];
     props.layout.childGap = 12;
     props.backgroundColor = [AUI colorWithRed: 231 green: 222 blue: 208 alpha: 255];
@@ -197,8 +197,8 @@
 
 + (AUIBoxProps)sidebarPanelProps
 {
-    AUIBoxProps props = [self mainPanelProps];
-    props.backgroundColor = [self sidebarColor];
+    AUIBoxProps props = CalculatorTheme.mainPanelProps;
+    props.backgroundColor = CalculatorTheme.sidebarColor;
     return props;
 }
 
