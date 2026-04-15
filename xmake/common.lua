@@ -41,13 +41,32 @@ function asyncrt_build.coroutine_mflags()
 end
 
 function asyncrt_build.internal_test_access_enabled()
-    return has_config("asyncrt_test_access")
+    return has_config("asyncrt-test-access")
+end
+
+function asyncrt_build.ui_uses_cairo_x11_backend()
+    return (not is_plat("macosx")) or has_config("asyncrt-ui-x11")
 end
 
 function asyncrt_build.add_internal_test_access_define()
     if asyncrt_build.internal_test_access_enabled() then
         add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
     end
+end
+
+function asyncrt_build.add_macos_x11_search_paths()
+    local x11_root = "/opt/X11"
+
+    if not is_plat("macosx") then
+        return
+    end
+
+    if not os.isdir(path.join(x11_root, "include", "X11")) or not os.isdir(path.join(x11_root, "lib")) then
+        raise("asyncrt_ui_x11 requires XQuartz headers and libraries in /opt/X11")
+    end
+
+    add_includedirs(path.join(x11_root, "include"))
+    add_linkdirs(path.join(x11_root, "lib"), { public = true })
 end
 
 function asyncrt_build.strip_default_macos_frameworks(target, ...)

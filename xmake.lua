@@ -7,6 +7,7 @@ set_toolchains("clang")
 local mode_uses_lto = is_mode("release") or is_mode("minsizerel")
 
 includes("xmake/common.lua")
+local common = asyncrt_build
 
 local function add_c_and_objc_flags(...)
     add_cxflags(...)
@@ -15,10 +16,16 @@ end
 
 add_repositories("asyncrt-xrepo xrepo", {rootdir = os.scriptdir()})
 
-option("asyncrt_test_access")
+option("asyncrt-test-access")
     set_default(false)
     set_showmenu(true)
     set_description("Relax objc_direct restrictions so white-box tests can call internal methods.")
+option_end()
+
+option("asyncrt-ui-x11")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Build AsyncRTUI against the Cairo/X11 backend on macOS. Non-macOS targets already use Cairo/X11 by default.")
 option_end()
 
 add_requires("objfw", {
@@ -28,7 +35,7 @@ add_requires("objfw", {
     }
 })
 
-if is_plat("linux") or has_config("asyncrt_test_access") then
+if common.ui_uses_cairo_x11_backend() or has_config("asyncrt-test-access") then
     add_requires("cairo")
 end
 

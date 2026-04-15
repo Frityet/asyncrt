@@ -21,14 +21,19 @@ local function add_core_graphics_backend()
 end
 
 local function add_x11_backend()
+    if is_plat("macosx") then
+        common.add_macos_x11_search_paths()
+    end
+
     add_defines("AUI_HAS_CORE_GRAPHICS_WINDOW=0", { public = true })
     add_defines("AUI_HAS_CAIRO_X11_WINDOW=1", { public = true })
-    add_syslinks("X11")
+    add_syslinks("X11", { public = true })
     add_files("src/Backend/Window/AUICairoX11Window.m")
 end
 
 local function configure_ui_target()
     local include_headless = common.internal_test_access_enabled()
+    local use_cairo_x11 = common.ui_uses_cairo_x11_backend()
 
     add_deps("AsyncRT", { public = true })
     add_includedirs("src", "../extern", { public = true })
@@ -39,17 +44,17 @@ local function configure_ui_target()
     add_files("src/ClayRuntime.c")
     common.add_internal_test_access_define()
 
-    if is_plat("macosx") then
-        add_core_graphics_backend()
-
-        if include_headless then
-            add_cairo_backends(true)
-        end
+    if use_cairo_x11 then
+        add_cairo_backends(true)
+        add_x11_backend()
         return
     end
 
-    add_cairo_backends(true)
-    add_x11_backend()
+    add_core_graphics_backend()
+
+    if include_headless then
+        add_cairo_backends(true)
+    end
 end
 
 target("AsyncRTUI")
