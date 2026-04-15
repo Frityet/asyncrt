@@ -29,6 +29,9 @@ jobs:
       - name: Set up xmake
         uses: xmake-io/github-action-setup-xmake@v1
 
+      - name: Update xmake to dev
+        run: xmake update dev
+
       - name: Install clang (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -59,11 +62,11 @@ jobs:
           - runs-on: windows-latest
             arch: x86_64
             msystem: MINGW64
-            packages: mingw-w64-x86_64-clang mingw-w64-x86_64-lld
+            packages: mingw-w64-x86_64-xmake mingw-w64-x86_64-clang mingw-w64-x86_64-lld
           - runs-on: windows-11-arm
             arch: arm64
             msystem: CLANGARM64
-            packages: mingw-w64-clang-aarch64-clang mingw-w64-clang-aarch64-lld
+            packages: mingw-w64-clang-aarch64-xmake mingw-w64-clang-aarch64-clang mingw-w64-clang-aarch64-lld
 
     runs-on: ${{ matrix.runs-on }}
 
@@ -81,8 +84,8 @@ jobs:
           update: true
           install: ${{ matrix.packages }}
 
-      - name: Set up xmake
-        uses: xmake-io/github-action-setup-xmake@v1
+      - name: Update xmake to dev
+        run: xmake update dev
 
       - name: Configure (debug)
         run: xmake config -y --mode=debug --toolchain=clang
