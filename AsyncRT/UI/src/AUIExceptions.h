@@ -9,8 +9,8 @@
 @property(readonly, nonatomic) OFString *reason;
 @property(readonly, nonatomic) OFException *nillable underlyingException;
 
-- (instancetype)initWithReason: (OFString *nillable)reason;
-- (instancetype)initWithReason: (OFString *nillable)reason
+- (instancetype)initWithReason: (OFString *nonnil)reason;
+- (instancetype)initWithReason: (OFString *nonnil)reason
              underlyingException: (OFException *nillable)underlyingException [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 

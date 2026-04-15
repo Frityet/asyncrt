@@ -11,7 +11,7 @@
 @property(readonly, nonatomic) bool isEnabled;
 @property(readonly, copy, nonatomic) void (^nillable selectHandler)(void);
 
-+ (instancetype)title: (OFString *nillable)title
++ (instancetype)title: (OFString *nonnil)title
               enabled: (bool)enabled
              onSelect: (void (^nillable)(void))selectHandler;
 

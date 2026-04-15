@@ -593,12 +593,9 @@
     @throw [[AsyncTaskInvalidStateAccessException alloc] initWithTask: self._taskForExceptions operation: @"finish await" status: status];
 }
 
-- (void)_resolveWithValue: (id nillable)value
+- (void)_resolveWithValue: (id nonnil)value
 {
     OFArray<id<AsyncTaskStateObserver>> *observers;
-
-    if (value == nilptr)
-        @throw [[AsyncTaskNilResolutionValueException alloc] initWithTask: self._taskForExceptions];
 
     [_lock lock];
     @try {
@@ -616,15 +613,12 @@
     }
 
     for (id<AsyncTaskStateObserver> observer in observers)
-        [observer promise: self didResolveWithValue: $assert_nonnil(value)];
+        [observer promise: self didResolveWithValue: value];
 }
 
-- (void)_rejectWithException: (OFException *nillable)exception
+- (void)_rejectWithException: (OFException *nonnil)exception
 {
     OFArray<id<AsyncTaskStateObserver>> *observers;
-
-    if (exception == nilptr)
-        @throw [[AsyncTaskNilRejectionException alloc] initWithTask: self._taskForExceptions];
 
     [_lock lock];
     @try {
@@ -642,7 +636,7 @@
     }
 
     for (id<AsyncTaskStateObserver> observer in observers)
-        [observer promise: self didRejectWithException: $assert_nonnil(exception)];
+        [observer promise: self didRejectWithException: exception];
 }
 
 - (void)_addObserver: (id<AsyncTaskStateObserver>)observer

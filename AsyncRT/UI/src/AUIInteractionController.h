@@ -13,18 +13,18 @@
 @property(readonly, nonatomic) float activeContextMenuY;
 
 - (void)beginFrame;
-- (void)registerInteraction: (AUIInteractionRegistration *nillable)registration;
+- (void)registerInteraction: (AUIInteractionRegistration *nonnil)registration;
 - (bool)isIdentifierFocused: (OFString *nillable)identifier;
 - (bool)isIdentifierPressed: (OFString *nillable)identifier;
 - (bool)isIdentifierHovered: (OFString *nillable)identifier;
-- (bool)updateHoverStateFromCurrentLayoutWithInputState: (AUIInputState *nillable)inputState
-                                            cursorSetter: (void (^nillable)(AUICursorStyle cursorStyle))cursorSetter;
-- (void)completeFrameWithInputState: (AUIInputState *nillable)inputState
-               textEditingController: (AUITextEditingController *nillable)textEditingController
-                      clipboardText: (OFString *nillable (^nillable)(void))clipboardTextProvider
-                setClipboardText: (void (^nillable)(OFString *nillable text))clipboardTextSetter
-                     cursorSetter: (void (^nillable)(AUICursorStyle cursorStyle))cursorSetter
-                renderRequester: (void (^nillable)(void))renderRequester;
+- (bool)updateHoverStateFromCurrentLayoutWithInputState: (AUIInputState *nonnil)inputState
+                                            cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter;
+- (void)completeFrameWithInputState: (AUIInputState *nonnil)inputState
+               textEditingController: (AUITextEditingController *nonnil)textEditingController
+                      clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
+                setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter
+                     cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter
+                renderRequester: (void (^nonnil)(void))renderRequester;
 - (void)resetState;
 - (OFArray<AUIInteractionRegistration *> *)registrationsThisFrame;
 - (OFSet<OFString *> *)registeredInteractionIdentifiers;

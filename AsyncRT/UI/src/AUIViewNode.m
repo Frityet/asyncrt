@@ -86,18 +86,15 @@
     OFArray<id<AUIRenderable>> *_children;
 }
 
-+ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nillable)children [[direct]]
++ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children [[direct]]
 {
     return [[self alloc] initWithChildren: children];
 }
 
-- (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nillable)children
+- (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children
 {
-    if (children == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super initWithNodeFamily: AUIViewNodeFamilyFragment stableKey: nilptr];
-    _children = [$assert_nonnil(children) copy];
+    _children = [children copy];
     return self;
 }
 
@@ -113,7 +110,7 @@
 + (instancetype)boxNodeWithKey: (OFString *nillable)stableKey
                       boxProps: (AUIBoxProps)boxProps
       interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
-                      children: (OFArray<id<AUIRenderable>> *nillable)children
+                      children: (OFArray<id<AUIRenderable>> *nonnil)children
                       [[direct]]
 {
     return [[self alloc] initWithStableKey: stableKey
@@ -125,15 +122,12 @@
 - (instancetype)initWithStableKey: (OFString *nillable)stableKey
                          boxProps: (AUIBoxProps)boxProps
          interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
-                         children: (OFArray<id<AUIRenderable>> *nillable)children
+                         children: (OFArray<id<AUIRenderable>> *nonnil)children
 {
-    if (children == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super initWithNodeFamily: AUIViewNodeFamilyBox stableKey: stableKey];
     _boxProps = boxProps;
     _interactionConfiguration = interactionConfiguration;
-    _children = [$assert_nonnil(children) copy];
+    _children = [children copy];
     return self;
 }
 
@@ -145,18 +139,15 @@
     AUITextStyle _textStyle;
 }
 
-+ (instancetype)textNodeWithText: (OFString *nillable)text style: (AUITextStyle)textStyle
++ (instancetype)textNodeWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle
 {
     return [[self alloc] initWithText: text style: textStyle];
 }
 
-- (instancetype)initWithText: (OFString *nillable)text style: (AUITextStyle)textStyle
+- (instancetype)initWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle
 {
-    if (text == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super initWithNodeFamily: AUIViewNodeFamilyText stableKey: nilptr];
-    _text = [$assert_nonnil(text) copy];
+    _text = [text copy];
     _textStyle = textStyle;
     return self;
 }
@@ -181,7 +172,7 @@
 
 + (instancetype)editableTextNodeWithKey: (OFString *nillable)stableKey
                                    text: (OFString *nillable)text
-                            placeholder: (OFString *nillable)placeholder
+                            placeholder: (OFString *nonnil)placeholder
                                   style: (AUITextStyle)textStyle
                                  colors: (AUITextInputColors)colors
                                  layout: (AUILayout)layout
@@ -210,7 +201,7 @@
 
 - (instancetype)initWithStableKey: (OFString *nillable)stableKey
                                text: (OFString *nillable)text
-                        placeholder: (OFString *nillable)placeholder
+                        placeholder: (OFString *nonnil)placeholder
                               style: (AUITextStyle)textStyle
                              colors: (AUITextInputColors)colors
                              layout: (AUILayout)layout
@@ -222,12 +213,9 @@
                            onChange: (void (^nillable)(OFString *text))textChangeHandler
                            onSubmit: (void (^nillable)(OFString *text))submitHandler
 {
-    if (placeholder == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super initWithNodeFamily: AUIViewNodeFamilyEditableText stableKey: stableKey];
     _text = [text copy];
-    _placeholder = [$assert_nonnil(placeholder) copy];
+    _placeholder = [placeholder copy];
     _textStyle = textStyle;
     _colors = colors;
     _layout = layout;

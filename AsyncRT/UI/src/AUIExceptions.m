@@ -5,19 +5,16 @@
 @implementation AUIException
 
 
-- (instancetype)initWithReason: (OFString *nillable)reason
+- (instancetype)initWithReason: (OFString *nonnil)reason
 {
     return [self initWithReason: reason underlyingException: nilptr];
 }
 
-- (instancetype)initWithReason: (OFString *nillable)reason
+- (instancetype)initWithReason: (OFString *nonnil)reason
            underlyingException: (OFException *nillable)underlyingException
 {
-    if (reason == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
-    _reason = [$as_nonnil(reason) copy];
+    _reason = [reason copy];
     _underlyingException = underlyingException;
     return self;
 }

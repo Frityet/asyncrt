@@ -70,15 +70,11 @@ static size_t const async_default_drain_batch_size = 64;
 
 @namespace_implementation(AsyncSchedulerValidation)
 
-+ (void)validateRunLoop: (OFRunLoop *nillable)runLoop
-                  mode: (OFRunLoopMode nillable)mode
++ (void)validateRunLoop: (OFRunLoop *nonnil)runLoop
+                  mode: (OFRunLoopMode nonnil)mode
         maxWorkerCount: (size_t)maxWorkerCount
     maxDrainBatchSize: (size_t)maxDrainBatchSize
 {
-    if (runLoop == nilptr)
-        @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"runLoop must not be nilptr"];
-    if (mode == nilptr)
-        @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"mode must not be nilptr"];
     if (maxWorkerCount == 0)
         @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"maxWorkerCount must be at least 1"];
     if (maxDrainBatchSize == 0)

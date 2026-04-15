@@ -13,8 +13,8 @@ void AsyncRetainForTSAN(id nillable object);
 
 @namespace(AsyncSchedulerValidation)
 
-+ (void)validateRunLoop: (OFRunLoop *nillable)runLoop
-                   mode: (OFRunLoopMode nillable)mode
++ (void)validateRunLoop: (OFRunLoop *nonnil)runLoop
+                   mode: (OFRunLoopMode nonnil)mode
          maxWorkerCount: (size_t)maxWorkerCount
       maxDrainBatchSize: (size_t)maxDrainBatchSize;
 
@@ -108,8 +108,8 @@ void AsyncRetainForTSAN(id nillable object);
 @interface AsyncTaskState ()
 
 - (instancetype)_initInternal;
-- (void)_resolveWithValue: (id nillable)value [[direct]];
-- (void)_rejectWithException: (OFException *nillable)exception [[direct]];
+- (void)_resolveWithValue: (id nonnil)value [[direct]];
+- (void)_rejectWithException: (OFException *nonnil)exception [[direct]];
 - (void)_addWaitRegistration: (AsyncTaskStateWaitRegistration *)registration [[direct]];
 - (void)_removeWaitRegistration: (AsyncTaskStateWaitRegistration *)registration [[direct]];
 - (void)_setPendingCancellationCallback: (void (^nillable)(void))cancellationCallback [[direct]];

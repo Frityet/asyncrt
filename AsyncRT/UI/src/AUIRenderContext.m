@@ -54,30 +54,24 @@
     return [stack objectAtIndex: stack.count - 1];
 }
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-                             window: (AUIWindow *nillable)window
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
+                             window: (AUIWindow *nonnil)window
                        viewportSize: (AUISize)viewportSize
-                          frameDate: (OFDate *nillable)frameDate
+                          frameDate: (OFDate *nonnil)frameDate
                         elapsedTime: (OFTimeInterval)elapsedTime
 {
-    if (application == nilptr or window == nilptr or frameDate == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
-    _application = $assert_nonnil(application);
-    _window = $assert_nonnil(window);
+    _application = application;
+    _window = window;
     _viewportSize = viewportSize;
-    _frameDate = [$assert_nonnil(frameDate) copy];
+    _frameDate = [frameDate copy];
     _elapsedTime = elapsedTime;
     return self;
 }
 
-+ (void)_pushCurrentContext: (AUIRenderContext *nillable)context
++ (void)_pushCurrentContext: (AUIRenderContext *nonnil)context
 {
-    if (context == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    [[AUIRenderContextSupport contextStack] addObject: $assert_nonnil(context)];
+    [[AUIRenderContextSupport contextStack] addObject: context];
 }
 
 + (void)_popCurrentContext

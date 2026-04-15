@@ -9,22 +9,19 @@
     void (^nillable _selectHandler)(void);
 }
 
-+ (instancetype)title: (OFString *nillable)title
++ (instancetype)title: (OFString *nonnil)title
               enabled: (bool)enabled
              onSelect: (void (^nillable)(void))selectHandler
 {
     return [[self alloc] initWithTitle: title enabled: enabled onSelect: selectHandler];
 }
 
-- (instancetype)initWithTitle: (OFString *nillable)title
+- (instancetype)initWithTitle: (OFString *nonnil)title
                       enabled: (bool)enabled
                      onSelect: (void (^nillable)(void))selectHandler
 {
-    if (title == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
-    _title = [$assert_nonnil(title) copy];
+    _title = [title copy];
     _isEnabled = enabled;
     _selectHandler = [selectHandler copy];
     return self;

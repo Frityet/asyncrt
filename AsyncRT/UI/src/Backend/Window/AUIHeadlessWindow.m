@@ -24,12 +24,12 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
     OFString *nillable _clipboardText;
 }
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-                            options: (AUIWindowOptions *nillable)options
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
+                            options: (AUIWindowOptions *nonnil)options
 {
     self = [super initWithApplication: application options: options];
     _open = false;
-    _nativeSize = $assert_nonnil(options).initialSize;
+    _nativeSize = options.initialSize;
     _scaleFactor = 1.0;
     _surface = nullptr;
     _cairo = nullptr;

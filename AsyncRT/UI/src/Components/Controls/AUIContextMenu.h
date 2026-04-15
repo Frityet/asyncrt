@@ -10,7 +10,7 @@
 
 @property(readonly, copy, nonatomic) OFArray<AUIContextMenuItem *> *items;
 
-+ (instancetype)items: (OFArray<AUIContextMenuItem *> *nillable)items;
++ (instancetype)items: (OFArray<AUIContextMenuItem *> *nonnil)items;
 
 @end
 

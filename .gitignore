@@ -6,3 +6,4 @@ AGENTS.md
 compile_commands.json
 xmake-docs.txt
 .xmake/
+install/

@@ -111,20 +111,17 @@
     return self;
 }
 
-- (AUITextEditingState *)editingStateForIdentifier: (OFString *nillable)identifier
+- (AUITextEditingState *)editingStateForIdentifier: (OFString *nonnil)identifier
                                         textLength: (size_t)textLength
 {
     AUITextEditingState *state;
 
-    if (identifier == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    state = _editingStates[$assert_nonnil(identifier)];
+    state = _editingStates[identifier];
     if (state == nilptr) {
         state = [AUITextEditingState caretIndex: textLength
                            selectionAnchorIndex: textLength
                             selectionFocusIndex: textLength];
-        _editingStates[$assert_nonnil(identifier)] = state;
+        _editingStates[identifier] = state;
         return state;
     }
 
@@ -166,10 +163,10 @@
     return displayText;
 }
 
-- (bool)applyInputState: (AUIInputState *nillable)inputState
-           toRegistration: (AUIInteractionRegistration *nillable)registration
-           clipboardText: (OFString *nillable (^nillable)(void))clipboardTextProvider
-     setClipboardText: (void (^nillable)(OFString *nillable text))clipboardTextSetter
+- (bool)applyInputState: (AUIInputState *nonnil)inputState
+           toRegistration: (AUIInteractionRegistration *nonnil)registration
+           clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
+     setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter
 {
     AUITextEditingState *editingState;
     OFString *text;
@@ -178,13 +175,10 @@
     size_t previousFocusIndex;
     bool textChanged = false;
 
-    if (inputState == nilptr or registration == nilptr or clipboardTextProvider == nilptr or clipboardTextSetter == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    if ($assert_nonnil(registration).textChangeHandler == nilptr and $assert_nonnil(registration).submitHandler == nilptr)
+    if (registration.textChangeHandler == nilptr and registration.submitHandler == nilptr)
         return false;
 
-    text = ($assert_nonnil(registration).text ?: @"");
+    text = (registration.text ?: @"");
     editingState = [self editingStateForIdentifier: registration.identifier textLength: text.length];
     previousCaretIndex = editingState.caretIndex;
     previousAnchorIndex = editingState.selectionAnchorIndex;

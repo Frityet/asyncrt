@@ -113,22 +113,19 @@
     [_registrationsThisFrame removeAllObjects];
 }
 
-- (void)registerInteraction: (AUIInteractionRegistration *nillable)registration
+- (void)registerInteraction: (AUIInteractionRegistration *nonnil)registration
 {
     size_t existingIndex;
 
-    if (registration == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    existingIndex = [AUIInteractionControllerSupport indexOfIdentifier: $assert_nonnil(registration).identifier
+    existingIndex = [AUIInteractionControllerSupport indexOfIdentifier: registration.identifier
                                                        inRegistrations: _registrationsThisFrame];
     if (existingIndex != OFNotFound) {
-        [AUIInteractionControllerSupport mergeRegistration: $assert_nonnil(registration)
+        [AUIInteractionControllerSupport mergeRegistration: registration
                                                       into: [_registrationsThisFrame objectAtIndex: existingIndex]];
         return;
     }
 
-    [_registrationsThisFrame addObject: $assert_nonnil(registration)];
+    [_registrationsThisFrame addObject: registration];
 }
 
 - (bool)isIdentifierFocused: (OFString *nillable)identifier
@@ -146,16 +143,13 @@
     return (identifier != nilptr and [_hoveredIdentifiers containsObject: $assert_nonnil(identifier)]);
 }
 
-- (bool)updateHoverStateFromCurrentLayoutWithInputState: (AUIInputState *nillable)inputState
-                                            cursorSetter: (void (^nillable)(AUICursorStyle cursorStyle))cursorSetter
+- (bool)updateHoverStateFromCurrentLayoutWithInputState: (AUIInputState *nonnil)inputState
+                                            cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter
 {
     OFArray<AUIInteractionRegistration *> *registrations;
     OFMutableSet<OFString *> *hoveredIdentifiers;
     AUIInteractionRegistration *nillable topHoveredRegistration;
     bool didChange = false;
-
-    if (inputState == nilptr or cursorSetter == nilptr)
-        @throw [OFInvalidArgumentException exception];
 
     registrations = [_registrationsThisFrame copy];
     if ([AUIClay currentContext] == nullptr or registrations.count == 0) {
@@ -168,7 +162,7 @@
         return didChange;
     }
 
-    [AUIClay setPointerPositionX: $assert_nonnil(inputState).pointerX
+    [AUIClay setPointerPositionX: inputState.pointerX
                                 y: inputState.pointerY
                              down: inputState.isPrimaryButtonDown];
     hoveredIdentifiers = [AUIInteractionControllerSupport hoveredIdentifiersInRegistrations: registrations];
@@ -182,21 +176,17 @@
     return didChange;
 }
 
-- (void)completeFrameWithInputState: (AUIInputState *nillable)inputState
-               textEditingController: (AUITextEditingController *nillable)textEditingController
-                      clipboardText: (OFString *nillable (^nillable)(void))clipboardTextProvider
-                setClipboardText: (void (^nillable)(OFString *nillable text))clipboardTextSetter
-                     cursorSetter: (void (^nillable)(AUICursorStyle cursorStyle))cursorSetter
-                renderRequester: (void (^nillable)(void))renderRequester
+- (void)completeFrameWithInputState: (AUIInputState *nonnil)inputState
+               textEditingController: (AUITextEditingController *nonnil)textEditingController
+                      clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
+                setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter
+                     cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter
+                renderRequester: (void (^nonnil)(void))renderRequester
 {
     OFArray<AUIInteractionRegistration *> *registrations;
     OFMutableSet<OFString *> *hoveredIdentifiers;
     AUIInteractionRegistration *nillable topHoveredRegistration;
     bool shouldScheduleRender = false;
-
-    if (inputState == nilptr or textEditingController == nilptr or clipboardTextProvider == nilptr or
-        clipboardTextSetter == nilptr or cursorSetter == nilptr or renderRequester == nilptr)
-        @throw [OFInvalidArgumentException exception];
 
     registrations = [_registrationsThisFrame copy];
     hoveredIdentifiers = [AUIInteractionControllerSupport hoveredIdentifiersInRegistrations: registrations];

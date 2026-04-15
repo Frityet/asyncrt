@@ -137,22 +137,19 @@
 }
 
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-                            options: (AUIWindowOptions *nillable)options
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
+                            options: (AUIWindowOptions *nonnil)options
 {
-    if (application == nilptr or options == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
-    _application = $assert_nonnil(application);
-    _options = $assert_nonnil(options);
+    _application = application;
+    _options = options;
     _clayMemory = nullptr;
     _clayMemorySize = 0;
     _clayContext = nullptr;
     _darkMode = false;
     _hasExplicitDarkMode = false;
-    _referenceViewportSize = [AUIWindowSupport viewportSizeForNativeSize: $assert_nonnil(options).initialSize
-                                                            contentScale: $assert_nonnil(options).contentScale];
+    _referenceViewportSize = [AUIWindowSupport viewportSizeForNativeSize: options.initialSize
+                                                            contentScale: options.contentScale];
     return self;
 }
 

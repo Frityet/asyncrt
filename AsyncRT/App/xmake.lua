@@ -28,17 +28,10 @@ target("App")
             import("core.base.option")
 
             local bundledir = path.absolute(target:data("xcode.bundle.rootdir"))
-            local argv = {"-W", "-n", bundledir}
             local arguments = option.get("arguments")
+            local executable = path.join(bundledir, "Contents", "MacOS", target:name())
 
-            if arguments then
-                table.insert(argv, "--args")
-                for _, argument in ipairs(arguments) do
-                    table.insert(argv, argument)
-                end
-            end
-
-            os.execv("open", argv)
+            os.execv(executable, arguments or {})
         end)
     end
     add_files("src/main.m")

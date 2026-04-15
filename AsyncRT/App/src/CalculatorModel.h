@@ -10,7 +10,7 @@
 @property(readonly, copy, nonatomic) OFString *expression;
 @property(readonly, copy, nonatomic) OFString *resultText;
 
-+ (instancetype)expression: (OFString *nillable)expression resultText: (OFString *nillable)resultText;
+- (instancetype)initWithExpression: (OFString *)expression resultText: (OFString *)resultText;
 
 @end
 
@@ -28,18 +28,16 @@
 @property(readonly, nonatomic) bool hasLastAnswer;
 @property(readonly, nonatomic) bool hasError;
 
-+ (instancetype)model;
-
-- (void)setExpressionFromText: (OFString *nillable)text;
-- (void)appendDigits: (OFString *nillable)digits;
+- (void)setExpressionFromText: (OFString *nonnil)text;
+- (void)appendDigits: (OFString *nonnil)digits;
 - (void)appendDecimalPoint;
-- (void)appendOperator: (OFString *nillable)operatorText;
+- (void)appendOperator: (OFString *nonnil)operatorText;
 - (void)appendOpenParenthesis;
 - (void)appendCloseParenthesis;
-- (void)appendConstantNamed: (OFString *nillable)constantName;
+- (void)appendConstantNamed: (OFString *nonnil)constantName;
 - (void)appendAnswerReference;
 - (void)appendRandomFunction;
-- (void)applyFunctionNamed: (OFString *nillable)functionName;
+- (void)applyFunctionNamed: (OFString *nonnil)functionName;
 - (void)applySquare;
 - (void)applyReciprocal;
 - (void)applyPercent;

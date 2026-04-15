@@ -9,22 +9,22 @@
 
 @property(readonly, nonatomic) AUIViewComponent *nillable rootViewComponent;
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application [[designated_initailiser]];
-- (void)attachRootViewComponent: (AUIViewComponent *nillable)rootViewComponent
-                      taskGroup: (AsyncTaskGroup *nillable)taskGroup;
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application [[designated_initailiser]];
+- (void)attachRootViewComponent: (AUIViewComponent *nonnil)rootViewComponent
+                      taskGroup: (AsyncTaskGroup *nonnil)taskGroup;
 - (void)detachRootViewComponent;
 - (void)setRootViewComponentForTesting: (AUIViewComponent *nillable)rootViewComponent;
-- (void)enqueuePostRenderEffect: (void (^nillable)(void))effectBlock;
+- (void)enqueuePostRenderEffect: (void (^nonnil)(void))effectBlock;
 - (Clay_RenderCommandArray)buildRenderCommandsWithViewportSize: (AUISize)viewportSize
                                                      deltaTime: (float)deltaTime
-                                                    inputState: (AUIInputState *nillable)inputState
-                                                        window: (AUIWindow *nillable)window
-                                         interactionController: (AUIInteractionController *nillable)interactionController
-                                         textEditingController: (AUITextEditingController *nillable)textEditingController
-                                                 clipboardText: (OFString *nillable (^nillable)(void))clipboardTextProvider
-                                           setClipboardText: (void (^nillable)(OFString *nillable text))clipboardTextSetter
-                                                cursorSetter: (void (^nillable)(AUICursorStyle cursorStyle))cursorSetter
-                                           renderRequester: (void (^nillable)(void))renderRequester;
+                                                    inputState: (AUIInputState *nonnil)inputState
+                                                        window: (AUIWindow *nonnil)window
+                                         interactionController: (AUIInteractionController *nonnil)interactionController
+                                         textEditingController: (AUITextEditingController *nonnil)textEditingController
+                                                 clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
+                                           setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter
+                                                cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter
+                                           renderRequester: (void (^nonnil)(void))renderRequester;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

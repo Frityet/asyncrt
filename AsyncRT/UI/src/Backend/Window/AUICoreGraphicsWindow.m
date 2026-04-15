@@ -814,8 +814,8 @@
     AUICursorStyle _cursorStyle;
 }
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-                            options: (AUIWindowOptions *nillable)options
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
+                            options: (AUIWindowOptions *nonnil)options
 {
     self = [super initWithApplication: application options: options];
     _open = false;

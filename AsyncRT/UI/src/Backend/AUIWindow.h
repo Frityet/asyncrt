@@ -16,8 +16,8 @@
 @property(readonly, nonatomic) double scaleFactor;
 @property(nonatomic) bool isDarkMode;
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-                            options: (AUIWindowOptions *nillable)options [[designated_initailiser]];
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
+                            options: (AUIWindowOptions *nonnil)options [[designated_initailiser]];
 - (void)openWindow;
 - (void)pollEvents;
 - (void)renderFrame;

@@ -94,9 +94,9 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 @property(copy, nonatomic) void (^nillable textChangeHandler)(OFString *text);
 @property(copy, nonatomic) void (^nillable submitHandler)(OFString *text);
 
-+ (instancetype)identifier: (OFString *nillable)identifier
++ (instancetype)identifier: (OFString *nonnil)identifier
                   elementID: (Clay_ElementId)elementID;
-- (instancetype)initWithIdentifier: (OFString *nillable)identifier
+- (instancetype)initWithIdentifier: (OFString *nonnil)identifier
                          elementID: (Clay_ElementId)elementID [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
@@ -105,7 +105,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 [[direct_members]]
 @interface AUIRenderContext ()
 
-+ (void)_pushCurrentContext: (AUIRenderContext *nillable)context [[direct]];
++ (void)_pushCurrentContext: (AUIRenderContext *nonnil)context [[direct]];
 + (void)_popCurrentContext [[direct]];
 
 @end
@@ -122,7 +122,7 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
          parentViewComponent: (AUIViewComponent *nillable)parentViewComponent
                    taskGroup: (AsyncTaskGroup *nillable)taskGroup;
 - (void)_detachFromApplication;
-- (void)_ensureMountedInTaskGroup: (AsyncTaskGroup *nillable)taskGroup;
+- (void)_ensureMountedInTaskGroup: (AsyncTaskGroup *nonnil)taskGroup;
 - (void)_unmountRecursively;
 - (AUIViewNode *)_resolvedRenderedViewNode;
 
@@ -141,8 +141,8 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 @property(readonly, nonatomic) AUIViewComponent *childViewComponent;
 @property(readonly, copy, nonatomic) OFString *componentKey;
 
-- (instancetype)initWithChildViewComponent: (AUIViewComponent *nillable)childViewComponent
-                               componentKey: (OFString *nillable)componentKey [[designated_initailiser]];
+- (instancetype)initWithChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
+                               componentKey: (OFString *nonnil)componentKey [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

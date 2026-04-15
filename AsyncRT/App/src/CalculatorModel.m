@@ -10,15 +10,12 @@
     OFString *_resultText;
 }
 
-+ (instancetype)expression: (OFString *nillable)expression resultText: (OFString *nillable)resultText
+- (instancetype)initWithExpression: (OFString *)expression resultText: (OFString *)resultText
 {
-    if (expression == nilptr or resultText == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    auto entry = [[self alloc] init];
-    entry->_expression = [$assert_nonnil(expression) copy];
-    entry->_resultText = [$assert_nonnil(resultText) copy];
-    return entry;
+    self = [super init];
+    _expression = [expression copy];
+    _resultText = [resultText copy];
+    return self;
 }
 
 @end
@@ -36,11 +33,6 @@
     bool _hasLastAnswer;
     bool _hasError;
     bool _replaceExpressionOnNextInsert;
-}
-
-+ (instancetype)model
-{
-    return [[self alloc] init];
 }
 
 - (instancetype)init
@@ -209,7 +201,7 @@
 
 - (void)recordHistoryExpression: (OFString *)expression resultText: (OFString *)resultText
 {
-    [_history insertObject: [CalculatorHistoryEntry expression: expression resultText: resultText] atIndex: 0];
+    [_history insertObject: [[CalculatorHistoryEntry alloc] initWithExpression: expression resultText: resultText] atIndex: 0];
 
     if (_history.count > 14)
         [_history removeObjectAtIndex: _history.count - 1];
@@ -236,27 +228,24 @@
     return false;
 }
 
-- (void)setExpressionFromText: (OFString *nillable)text
+- (void)setExpressionFromText: (OFString *nonnil)text
 {
-    if (text == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    _expression = [self normalizedExpressionFromText: $assert_nonnil(text)];
+    _expression = [self normalizedExpressionFromText: text];
     _replaceExpressionOnNextInsert = false;
     [self refreshPreview];
 }
 
-- (void)appendDigits: (OFString *nillable)digits
+- (void)appendDigits: (OFString *nonnil)digits
 {
-    if (digits == nilptr or digits.length == 0)
+    if (digits.length == 0)
         @throw [OFInvalidArgumentException exception];
 
-    [self startFreshExpressionIfNeededForToken: $assert_nonnil(digits)];
+    [self startFreshExpressionIfNeededForToken: digits];
 
     if ([self expressionNeedsImplicitMultiplication])
         _expression = [_expression stringByAppendingString: @"*"];
 
-    _expression = [_expression stringByAppendingString: $assert_nonnil(digits)];
+    _expression = [_expression stringByAppendingString: digits];
     [self refreshPreview];
 }
 
@@ -267,7 +256,7 @@
 
     [self startFreshExpressionIfNeededForToken: @"."];
 
-    if (_expression.length == 0 or [self expressionEndsWithUnaryBoundary]) {
+    if (_expression.length == 0 or self.expressionEndsWithUnaryBoundary) {
         _expression = [_expression stringByAppendingString: @"0."];
         [self refreshPreview];
         return;
@@ -299,20 +288,20 @@
     [self refreshPreview];
 }
 
-- (void)appendOperator: (OFString *nillable)operatorText
+- (void)appendOperator: (OFString *nonnil)operatorText
 {
-    if (operatorText == nilptr or operatorText.length != 1)
+    if (operatorText.length != 1)
         @throw [OFInvalidArgumentException exception];
 
-    [self startFreshExpressionIfNeededForToken: $assert_nonnil(operatorText)];
+    [self startFreshExpressionIfNeededForToken: operatorText];
 
     if (_expression.length == 0) {
         if ([operatorText isEqual: @"-"])
             _expression = @"-";
         else if (_hasLastAnswer)
-            _expression = [[self lastAnswerDisplayText] stringByAppendingString: $assert_nonnil(operatorText)];
+            _expression = [[self lastAnswerDisplayText] stringByAppendingString: operatorText];
         else
-            _expression = [@"0" stringByAppendingString: $assert_nonnil(operatorText)];
+            _expression = [@"0" stringByAppendingString: operatorText];
 
         [self refreshPreview];
         return;
@@ -320,7 +309,7 @@
 
     if ([self expressionEndsWithOperator]) {
         _expression = [_expression substringToIndex: _expression.length - 1];
-        _expression = [_expression stringByAppendingString: $assert_nonnil(operatorText)];
+        _expression = [_expression stringByAppendingString: operatorText];
         [self refreshPreview];
         return;
     }
@@ -328,7 +317,7 @@
     if ([self expressionEndsWithUnaryBoundary] and not [operatorText isEqual: @"-"])
         return;
 
-    _expression = [_expression stringByAppendingString: $assert_nonnil(operatorText)];
+    _expression = [_expression stringByAppendingString: operatorText];
     [self refreshPreview];
 }
 
@@ -345,12 +334,12 @@
     [self refreshPreview];
 }
 
-- (void)appendConstantNamed: (OFString *nillable)constantName
+- (void)appendConstantNamed: (OFString *nonnil)constantName
 {
-    if (constantName == nilptr or constantName.length == 0)
+    if (constantName.length == 0)
         @throw [OFInvalidArgumentException exception];
 
-    [self appendAtomToken: $assert_nonnil(constantName)];
+    [self appendAtomToken: constantName];
     [self refreshPreview];
 }
 
@@ -371,29 +360,29 @@
     [self refreshPreview];
 }
 
-- (void)applyFunctionNamed: (OFString *nillable)functionName
+- (void)applyFunctionNamed: (OFString *nonnil)functionName
 {
     OFString *valueToken;
 
-    if (functionName == nilptr or functionName.length == 0)
+    if (functionName.length == 0)
         @throw [OFInvalidArgumentException exception];
 
-    [self startFreshExpressionIfNeededForToken: $assert_nonnil(functionName)];
+    [self startFreshExpressionIfNeededForToken: functionName];
 
     if (_expression.length == 0) {
-        _expression = [OFString stringWithFormat: @"%@(", $assert_nonnil(functionName)];
+        _expression = [OFString stringWithFormat: @"%@(", functionName];
         [self refreshPreview];
         return;
     }
 
     if ([self expressionEndsWithUnaryBoundary]) {
-        _expression = [_expression stringByAppendingString: [OFString stringWithFormat: @"%@(", $assert_nonnil(functionName)]];
+        _expression = [_expression stringByAppendingString: [OFString stringWithFormat: @"%@(", functionName]];
         [self refreshPreview];
         return;
     }
 
     valueToken = [_expression copy];
-    _expression = [OFString stringWithFormat: @"%@(%@)", $assert_nonnil(functionName), valueToken];
+    _expression = [OFString stringWithFormat: @"%@(%@)", functionName, valueToken];
     [self refreshPreview];
 }
 

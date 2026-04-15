@@ -12,7 +12,7 @@
 
 @property(readonly, nonatomic) AUIStateBinding *binding;
 
-- (instancetype)initWithOwner: (AUIViewComponent *nillable)owner initialValue: (id nillable)initialValue [[designated_initailiser]];
+- (instancetype)initWithOwner: (AUIViewComponent *nonnil)owner initialValue: (id nillable)initialValue [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -72,11 +72,8 @@
         [_owner setNeedsViewUpdate];
 }
 
-- (void)updateValueUsingBlock: (id _Nullable (^)(id nillable currentValue))updateBlock
+- (void)updateValueUsingBlock: (id _Nullable (^nonnil)(id nillable currentValue))updateBlock
 {
-    if (updateBlock == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self.value = updateBlock(_value);
 }
 
@@ -89,11 +86,8 @@
     AUIStateBinding *_binding;
 }
 
-- (instancetype)initWithOwner: (AUIViewComponent *nillable)owner initialValue: (id nillable)initialValue
+- (instancetype)initWithOwner: (AUIViewComponent *nonnil)owner initialValue: (id nillable)initialValue
 {
-    if (owner == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
     _binding = [[AUIStateBinding alloc] initWithOwner: owner initialValue: initialValue];
     return self;
@@ -115,15 +109,12 @@
     OFString *_componentKey;
 }
 
-- (instancetype)initWithChildViewComponent: (AUIViewComponent *nillable)childViewComponent
-                              componentKey: (OFString *nillable)componentKey
+- (instancetype)initWithChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
+                              componentKey: (OFString *nonnil)componentKey
 {
-    if (childViewComponent == nilptr or componentKey == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super initWithNodeFamily: AUIViewNodeFamilyFragment stableKey: componentKey];
-    _childViewComponent = $assert_nonnil(childViewComponent);
-    _componentKey = [$assert_nonnil(componentKey) copy];
+    _childViewComponent = childViewComponent;
+    _componentKey = [componentKey copy];
     return self;
 }
 
@@ -287,46 +278,44 @@
     return $assert_nonnil(context);
 }
 
-- (AUIViewNode *)renderChildViewComponent: (AUIViewComponent *nillable)childViewComponent
-                                      key: (OFString *nillable)key
+- (AUIViewNode *)renderChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
+                                      key: (OFString *nonnil)key
 {
     AUIViewComponent *existingChildViewComponent;
 
-    if (childViewComponent == nilptr or key == nilptr)
-        @throw [OFInvalidArgumentException exception];
     if (not _isRenderingViewNode)
         @throw [[AUIRenderException alloc] initWithReason: @"Child view components can only be rendered during -renderViewNode"];
     if (_renderedChildComponentKeys == nilptr)
         @throw [[AUIRenderException alloc] initWithReason: @"Internal child component tracking is unavailable"];
-    if ([$assert_nonnil(key) length] == 0)
+    if (key.length == 0)
         @throw [[AUIRenderException alloc] initWithReason: @"Child view component keys must not be empty"];
-    if ([_renderedChildComponentKeys containsObject: $assert_nonnil(key)])
+    if ([_renderedChildComponentKeys containsObject: key])
         @throw [[AUIRenderException alloc] initWithReason: @"Sibling child view components must use unique keys"];
 
-    [_renderedChildComponentKeys addObject: $assert_nonnil(key)];
-    existingChildViewComponent = _childViewComponentsByKey[$assert_nonnil(key)];
+    [_renderedChildComponentKeys addObject: key];
+    existingChildViewComponent = _childViewComponentsByKey[key];
 
-    if (existingChildViewComponent != nilptr and existingChildViewComponent != $assert_nonnil(childViewComponent)) {
+    if (existingChildViewComponent != nilptr and existingChildViewComponent != childViewComponent) {
         [existingChildViewComponent _unmountRecursively];
         [existingChildViewComponent _detachFromApplication];
-        [_childViewComponentsByKey removeObjectForKey: $assert_nonnil(key)];
+        [_childViewComponentsByKey removeObjectForKey: key];
         existingChildViewComponent = nilptr;
     }
 
     if (existingChildViewComponent == nilptr) {
-        if ($assert_nonnil(childViewComponent).parentViewComponent != nilptr and childViewComponent.parentViewComponent != self)
+        if (childViewComponent.parentViewComponent != nilptr and childViewComponent.parentViewComponent != self)
             @throw [[AUIRenderException alloc] initWithReason: @"A child view component is already attached to a different parent"];
         if (_application != nilptr and childViewComponent.application != nilptr and childViewComponent.application != _application)
             @throw [[AUIRenderException alloc] initWithReason: @"A child view component is already attached to a different application"];
 
         [childViewComponent _attachToApplication: _application parentViewComponent: self taskGroup: _mountedTaskGroup];
-        [childViewComponent _ensureMountedInTaskGroup: _mountedTaskGroup];
-        _childViewComponentsByKey[$assert_nonnil(key)] = $assert_nonnil(childViewComponent);
-        existingChildViewComponent = $assert_nonnil(childViewComponent);
+        [childViewComponent _ensureMountedInTaskGroup: $assert_nonnil(_mountedTaskGroup)];
+        _childViewComponentsByKey[key] = childViewComponent;
+        existingChildViewComponent = childViewComponent;
     }
 
     return [[AUIRetainedChildViewComponentNode alloc] initWithChildViewComponent: $assert_nonnil(existingChildViewComponent)
-                                                                    componentKey: $assert_nonnil(key)];
+                                                                    componentKey: key];
 }
 
 - (void)_attachToApplication: (AUIApplication *nillable)application
@@ -354,12 +343,10 @@
     _mountedTaskGroup = nilptr;
 }
 
-- (void)_ensureMountedInTaskGroup: (AsyncTaskGroup *nillable)taskGroup
+- (void)_ensureMountedInTaskGroup: (AsyncTaskGroup *nonnil)taskGroup
 {
     if (_isMounted)
         return;
-    if (taskGroup == nilptr)
-        @throw [OFInvalidArgumentException exception];
 
     _mountedTaskGroup = taskGroup;
     _isMounted = true;
@@ -430,15 +417,12 @@
     return [_hookSlots objectAtIndex: index];
 }
 
-- (void)_replaceHookSlot: (AUIViewHookSlot *nillable)slot atIndex: (size_t)index
+- (void)_replaceHookSlot: (AUIViewHookSlot *nonnil)slot atIndex: (size_t)index
 {
-    if (slot == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     if (index < _hookSlots.count)
-        [_hookSlots replaceObjectAtIndex: index withObject: $assert_nonnil(slot)];
+        [_hookSlots replaceObjectAtIndex: index withObject: slot];
     else
-        [_hookSlots addObject: $assert_nonnil(slot)];
+        [_hookSlots addObject: slot];
 }
 
 - (void)_cleanupHookSlot: (AUIViewHookSlot *nillable)slot

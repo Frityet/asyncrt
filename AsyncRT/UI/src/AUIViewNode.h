@@ -54,7 +54,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;
 
-+ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nillable)children;
++ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -69,7 +69,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 + (instancetype)boxNodeWithKey: (OFString *nillable)stableKey
                       boxProps: (AUIBoxProps)boxProps
         interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
-                      children: (OFArray<id<AUIRenderable>> *nillable)children;
+                      children: (OFArray<id<AUIRenderable>> *nonnil)children;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -80,7 +80,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 @property(readonly, copy, nonatomic) OFString *text;
 @property(readonly, nonatomic) AUITextStyle textStyle;
 
-+ (instancetype)textNodeWithText: (OFString *nillable)text style: (AUITextStyle)textStyle;
++ (instancetype)textNodeWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -103,7 +103,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 + (instancetype)editableTextNodeWithKey: (OFString *nillable)stableKey
                                    text: (OFString *nillable)text
-                            placeholder: (OFString *nillable)placeholder
+                            placeholder: (OFString *nonnil)placeholder
                                   style: (AUITextStyle)textStyle
                                  colors: (AUITextInputColors)colors
                                  layout: (AUILayout)layout

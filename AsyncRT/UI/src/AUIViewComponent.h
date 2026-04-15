@@ -17,7 +17,7 @@ typedef AUIViewEffectCleanupHandler _Nullable (^AUIViewEffectHandler)(void);
 @property(readonly, nonatomic) T nillable value;
 
 - (void)setValue: (T nillable)value;
-- (void)updateValueUsingBlock: (T _Nullable (^)(T nillable currentValue))updateBlock;
+- (void)updateValueUsingBlock: (T _Nullable (^nonnil)(T nillable currentValue))updateBlock;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -41,8 +41,8 @@ typedef AUIViewEffectCleanupHandler _Nullable (^AUIViewEffectHandler)(void);
                                          name: (OFString *nillable)name
                                    launchTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock;
 - (AUIRenderContext *)useRenderContext;
-- (AUIViewNode *)renderChildViewComponent: (AUIViewComponent *nillable)childViewComponent
-                                      key: (OFString *nillable)key;
+- (AUIViewNode *)renderChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
+                                      key: (OFString *nonnil)key;
 
 - (instancetype)init [[designated_initailiser]];
 

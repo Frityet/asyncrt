@@ -7,16 +7,16 @@
 [[subclassing_restricted, direct_members]]
 @interface AUITextEditingController : OFObject
 
-- (AUITextEditingState *)editingStateForIdentifier: (OFString *nillable)identifier
+- (AUITextEditingState *)editingStateForIdentifier: (OFString *nonnil)identifier
                                         textLength: (size_t)textLength;
 - (OFString *)displayStringForText: (OFString *nillable)text
                         identifier: (OFString *nillable)identifier
                          isSecure: (bool)isSecure
                            focused: (bool)isFocused;
-- (bool)applyInputState: (AUIInputState *nillable)inputState
-           toRegistration: (AUIInteractionRegistration *nillable)registration
-           clipboardText: (OFString *nillable (^nillable)(void))clipboardTextProvider
-     setClipboardText: (void (^nillable)(OFString *nillable text))clipboardTextSetter;
+- (bool)applyInputState: (AUIInputState *nonnil)inputState
+           toRegistration: (AUIInteractionRegistration *nonnil)registration
+           clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
+     setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter;
 - (void)retainEditingStatesForIdentifiers: (OFSet<OFString *> *)identifiers;
 - (void)resetState;
 

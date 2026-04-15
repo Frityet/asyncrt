@@ -11,10 +11,10 @@ typedef enum CalculatorAngleMode {
 
 @namespace(CalculatorEvaluator)
 
-+ (bool)evaluateExpression: (OFString *nillable)expression
++ (bool)evaluateExpression: (OFString *nonnil)expression
                   angleMode: (CalculatorAngleMode)angleMode
                  lastAnswer: (double)lastAnswer
-                     result: (double *nillable)result
+                     result: (double *nonnil)result
                       error: (OFString *nillable *_Nullable)error;
 
 @end

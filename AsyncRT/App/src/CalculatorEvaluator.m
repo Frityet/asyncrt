@@ -515,26 +515,18 @@
 
 @namespace_implementation(CalculatorEvaluator)
 
-+ (bool)evaluateExpression: (OFString *nillable)expression
++ (bool)evaluateExpression: (OFString *nonnil)expression
                  angleMode: (CalculatorAngleMode)angleMode
                 lastAnswer: (double)lastAnswer
-                    result: (double *nillable)result
+                    result: (double *nonnil)result
                      error: (OFString *nillable *)error
 {
     CalculatorParser *parser;
 
-    if (expression == nilptr) {
-        if (error != nullptr)
-            *error = @"Enter an expression.";
-        return false;
-    }
-    if (result == nullptr)
-        @throw [OFInvalidArgumentException exception];
-
-    parser = [[CalculatorParser alloc] initWithExpression: $assert_nonnil(expression)
+    parser = [[CalculatorParser alloc] initWithExpression: expression
                                                        angleMode: angleMode
                                                       lastAnswer: lastAnswer];
-    return [parser parseResult: $assert_nonnil(result) error: error];
+    return [parser parseResult: result error: error];
 }
 
 @end

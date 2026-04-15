@@ -23,10 +23,10 @@ typedef struct AUISize {
 @property(readonly, nonatomic) OFTimeInterval elapsedTime;
 
 + (AUIRenderContext *nillable)currentContext;
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
-                             window: (AUIWindow *nillable)window
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
+                             window: (AUIWindow *nonnil)window
                        viewportSize: (AUISize)viewportSize
-                          frameDate: (OFDate *nillable)frameDate
+                          frameDate: (OFDate *nonnil)frameDate
                         elapsedTime: (OFTimeInterval)elapsedTime [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 

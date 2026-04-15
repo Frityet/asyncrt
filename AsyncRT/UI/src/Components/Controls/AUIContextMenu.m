@@ -8,18 +8,15 @@
 }
 
 
-+ (instancetype)items: (OFArray<AUIContextMenuItem *> *nillable)items
++ (instancetype)items: (OFArray<AUIContextMenuItem *> *nonnil)items
 {
     return [[self alloc] initWithItems: items];
 }
 
-- (instancetype)initWithItems: (OFArray<AUIContextMenuItem *> *nillable)items
+- (instancetype)initWithItems: (OFArray<AUIContextMenuItem *> *nonnil)items
 {
-    if (items == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
-    _items = [$assert_nonnil(items) copy];
+    _items = [items copy];
     return self;
 }
 

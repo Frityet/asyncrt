@@ -6,7 +6,7 @@
 
 static Coroutine<OFNumber *> *fibonacci(long base)
 {
-    return [Coroutine withBlock: ^id(Coroutine<OFNumber *> *co) {
+    return [Coroutine withBlock: ^(Coroutine<OFNumber *> *co) {
         long a = 0, b = 1;
 
         for (long i = 0; i < base; i++) {
@@ -17,11 +17,19 @@ static Coroutine<OFNumber *> *fibonacci(long base)
         }
 
         [co return];
+        return nilptr;
     }];
 }
 
 [[subclassing_restricted]]
 @interface App : AUIApplication @end
+
+static bool is_tagged(id obj)
+{
+    auto ptr = (uintptr_t)obj;
+
+    return (ptr & 1) == 1;
+}
 
 @implementation App
 
@@ -38,6 +46,14 @@ static Coroutine<OFNumber *> *fibonacci(long base)
          autoResizeToRootComponent: false
                scaleWithWindowSize: true
                       contentScale: 1];
+}
+
+- (id)applicationDidFinishLaunchingAsync:(OFNotification *)notification taskGroup:(AsyncTaskGroup *)taskGroup
+{
+    for (OFNumber *num in fibonacci(10)) {
+        OFLog(@"%@ is tagged?: %@ (ptr: %p)", num, @(is_tagged(num)), num);
+    }
+    return [super applicationDidFinishLaunchingAsync: notification taskGroup: taskGroup];
 }
 
 @end

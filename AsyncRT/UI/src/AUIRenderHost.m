@@ -5,8 +5,8 @@
 
 @namespace(AUIRenderHostSupport)
 
-+ (OFString *)childIdentifierForRenderable: (id nillable)renderable
-                          parentIdentifier: (OFString *nillable)parentIdentifier
++ (OFString *)childIdentifierForRenderable: (id nonnil)renderable
+                          parentIdentifier: (OFString *nonnil)parentIdentifier
                                      index: (size_t)index;
 + (OFArray<id<AUIRenderable>> *)childrenOrEmpty: (OFArray<id<AUIRenderable>> *nillable)children;
 + (AUIColor)interactiveBackgroundWithFallback: (AUIColor)fallbackColor
@@ -19,14 +19,11 @@
 
 @namespace_implementation(AUIRenderHostSupport)
 
-+ (OFString *)childIdentifierForRenderable: (id nillable)renderable
-                          parentIdentifier: (OFString *nillable)parentIdentifier
++ (OFString *)childIdentifierForRenderable: (id nonnil)renderable
+                          parentIdentifier: (OFString *nonnil)parentIdentifier
                                      index: (size_t)index
 {
     OFString *token = nilptr;
-
-    if (renderable == nilptr or parentIdentifier == nilptr)
-        @throw [OFInvalidArgumentException exception];
 
     if ([renderable isKindOfClass: AUIRetainedChildViewComponentNode.class])
         token = [OFString stringWithFormat: @"component:%@", ((AUIRetainedChildViewComponentNode *)renderable).componentKey];
@@ -70,32 +67,26 @@
 
 [[direct_members]]
 @implementation AUIRenderHost {
-    AUIApplication *nillable _application;
+    AUIApplication *_application;
     AUIViewComponent *nillable _rootViewComponent;
     OFMutableArray<void (^)(void)> *_postRenderEffects;
 }
 
-- (instancetype)initWithApplication: (AUIApplication *nillable)application
+- (instancetype)initWithApplication: (AUIApplication *nonnil)application
 {
-    if (application == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
-    _application = $assert_nonnil(application);
+    _application = application;
     _postRenderEffects = [OFMutableArray array];
     return self;
 }
 
-- (void)attachRootViewComponent: (AUIViewComponent *nillable)rootViewComponent
-                      taskGroup: (AsyncTaskGroup *nillable)taskGroup
+- (void)attachRootViewComponent: (AUIViewComponent *nonnil)rootViewComponent
+                      taskGroup: (AsyncTaskGroup *nonnil)taskGroup
 {
-    if (rootViewComponent == nilptr or taskGroup == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     [self detachRootViewComponent];
-    _rootViewComponent = $assert_nonnil(rootViewComponent);
-    [_rootViewComponent _attachToApplication: _application parentViewComponent: nilptr taskGroup: $assert_nonnil(taskGroup)];
-    [_rootViewComponent _ensureMountedInTaskGroup: $assert_nonnil(taskGroup)];
+    _rootViewComponent = rootViewComponent;
+    [_rootViewComponent _attachToApplication: _application parentViewComponent: nilptr taskGroup: taskGroup];
+    [_rootViewComponent _ensureMountedInTaskGroup: taskGroup];
 }
 
 - (void)detachRootViewComponent
@@ -119,24 +110,21 @@
         [_rootViewComponent _attachToApplication: _application parentViewComponent: nilptr taskGroup: nilptr];
 }
 
-- (void)enqueuePostRenderEffect: (void (^nillable)(void))effectBlock
+- (void)enqueuePostRenderEffect: (void (^nonnil)(void))effectBlock
 {
-    if (effectBlock == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    [_postRenderEffects addObject: $assert_nonnil([effectBlock copy])];
+    [_postRenderEffects addObject: [effectBlock copy]];
 }
 
 - (Clay_RenderCommandArray)buildRenderCommandsWithViewportSize: (AUISize)viewportSize
                                                      deltaTime: (float)deltaTime
-                                                    inputState: (AUIInputState *nillable)inputState
-                                                        window: (AUIWindow *nillable)window
-                                         interactionController: (AUIInteractionController *nillable)interactionController
-                                         textEditingController: (AUITextEditingController *nillable)textEditingController
-                                                 clipboardText: (OFString *nillable (^nillable)(void))clipboardTextProvider
-                                           setClipboardText: (void (^nillable)(OFString *nillable text))clipboardTextSetter
-                                                cursorSetter: (void (^nillable)(AUICursorStyle cursorStyle))cursorSetter
-                                           renderRequester: (void (^nillable)(void))renderRequester
+                                                    inputState: (AUIInputState *nonnil)inputState
+                                                        window: (AUIWindow *nonnil)window
+                                         interactionController: (AUIInteractionController *nonnil)interactionController
+                                         textEditingController: (AUITextEditingController *nonnil)textEditingController
+                                                 clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
+                                           setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter
+                                                cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter
+                                           renderRequester: (void (^nonnil)(void))renderRequester
 {
     AUIRenderContext *context;
     Clay_RenderCommandArray renderCommands;
@@ -156,14 +144,10 @@
 
     if (_rootViewComponent == nilptr)
         @throw [[AUIRenderException alloc] initWithReason: @"Cannot render without a root view component"];
-    if (inputState == nilptr or window == nilptr or interactionController == nilptr or textEditingController == nilptr or
-        clipboardTextProvider == nilptr or clipboardTextSetter == nilptr or cursorSetter == nilptr or renderRequester == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
-    safeInputState = $assert_nonnil(inputState);
-    safeWindow = $assert_nonnil(window);
-    safeInteractionController = $assert_nonnil(interactionController);
-    safeTextEditingController = $assert_nonnil(textEditingController);
+    safeInputState = inputState;
+    safeWindow = window;
+    safeInteractionController = interactionController;
+    safeTextEditingController = textEditingController;
     safeClipboardTextProvider = clipboardTextProvider;
     safeClipboardTextSetter = clipboardTextSetter;
     safeCursorSetter = cursorSetter;
@@ -227,27 +211,22 @@
     return renderCommands;
 }
 
-- (void)_renderRenderable: (id nillable)renderable
-                identifier: (OFString *nillable)identifier
+- (void)_renderRenderable: (id nonnil)renderable
+                identifier: (OFString *nonnil)identifier
                contextMenu: (AUIContextMenu *nillable)contextMenu
               application: (AUIApplication *nillable)application
      interactionController: (AUIInteractionController *)interactionController
      textEditingController: (AUITextEditingController *)textEditingController
 {
     id renderableObject;
-    OFString *safeIdentifier;
-
-    if (renderable == nilptr or identifier == nilptr)
-        @throw [OFInvalidArgumentException exception];
 
     renderableObject = renderable;
-    safeIdentifier = $assert_nonnil(identifier);
 
     if ([renderableObject isKindOfClass: AUIRetainedChildViewComponentNode.class]) {
         AUIRetainedChildViewComponentNode *childNode = (AUIRetainedChildViewComponentNode *)renderableObject;
 
         [self _renderRenderable: [childNode.childViewComponent _resolvedRenderedViewNode]
-                     identifier: safeIdentifier
+                     identifier: identifier
                     contextMenu: contextMenu
                     application: application
            interactionController: interactionController
@@ -257,7 +236,7 @@
 
     if ([renderableObject isKindOfClass: AUIViewFragmentNode.class]) {
         [self _renderChildren: ((AUIViewFragmentNode *)renderableObject).children
-              parentIdentifier: safeIdentifier
+              parentIdentifier: identifier
                    contextMenu: contextMenu
                    application: application
           interactionController: interactionController
@@ -271,12 +250,12 @@
         AUIInteractionRegistration *nillable registration = nilptr;
         AUIColor backgroundColor = [AUIRenderHostSupport interactiveBackgroundWithFallback: boxNode.boxProps.backgroundColor
                                                                               configuration: configuration
-                                                                                  identifier: safeIdentifier
+                                                                                  identifier: identifier
                                                                     interactionController: interactionController];
 
         if (configuration != nilptr or contextMenu != nilptr) {
-            registration = [AUIInteractionRegistration identifier: safeIdentifier
-                                                         elementID: [AUIClay elementIDFromString: safeIdentifier]];
+            registration = [AUIInteractionRegistration identifier: identifier
+                                                         elementID: [AUIClay elementIDFromString: identifier]];
             registration.isEnabled = (configuration != nilptr ? configuration.isEnabled : true);
             registration.isFocusable = (configuration != nilptr ? configuration.isFocusable : false);
             registration.cursorStyle = (configuration != nilptr ? configuration.cursorStyle : AUICursorStyleDefault);
@@ -287,7 +266,7 @@
 
         [self _renderBoxProps: boxNode.boxProps
                       children: boxNode.children
-                    identifier: safeIdentifier
+                    identifier: identifier
            backgroundOverride: backgroundColor
                    contextMenu: contextMenu
         interactionRegistration: registration
@@ -305,9 +284,9 @@
 
     if ([renderableObject isKindOfClass: AUIViewEditableTextNode.class]) {
         AUIViewEditableTextNode *textNode = (AUIViewEditableTextNode *)renderableObject;
-        AUIInteractionRegistration *registration = [AUIInteractionRegistration identifier: safeIdentifier
-                                                                             elementID: [AUIClay elementIDFromString: safeIdentifier]];
-        bool focused = [interactionController isIdentifierFocused: safeIdentifier];
+        AUIInteractionRegistration *registration = [AUIInteractionRegistration identifier: identifier
+                                                                             elementID: [AUIClay elementIDFromString: identifier]];
+        bool focused = [interactionController isIdentifierFocused: identifier];
         AUIColor backgroundColor = (textNode.isEnabled ? textNode.colors.background : textNode.colors.disabledBackground);
         AUIColor borderColor = (textNode.isEnabled ? textNode.colors.border : textNode.colors.disabledBorder);
         AUITextStyle textStyle = textNode.textStyle;
@@ -317,7 +296,7 @@
             borderColor = textNode.colors.focusedBorder;
         textStyle.color = (textNode.isEnabled ? textNode.colors.text : textNode.colors.disabledText);
         displayText = [textEditingController displayStringForText: textNode.text
-                                                       identifier: safeIdentifier
+                                                       identifier: identifier
                                                         isSecure: textNode.isSecure
                                                           focused: focused];
         if (displayText.length == 0 and not focused)
@@ -350,7 +329,7 @@
             [AUIViewTextNode textNodeWithText: (displayText.length > 0 ? displayText : textNode.placeholder)
                                          style: textStyle]
         ]
-                    identifier: safeIdentifier
+                    identifier: identifier
            backgroundOverride: backgroundColor
                    contextMenu: contextMenu
         interactionRegistration: registration
@@ -364,7 +343,7 @@
 }
 
 - (void)_renderChildren: (OFArray<id<AUIRenderable>> *nillable)children
-         parentIdentifier: (OFString *nillable)parentIdentifier
+         parentIdentifier: (OFString *nonnil)parentIdentifier
               contextMenu: (AUIContextMenu *nillable)contextMenu
               application: (AUIApplication *nillable)application
      interactionController: (AUIInteractionController *)interactionController
@@ -391,7 +370,7 @@
 
 - (void)_renderBoxProps: (AUIBoxProps)boxProps
                children: (OFArray<id<AUIRenderable>> *nillable)children
-             identifier: (OFString *nillable)identifier
+             identifier: (OFString *nonnil)identifier
     backgroundOverride: (AUIColor)backgroundOverride
             contextMenu: (AUIContextMenu *nillable)contextMenu
  interactionRegistration: (AUIInteractionRegistration *nillable)interactionRegistration
@@ -399,8 +378,7 @@
    interactionController: (AUIInteractionController *)interactionController
    textEditingController: (AUITextEditingController *)textEditingController
 {
-    OFString *safeIdentifier = $assert_nonnil(identifier);
-    Clay_ElementId elementID = [AUIClay elementIDFromString: safeIdentifier];
+    Clay_ElementId elementID = [AUIClay elementIDFromString: identifier];
     AUIBoxProps effectiveBoxProps = boxProps;
 
     (void)application;
@@ -411,7 +389,7 @@
             [interactionController registerInteraction: $assert_nonnil(interactionRegistration)];
 
         [self _renderChildren: children
-              parentIdentifier: safeIdentifier
+              parentIdentifier: identifier
                    contextMenu: contextMenu
                    application: application
           interactionController: interactionController

@@ -228,18 +228,15 @@
     void (^nillable _submitHandler)(OFString *text);
 }
 
-+ (instancetype)identifier: (OFString *nillable)identifier
++ (instancetype)identifier: (OFString *nonnil)identifier
                   elementID: (Clay_ElementId)elementID
 {
     return [[self alloc] initWithIdentifier: identifier elementID: elementID];
 }
 
-- (instancetype)initWithIdentifier: (OFString *nillable)identifier
+- (instancetype)initWithIdentifier: (OFString *nonnil)identifier
                          elementID: (Clay_ElementId)elementID
 {
-    if (identifier == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     self = [super init];
     _identifier = [identifier copy];
     _elementID = elementID;
