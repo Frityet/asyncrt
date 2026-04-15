@@ -42,3 +42,37 @@ jobs:
 
       - name: Test
         run: xmake test
+
+  build-windows-msys2:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSYS2 (MINGW64 + clang)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-clang
+            mingw-w64-x86_64-lld
+
+      - name: Set up xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+
+      - name: Configure (debug)
+        run: xmake config --mode=debug --toolchain=clang
+
+      - name: Build
+        run: xmake -v
+
+      - name: Configure (test)
+        run: xmake config --mode=test --toolchain=clang
+
+      - name: Test
+        run: xmake test
