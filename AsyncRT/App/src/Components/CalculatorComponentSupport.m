@@ -75,7 +75,7 @@
                                value: (OFString *nonnil)value
 {
     return [self boxWithKey: key
-                      props: [CalculatorTheme metricTileProps]
+                      props: CalculatorTheme.metricTileProps
                    children: @[
         [self text: label style: [CalculatorTheme metricLabelStyle]],
         [self text: value style: [CalculatorTheme metricValueStyle]]
@@ -85,7 +85,7 @@
 + (AUIViewBox *)historyTileWithKey: (OFString *nonnil)key
                                 children: (OFArray<id<AUIRenderable>> *nonnil)children
 {
-    return [self boxWithKey: key props: [CalculatorTheme historyTileProps] children: children];
+    return [self boxWithKey: key props: CalculatorTheme.historyTileProps children: children];
 }
 
 + (AUIViewBox *)badgeWithKey: (OFString *nonnil)key

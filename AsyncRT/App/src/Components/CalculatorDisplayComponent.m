@@ -20,8 +20,8 @@
 
 - (AUIView *)renderView
 {
-    AUIBoxProps panelProps = [CalculatorTheme displayPanelProps];
-    AUIBoxProps resultBoxProps = [CalculatorTheme metricTileProps];
+    AUIBoxProps panelProps = CalculatorTheme.displayPanelProps;
+    AUIBoxProps resultBoxProps = CalculatorTheme.metricTileProps;
 
     resultBoxProps.layout.padding = [AUI insetsAll: 18];
     resultBoxProps.layout.childGap = 8;
@@ -39,7 +39,7 @@
                                 style: [CalculatorTheme metricLabelStyle]]
             ]],
             [CalculatorViews rowWithKey: @"angle-buttons" gap: 8 children: @[
-                [CalculatorViews withKey: @"deg-button"
+                [CalculatorViews buttonWithKey: @"deg-button"
                                     title: @"DEG"
                                   variant: (_model.angleMode == CalculatorAngleModeDegrees ? AUIControlVariantPrimary : AUIControlVariantSecondary)
                                      size: AUIControlSizeSmall
@@ -49,7 +49,7 @@
                         [_model toggleAngleMode];
                     [self _refresh];
                 }],
-                [CalculatorViews withKey: @"rad-button"
+                [CalculatorViews buttonWithKey: @"rad-button"
                                     title: @"RAD"
                                   variant: (_model.angleMode == CalculatorAngleModeRadians ? AUIControlVariantPrimary : AUIControlVariantSecondary)
                                      size: AUIControlSizeSmall

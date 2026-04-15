@@ -20,7 +20,7 @@
 
 - (AUIView *)renderView
 {
-    AUIBoxProps panelProps = [CalculatorTheme sidebarPanelProps];
+    AUIBoxProps panelProps = CalculatorTheme.sidebarPanelProps;
     OFMutableArray<id<AUIRenderable>> *historyChildren = [OFMutableArray array];
 
     if (_model.history.count == 0) {
@@ -63,7 +63,7 @@
 
     return [AUIViewBox boxWithKey: @"sidebar-panel"
                          boxProps: panelProps
-           interactionConfiguration: nilptr
+         interactionConfiguration: nilptr
                          children: @[
         [CalculatorViews columnWithKey: @"sidebar-intro" gap: 4 children: @[
             [CalculatorViews text: @"Reference" style: CalculatorTheme.sectionTitleStyle],
@@ -83,7 +83,7 @@
             [CalculatorViews text: @"Two-argument helpers: pow(x, y), min(x, y), max(x, y), mod(x, y). Symbols: ans, pi, e, tau, rand()."
                             style: CalculatorTheme.historyExpressionStyle]
         ]],
-        [CalculatorViews dividerWithKey: @"sidebar-divider" color: [CalculatorTheme panelBorderColor]],
+        [CalculatorViews dividerWithKey: @"sidebar-divider" color: CalculatorTheme.panelBorderColor],
         [CalculatorViews text: @"History" style: CalculatorTheme.sectionTitleStyle],
         [CalculatorViews scrollColumnWithKey: @"history-scroll" children: historyChildren]
     ]];
