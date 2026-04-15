@@ -31,8 +31,14 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install llvm
 
-      - name: Configure
+      - name: Configure (debug)
         run: xmake config --mode=debug --toolchain=clang
 
       - name: Build
         run: xmake -v
+
+      - name: Configure (test)
+        run: xmake config --mode=test --toolchain=clang
+
+      - name: Test
+        run: xmake test
