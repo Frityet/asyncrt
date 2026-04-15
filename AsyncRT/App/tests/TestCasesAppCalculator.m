@@ -13,27 +13,47 @@
 
 - (void)test_calculator_evaluator_scientific_ops
 {
-    double result = 0.0;
-    OFString *nillable error = nilptr;
-
-    OTAssert(([CalculatorEvaluator evaluateExpression: @"sin(45)^2 + cos(45)^2"
-                                                                                     angleMode: CalculatorAngleModeDegrees
-                                                                                    lastAnswer: 0.0
-                                                                                        result: &result
-                                                                                         error: &error]), @"%@", (error ?: @"calculator evaluator should accept a trig identity"));
+    double result = [CalculatorEvaluator evaluateExpression: @"sin(45)^2 + cos(45)^2"
+                                                  angleMode: CalculatorAngleModeDegrees
+                                                 lastAnswer: 0.0];
     OTAssert((fabs(result - 1.0) < 1e-9), @"calculator evaluator should preserve sin^2 + cos^2 = 1 in degree mode");
 
-    OTAssert(([CalculatorEvaluator evaluateExpression: @"pow(2, 8) + max(3, 9) + mod(10, 4)"
-                                                                                     angleMode: CalculatorAngleModeRadians
-                                                                                    lastAnswer: 0.0
-                                                                                        result: &result
-                                                                                         error: &error]), @"%@", (error ?: @"calculator evaluator should support two-argument helper functions"));
+    result = [CalculatorEvaluator evaluateExpression: @"pow(2, 8) + max(3, 9) + mod(10, 4)"
+                                           angleMode: CalculatorAngleModeRadians
+                                          lastAnswer: 0.0];
     OTAssert((fabs(result - 267.0) < 1e-9), @"calculator evaluator should compute pow, max, and mod correctly");
+
+    result = [CalculatorEvaluator evaluateExpression: @"sin(pi / 2)"
+                                           angleMode: CalculatorAngleModeRadians
+                                          lastAnswer: 0.0];
+    OTAssert((fabs(result - 1.0) < 1e-9), @"calculator evaluator should not leak parser angle state between evaluations");
+
+    result = [CalculatorEvaluator evaluateExpression: @"cbrt(27)"
+                                           angleMode: CalculatorAngleModeRadians
+                                          lastAnswer: 0.0];
+    OTAssert((fabs(result - 3.0) < 1e-9), @"calculator evaluator should compute cbrt(x) correctly");
+
+    result = [CalculatorEvaluator evaluateExpression: @"ans + tau / pi"
+                                           angleMode: CalculatorAngleModeRadians
+                                          lastAnswer: 40.0];
+    OTAssert((fabs(result - 42.0) < 1e-9), @"calculator evaluator should resolve ans and tau via reflective constant lookup");
+
+    bool caughtTanDomain = false;
+
+    @try {
+        (void)[CalculatorEvaluator evaluateExpression: @"tan(90)"
+                                            angleMode: CalculatorAngleModeDegrees
+                                           lastAnswer: 0.0];
+    } @catch (CalculatorEvaluationException *exception) {
+        caughtTanDomain = [exception.reason isEqual: @"tan(x) is undefined for angles where cos(x) = 0."];
+    }
+
+    OTAssert((caughtTanDomain), @"calculator evaluator should explain tan-domain failures");
 }
 
 - (void)test_calculator_model_memory_and_history
 {
-    auto model = [CalculatorModel model];
+    auto model = [[CalculatorModel alloc] init];
 
     model.expressionFromText = @"pow(2, 10)";
     OTAssert(([model evaluate]), @"calculator model should evaluate pow(2, 10)");
@@ -57,7 +77,7 @@
 
 - (void)test_calculator_model_edge_cases
 {
-    auto model = [CalculatorModel model];
+    auto model = [[CalculatorModel alloc] init];
 
     OTAssert((not [model evaluate]), @"calculator model should reject evaluation when the expression is empty and there is no ANS");
     OTAssert((model.hasError), @"empty evaluation should mark the model as errored");

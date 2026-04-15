@@ -43,9 +43,9 @@ static bool is_tagged(id obj)
     return [AUIWindowOptions title: @"Scientific Calculator"
                               size: [AUI sizeWithWidth: 1360 height: 820]
                          resizable: true
-         autoResizeToRootComponent: false
+         autoResizeToRootComponent: true
                scaleWithWindowSize: true
-                      contentScale: 1];
+                      contentScale: 0.75];
 }
 
 - (id)applicationDidFinishLaunchingAsync:(OFNotification *)notification taskGroup:(AsyncTaskGroup *)taskGroup

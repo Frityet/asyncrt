@@ -451,21 +451,17 @@ static size_t const async_default_drain_batch_size = 64;
 
 - (void)_resumeTask: (Task *)task
 {
-    id coroutineObject;
     id yieldedObject = nilptr;
     id returnedObject = nilptr;
-    enum CoroutineStatus coroutineStatus;
-    Task *previousTask;
-    AsyncScheduler *previousScheduler;
-    AsyncTaskGroup *previousTaskGroup;
 
     if (task.isCompleted)
         return;
 
-    coroutineObject = [task _coroutineObject];
-    previousTask = async_current_task;
-    previousScheduler = async_current_scheduler;
-    previousTaskGroup = async_current_task_group;
+    id coroutineObject = [task _coroutineObject];
+    enum CoroutineStatus coroutineStatus = CoroutineStatus_READY;
+    Task *previousTask = async_current_task;
+    AsyncScheduler *previousScheduler = async_current_scheduler;
+    AsyncTaskGroup *previousTaskGroup = async_current_task_group;
     async_current_task = task;
     async_current_scheduler = self;
     async_current_task_group = [task _resumeTaskGroupContext];
@@ -630,14 +626,14 @@ static size_t const async_default_drain_batch_size = 64;
 
 - (AsyncSchedulerSnapshot *)snapshot
 {
-    OFArray<Task *> *activeTasks;
-    size_t queuedTaskCount;
-    size_t runningTaskCount;
-    uint64_t completedTaskCount;
-    uint64_t cancelledTaskCount;
     auto taskSnapshots = [OFMutableArray<AsyncTaskSnapshot *> array];
 
     [_lock lock];
+    OFArray<Task *> *activeTasks = nilptr;
+    size_t queuedTaskCount = 0;
+    size_t runningTaskCount = 0;
+    uint64_t completedTaskCount = 0;
+    uint64_t cancelledTaskCount = 0;
     @try {
         activeTasks = _activeTasks.allObjects;
         queuedTaskCount = (_readyRunnables.count - _readyRunnableHeadIndex);

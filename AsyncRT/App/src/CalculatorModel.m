@@ -81,37 +81,33 @@
     return [normalized copy];
 }
 
-- (bool)evaluateCurrentExpressionInto: (double *)value error: (OFString *nillable *)error
+- (double)evaluateCurrentExpression
 {
     return [CalculatorEvaluator evaluateExpression: _expression
                                          angleMode: _angleMode
-                                        lastAnswer: (_hasLastAnswer ? _lastAnswer : 0.0)
-                                            result: value
-                                             error: error];
+                                        lastAnswer: (_hasLastAnswer ? _lastAnswer : 0.0)];
 }
 
 - (void)refreshPreview
 {
-    double previewValue = 0.0;
-    OFString *nillable error = nilptr;
-
     if (_expression.length == 0) {
-        _resultText = [self lastAnswerDisplayText];
+        _resultText = self.lastAnswerDisplayText;
         [self setStatusText: (_hasLastAnswer
-            ? @"Editing is clear. ANS is still available for the next expression."
-            : @"Type an expression, use the keypad, or press rand() for a quick start.")
-                     hasError: false];
+                                ? @"Editing is clear. ANS is still available for the next expression."
+                                : @"Type an expression, use the keypad, or press rand() for a quick start.")
+                   hasError: false];
         return;
     }
 
-    if ([self evaluateCurrentExpressionInto: &previewValue error: &error]) {
+    @try {
+        const double previewValue = [self evaluateCurrentExpression];
         _resultText = [self formattedValue: previewValue];
         [self setStatusText: @"Live preview is valid. Press Evaluate to commit it to history." hasError: false];
         return;
+    } @catch (CalculatorEvaluationException *exception) {
+        _resultText = @"--";
+        [self setStatusText: exception.reason hasError: true];
     }
-
-    _resultText = @"--";
-    [self setStatusText: (error ?: @"Expression error.") hasError: true];
 }
 
 - (bool)expressionEndsWithOperator
@@ -153,12 +149,10 @@
 
 - (bool)expressionNeedsImplicitMultiplication
 {
-    OFUnichar character;
-
     if (_expression.length == 0)
         return false;
 
-    character = [_expression characterAtIndex: _expression.length - 1];
+    const OFUnichar character = [_expression characterAtIndex: _expression.length - 1];
     if ((character >= '0' and character <= '9') or character == '.' or character == ')' or character == '%' or character == '!')
         return true;
     if ((character >= 'A' and character <= 'Z') or (character >= 'a' and character <= 'z'))
@@ -168,12 +162,10 @@
 
 - (bool)tokenStartsFreshExpression: (OFString *)token
 {
-    OFUnichar character;
-
     if (token.length == 0)
         return false;
 
-    character = [token characterAtIndex: 0];
+    const OFUnichar character = [token characterAtIndex: 0];
     return ((character >= '0' and character <= '9')
         or (character >= 'A' and character <= 'Z')
         or (character >= 'a' and character <= 'z')
@@ -209,14 +201,14 @@
 
 - (bool)resolveValueForMemoryOperation: (double *)value
 {
-    OFString *nillable error = nilptr;
-
     if (_expression.length > 0) {
-        if ([self evaluateCurrentExpressionInto: value error: &error])
+        @try {
+            *value = [self evaluateCurrentExpression];
             return true;
-
-        [self setStatusText: (error ?: @"Expression error.") hasError: true];
-        return false;
+        } @catch (CalculatorEvaluationException *exception) {
+            [self setStatusText: exception.reason hasError: true];
+            return false;
+        }
     }
 
     if (_hasLastAnswer) {
@@ -251,9 +243,6 @@
 
 - (void)appendDecimalPoint
 {
-    size_t index;
-    OFUnichar trailingCharacter;
-
     [self startFreshExpressionIfNeededForToken: @"."];
 
     if (_expression.length == 0 or self.expressionEndsWithUnaryBoundary) {
@@ -262,8 +251,8 @@
         return;
     }
 
-    trailingCharacter = [_expression characterAtIndex: _expression.length - 1];
-    for (index = _expression.length; index > 0; index--) {
+    const OFUnichar trailingCharacter = [_expression characterAtIndex: _expression.length - 1];
+    for (size_t index = _expression.length; index > 0; index--) {
         OFUnichar character = [_expression characterAtIndex: index - 1];
 
         if (character == '.')
@@ -473,7 +462,6 @@
     double value = 0.0;
     OFString *expressionText;
     OFString *resultText;
-    OFString *nillable error = nilptr;
 
     if (_expression.length == 0) {
         if (_hasLastAnswer) {
@@ -488,9 +476,11 @@
     }
 
     expressionText = [_expression copy];
-    if (not [self evaluateCurrentExpressionInto: &value error: &error]) {
+    @try {
+        value = [self evaluateCurrentExpression];
+    } @catch (CalculatorEvaluationException *exception) {
         _resultText = @"--";
-        [self setStatusText: (error ?: @"Expression error.") hasError: true];
+        [self setStatusText: exception.reason hasError: true];
         return false;
     }
 

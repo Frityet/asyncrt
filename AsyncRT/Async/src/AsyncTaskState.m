@@ -810,9 +810,8 @@
 
 - (bool)_finishOnce
 {
-    bool shouldFinish;
-
     [_lock lock];
+    bool shouldFinish = false;
     @try {
         shouldFinish = (not _completed);
         if (shouldFinish)
@@ -1012,9 +1011,8 @@
 
 - (bool)_isFinished
 {
-    bool finished;
-
     [_lock lock];
+    bool finished = false;
     @try {
         finished = _finished;
     } @finally {
@@ -1141,9 +1139,8 @@
 
 - (bool)_isFinished
 {
-    bool finished;
-
     [_lock lock];
+    bool finished = false;
     @try {
         finished = _finished;
     } @finally {

@@ -111,17 +111,13 @@ typedef enum AUICoreGraphicsBorderSide {
                  letterSpacing: (uint16_t)letterSpacing
                   fontFamilies: (CFStringRef const *nillable)fontFamilies
 {
-    CTFontRef font;
-    CFMutableAttributedStringRef attributedString;
-    CFRange range;
-
     self = [super init];
-    font = [AUICoreGraphicsRenderSupport createFontInFamilies: fontFamilies
-                                                       fontID: fontID
-                                                         size: fontSize];
-    attributedString = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0);
+    CTFontRef font = [AUICoreGraphicsRenderSupport createFontInFamilies: fontFamilies
+                                                                fontID: fontID
+                                                                  size: fontSize];
+    CFMutableAttributedStringRef attributedString = CFAttributedStringCreateMutable(kCFAllocatorDefault, 0);
     CFAttributedStringReplaceString(attributedString, CFRangeMake(0, 0), string);
-    range = CFRangeMake(0, CFStringGetLength(string));
+    CFRange range = CFRangeMake(0, CFStringGetLength(string));
     CFAttributedStringSetAttribute(attributedString, range, kCTFontAttributeName, font);
 
     if (letterSpacing != 0) {
@@ -417,26 +413,23 @@ typedef enum AUICoreGraphicsBorderSide {
                  fontFamilies: (CFStringRef const *nillable)fontFamilies
 {
     CFStringRef nillable string = [self copyString: config->stringContents];
-    AUICoreGraphicsTextLayout *nillable layout;
-    CGFloat lineHeight;
-    double baselineY;
 
     if (string == nullptr)
         return;
 
-    layout = [self textLayoutForString: $assert_nonnil(string)
-                                fontID: config->fontId
-                              fontSize: config->fontSize
-                         letterSpacing: config->letterSpacing
-                             lineHeight: config->lineHeight
-                          fontFamilies: fontFamilies];
+    AUICoreGraphicsTextLayout *nillable layout = [self textLayoutForString: $assert_nonnil(string)
+                                                                    fontID: config->fontId
+                                                                  fontSize: config->fontSize
+                                                             letterSpacing: config->letterSpacing
+                                                                lineHeight: config->lineHeight
+                                                              fontFamilies: fontFamilies];
     if (layout == nilptr) {
         CFRelease(string);
         return;
     }
 
-    lineHeight = (config->lineHeight > 0 ? config->lineHeight : (layout.ascent + layout.descent + layout.leading));
-    baselineY = boundingBox.y + ((lineHeight - (layout.ascent + layout.descent)) / 2.0) + layout.ascent;
+    const CGFloat lineHeight = (config->lineHeight > 0 ? config->lineHeight : (layout.ascent + layout.descent + layout.leading));
+    const double baselineY = boundingBox.y + ((lineHeight - (layout.ascent + layout.descent)) / 2.0) + layout.ascent;
 
     CGContextSaveGState(context);
     CGContextTranslateCTM(context, 0.0, viewportSize.height);
@@ -456,16 +449,9 @@ typedef enum AUICoreGraphicsBorderSide {
                         config: (Clay_ImageRenderData *)config
                    boundingBox: (Clay_BoundingBox)boundingBox
 {
-    CGDataProviderRef nillable provider;
-    CGImageSourceRef nillable imageSource;
-    CGImageRef nillable image;
-    CGMutablePathRef clipPath;
-    double imageWidth;
-    double imageHeight;
-    double scale;
-    double scaledWidth;
-    double scaledHeight;
-    CGRect drawRect;
+    CGDataProviderRef nillable provider = nullptr;
+    CGImageSourceRef nillable imageSource = nullptr;
+    CGImageRef nillable image = nullptr;
 
     if (boundingBox.width <= 0.0 or boundingBox.height <= 0.0 or config->imageData == nullptr)
         return;
@@ -487,8 +473,8 @@ typedef enum AUICoreGraphicsBorderSide {
         return;
     }
 
-    imageWidth = CGImageGetWidth(image);
-    imageHeight = CGImageGetHeight(image);
+    const double imageWidth = CGImageGetWidth(image);
+    const double imageHeight = CGImageGetHeight(image);
     if (imageWidth <= 0.0 or imageHeight <= 0.0) {
         CGImageRelease(image);
         CFRelease(imageSource);
@@ -496,14 +482,14 @@ typedef enum AUICoreGraphicsBorderSide {
         return;
     }
 
-    scale = fmin(boundingBox.width / imageWidth, boundingBox.height / imageHeight);
-    scaledWidth = imageWidth * scale;
-    scaledHeight = imageHeight * scale;
-    drawRect = CGRectMake(boundingBox.x + (boundingBox.width - scaledWidth) / 2.0,
-                          boundingBox.y + (boundingBox.height - scaledHeight) / 2.0,
-                          scaledWidth,
-                          scaledHeight);
-    clipPath = [self createRoundedRectPathForBoundingBox: boundingBox radius: config->cornerRadius];
+    const double scale = fmin(boundingBox.width / imageWidth, boundingBox.height / imageHeight);
+    const double scaledWidth = imageWidth * scale;
+    const double scaledHeight = imageHeight * scale;
+    const CGRect drawRect = CGRectMake(boundingBox.x + (boundingBox.width - scaledWidth) / 2.0,
+                                       boundingBox.y + (boundingBox.height - scaledHeight) / 2.0,
+                                       scaledWidth,
+                                       scaledHeight);
+    CGMutablePathRef clipPath = [self createRoundedRectPathForBoundingBox: boundingBox radius: config->cornerRadius];
 
     CGContextSaveGState(context);
     CGContextAddPath(context, clipPath);

@@ -62,7 +62,6 @@
         [self setNeedsRender];
 
         while (_window.isOpen) {
-            OFTimeInterval pollInterval;
             bool didRender = false;
             Task<AsyncUnit *> *renderWakeTask = [self _renderWakeTask];
 
@@ -75,12 +74,9 @@
                 didRender = true;
             }
 
-            if (_inputState.isPrimaryButtonDown or _inputState.isSecondaryButtonDown)
-                pollInterval = (1.0 / 120.0);
-            else if (didRender)
-                pollInterval = (1.0 / 120.0);
-            else
-                pollInterval = (1.0 / 60.0);
+            const OFTimeInterval pollInterval = ((_inputState.isPrimaryButtonDown or _inputState.isSecondaryButtonDown or didRender)
+                ? (1.0 / 120.0)
+                : (1.0 / 60.0));
 
             if ([self _hasPendingRenderRequest])
                 continue;

@@ -25,10 +25,10 @@
 {
     OFString *token = nilptr;
 
-    if ([renderable isKindOfClass: AUIRetainedChildViewComponentNode.class])
-        token = [OFString stringWithFormat: @"component:%@", ((AUIRetainedChildViewComponentNode *)renderable).componentKey];
-    else if ([renderable isKindOfClass: AUIViewNode.class] and ((AUIViewNode *)renderable).stableKey != nilptr)
-        token = [OFString stringWithFormat: @"node:%@", $assert_nonnil(((AUIViewNode *)renderable).stableKey)];
+    if ([renderable isKindOfClass: AUIRetainedChildViewComponent.class])
+        token = [OFString stringWithFormat: @"component:%@", ((AUIRetainedChildViewComponent *)renderable).componentKey];
+    else if ([renderable isKindOfClass: AUIView.class] and ((AUIView *)renderable).stableKey != nilptr)
+        token = [OFString stringWithFormat: @"view:%@", $assert_nonnil(((AUIView *)renderable).stableKey)];
 
     if (token == nilptr)
         token = [OFString stringWithFormat: @"index:%zu", index];
@@ -126,39 +126,27 @@
                                                 cursorSetter: (void (^nonnil)(AUICursorStyle cursorStyle))cursorSetter
                                            renderRequester: (void (^nonnil)(void))renderRequester
 {
-    AUIRenderContext *context;
-    Clay_RenderCommandArray renderCommands;
     OFString *nillable clayError = nilptr;
-    OFDate *frameDate = OFDate.date;
-    OFTimeInterval elapsedTime = 0;
-    AUIViewNode *rootViewNode;
     OFString *rootIdentifier = @"root";
-    AUIInputState *safeInputState;
-    AUIWindow *safeWindow;
-    AUIInteractionController *safeInteractionController;
-    AUITextEditingController *safeTextEditingController;
-    OFString *nillable (^safeClipboardTextProvider)(void);
-    void (^safeClipboardTextSetter)(OFString *nillable text);
-    void (^safeCursorSetter)(AUICursorStyle cursorStyle);
-    void (^safeRenderRequester)(void);
 
     if (_rootViewComponent == nilptr)
         @throw [[AUIRenderException alloc] initWithReason: @"Cannot render without a root view component"];
-    safeInputState = inputState;
-    safeWindow = window;
-    safeInteractionController = interactionController;
-    safeTextEditingController = textEditingController;
-    safeClipboardTextProvider = clipboardTextProvider;
-    safeClipboardTextSetter = clipboardTextSetter;
-    safeCursorSetter = cursorSetter;
-    safeRenderRequester = renderRequester;
-
-    context = [[AUIRenderContext alloc]
+    AUIInputState *safeInputState = inputState;
+    AUIWindow *safeWindow = window;
+    AUIInteractionController *safeInteractionController = interactionController;
+    AUITextEditingController *safeTextEditingController = textEditingController;
+    OFString *nillable (^safeClipboardTextProvider)(void) = clipboardTextProvider;
+    void (^safeClipboardTextSetter)(OFString *nillable text) = clipboardTextSetter;
+    void (^safeCursorSetter)(AUICursorStyle cursorStyle) = cursorSetter;
+    void (^safeRenderRequester)(void) = renderRequester;
+    OFDate *frameDate = OFDate.date;
+    AUIRenderContext *context = [[AUIRenderContext alloc]
         initWithApplication: _application
                      window: safeWindow
                viewportSize: viewportSize
                   frameDate: frameDate
-                elapsedTime: elapsedTime];
+                elapsedTime: 0];
+    Clay_RenderCommandArray renderCommands = (Clay_RenderCommandArray){0};
 
     [_postRenderEffects removeAllObjects];
     [AUIClay clearError];
@@ -171,11 +159,11 @@
 
     @try {
         [AUIClay beginLayout];
-        rootViewNode = [_rootViewComponent _resolvedRenderedViewNode];
-        if (rootViewNode.stableKey != nilptr)
-            rootIdentifier = [AUIRenderHostSupport childIdentifierForRenderable: rootViewNode parentIdentifier: @"root" index: 0];
+        AUIView *rootView = [_rootViewComponent _resolvedRenderedView];
+        if (rootView.stableKey != nilptr)
+            rootIdentifier = [AUIRenderHostSupport childIdentifierForRenderable: rootView parentIdentifier: @"root" index: 0];
 
-        [self _renderRenderable: rootViewNode
+        [self _renderRenderable: rootView
                      identifier: rootIdentifier
                     contextMenu: nilptr
                     application: _application
@@ -218,14 +206,12 @@
      interactionController: (AUIInteractionController *)interactionController
      textEditingController: (AUITextEditingController *)textEditingController
 {
-    id renderableObject;
+    id renderableObject = renderable;
 
-    renderableObject = renderable;
+    if ([renderableObject isKindOfClass: AUIRetainedChildViewComponent.class]) {
+        AUIRetainedChildViewComponent *retainedChildViewComponent = (AUIRetainedChildViewComponent *)renderableObject;
 
-    if ([renderableObject isKindOfClass: AUIRetainedChildViewComponentNode.class]) {
-        AUIRetainedChildViewComponentNode *childNode = (AUIRetainedChildViewComponentNode *)renderableObject;
-
-        [self _renderRenderable: [childNode.childViewComponent _resolvedRenderedViewNode]
+        [self _renderRenderable: [retainedChildViewComponent.childViewComponent _resolvedRenderedView]
                      identifier: identifier
                     contextMenu: contextMenu
                     application: application
@@ -234,8 +220,8 @@
         return;
     }
 
-    if ([renderableObject isKindOfClass: AUIViewFragmentNode.class]) {
-        [self _renderChildren: ((AUIViewFragmentNode *)renderableObject).children
+    if ([renderableObject isKindOfClass: AUIViewFragment.class]) {
+        [self _renderChildren: ((AUIViewFragment *)renderableObject).children
               parentIdentifier: identifier
                    contextMenu: contextMenu
                    application: application
@@ -244,11 +230,11 @@
         return;
     }
 
-    if ([renderableObject isKindOfClass: AUIViewBoxNode.class]) {
-        AUIViewBoxNode *boxNode = (AUIViewBoxNode *)renderableObject;
-        AUIViewInteractionConfiguration *configuration = boxNode.interactionConfiguration;
+    if ([renderableObject isKindOfClass: AUIViewBox.class]) {
+        AUIViewBox *boxView = (AUIViewBox *)renderableObject;
+        AUIViewInteractionConfiguration *configuration = boxView.interactionConfiguration;
         AUIInteractionRegistration *nillable registration = nilptr;
-        AUIColor backgroundColor = [AUIRenderHostSupport interactiveBackgroundWithFallback: boxNode.boxProps.backgroundColor
+        AUIColor backgroundColor = [AUIRenderHostSupport interactiveBackgroundWithFallback: boxView.boxProps.backgroundColor
                                                                               configuration: configuration
                                                                                   identifier: identifier
                                                                     interactionController: interactionController];
@@ -264,8 +250,8 @@
                 registration.activateHandler = configuration.activationHandler;
         }
 
-        [self _renderBoxProps: boxNode.boxProps
-                      children: boxNode.children
+        [self _renderBoxProps: boxView.boxProps
+                      children: boxView.children
                     identifier: identifier
            backgroundOverride: backgroundColor
                    contextMenu: contextMenu
@@ -276,45 +262,45 @@
         return;
     }
 
-    if ([renderableObject isKindOfClass: AUIViewTextNode.class]) {
-        AUIViewTextNode *textNode = (AUIViewTextNode *)renderableObject;
-        [AUIRenderHostSupport renderText: textNode.text style: textNode.textStyle];
+    if ([renderableObject isKindOfClass: AUIViewText.class]) {
+        AUIViewText *textView = (AUIViewText *)renderableObject;
+        [AUIRenderHostSupport renderText: textView.text style: textView.textStyle];
         return;
     }
 
-    if ([renderableObject isKindOfClass: AUIViewEditableTextNode.class]) {
-        AUIViewEditableTextNode *textNode = (AUIViewEditableTextNode *)renderableObject;
+    if ([renderableObject isKindOfClass: AUIViewEditableText.class]) {
+        AUIViewEditableText *editableTextView = (AUIViewEditableText *)renderableObject;
         AUIInteractionRegistration *registration = [AUIInteractionRegistration identifier: identifier
                                                                              elementID: [AUIClay elementIDFromString: identifier]];
         bool focused = [interactionController isIdentifierFocused: identifier];
-        AUIColor backgroundColor = (textNode.isEnabled ? textNode.colors.background : textNode.colors.disabledBackground);
-        AUIColor borderColor = (textNode.isEnabled ? textNode.colors.border : textNode.colors.disabledBorder);
-        AUITextStyle textStyle = textNode.textStyle;
+        AUIColor backgroundColor = (editableTextView.isEnabled ? editableTextView.colors.background : editableTextView.colors.disabledBackground);
+        AUIColor borderColor = (editableTextView.isEnabled ? editableTextView.colors.border : editableTextView.colors.disabledBorder);
+        AUITextStyle textStyle = editableTextView.textStyle;
         OFString *displayText;
 
-        if (textNode.isEnabled and focused)
-            borderColor = textNode.colors.focusedBorder;
-        textStyle.color = (textNode.isEnabled ? textNode.colors.text : textNode.colors.disabledText);
-        displayText = [textEditingController displayStringForText: textNode.text
+        if (editableTextView.isEnabled and focused)
+            borderColor = editableTextView.colors.focusedBorder;
+        textStyle.color = (editableTextView.isEnabled ? editableTextView.colors.text : editableTextView.colors.disabledText);
+        displayText = [textEditingController displayStringForText: editableTextView.text
                                                        identifier: identifier
-                                                        isSecure: textNode.isSecure
+                                                        isSecure: editableTextView.isSecure
                                                           focused: focused];
         if (displayText.length == 0 and not focused)
-            textStyle.color = textNode.colors.placeholder;
+            textStyle.color = editableTextView.colors.placeholder;
 
-        registration.isEnabled = textNode.isEnabled;
-        registration.isFocusable = textNode.isEnabled;
-        registration.isMultiline = textNode.isMultiline;
-        registration.text = (textNode.text ?: @"");
+        registration.isEnabled = editableTextView.isEnabled;
+        registration.isFocusable = editableTextView.isEnabled;
+        registration.isMultiline = editableTextView.isMultiline;
+        registration.text = (editableTextView.text ?: @"");
         registration.cursorStyle = AUICursorStyleText;
-        registration.contextMenu = (textNode.contextMenu ?: contextMenu);
-        registration.textChangeHandler = textNode.textChangeHandler;
-        registration.submitHandler = textNode.submitHandler;
+        registration.contextMenu = (editableTextView.contextMenu ?: contextMenu);
+        registration.textChangeHandler = editableTextView.textChangeHandler;
+        registration.submitHandler = editableTextView.submitHandler;
 
         [self _renderBoxProps: (AUIBoxProps){
-            .layout = textNode.layout,
+            .layout = editableTextView.layout,
             .backgroundColor = backgroundColor,
-            .cornerRadius = textNode.cornerRadius,
+            .cornerRadius = editableTextView.cornerRadius,
             .border = (AUIBorder){
                 .color = borderColor,
                 .left = 1,
@@ -326,7 +312,7 @@
             .scrollAxis = AUIScrollAxisNone
         }
                       children: @[
-            [AUIViewTextNode textNodeWithText: (displayText.length > 0 ? displayText : textNode.placeholder)
+            [AUIViewText textWithText: (displayText.length > 0 ? displayText : editableTextView.placeholder)
                                          style: textStyle]
         ]
                     identifier: identifier
@@ -406,7 +392,6 @@
 
     Clay_ElementId menuID = [AUIClay elementIDFromString: @"__context_menu__"];
     AUIBoxProps menuProps = AUI.defaultBoxProps;
-    Clay_ElementDeclaration declaration;
 
     menuProps.layout.width = [AUI axisFit: 0];
     menuProps.layout.height = [AUI axisFit: 0];
@@ -415,7 +400,7 @@
     menuProps.backgroundColor = [AUI colorWithRed: 248 green: 246 blue: 241 alpha: 255];
     menuProps.cornerRadius = 12;
     menuProps.border = [AUI borderAll: 1 color: [AUI colorWithRed: 212 green: 206 blue: 194 alpha: 255]];
-    declaration = [AUIClay boxDeclarationFromProps: menuProps elementID: menuID];
+    Clay_ElementDeclaration declaration = [AUIClay boxDeclarationFromProps: menuProps elementID: menuID];
     declaration.floating = (Clay_FloatingElementConfig){
         .offset = { .x = interactionController.activeContextMenuX, .y = interactionController.activeContextMenuY },
         .zIndex = 32767,

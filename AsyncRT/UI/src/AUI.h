@@ -1,7 +1,7 @@
 #pragma once
 
 #import "AUIExceptions.h"
-#import "AUIViewNode.h"
+#import "AUIView.h"
 #import "AUIViewComponent.h"
 #import "AUIPrimitives.h"
 #import "AUIApplication.h"

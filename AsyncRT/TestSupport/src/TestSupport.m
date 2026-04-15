@@ -533,11 +533,6 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
 {
     @try {
         OFString *requestLine = acceptedSocket.readLine;
-        OFString *path;
-        OFTimeInterval delay;
-        OFString *body;
-        const char *bodyUTF8String;
-        OFString *response;
 
         if (requestLine == nilptr)
             return;
@@ -549,13 +544,15 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
                 break;
         }
 
-        path = [self _pathFromRequestLine: requestLine];
-        delay = [path containsString: @"slow"] ? 0.20 : 0.01;
+        OFString *path = [self _pathFromRequestLine: requestLine];
+        OFTimeInterval delay = [path containsString: @"slow"] ? 0.20 : 0.01;
         [OFThread sleepForTimeInterval: delay];
 
-        body = (path.length > 1 ? [path substringFromIndex: 1] : @"root");
-        bodyUTF8String = body.UTF8String;
-        response = [OFString stringWithFormat: @"HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n%@", strlen(bodyUTF8String), body];
+        OFString *body = (path.length > 1 ? [path substringFromIndex: 1] : @"root");
+        const char *bodyUTF8String = body.UTF8String;
+        OFString *response = [OFString stringWithFormat: @"HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\n%@",
+                                                       strlen(bodyUTF8String),
+                                                       body];
         [acceptedSocket writeString: response];
     } @catch (OFException *) {
     } @finally {

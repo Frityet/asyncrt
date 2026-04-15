@@ -128,7 +128,6 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 {
     int width = (int)_nativeSize.width;
     int height = (int)_nativeSize.height;
-    int stride;
 
     if (width <= 0 or height <= 0)
         return false;
@@ -152,7 +151,7 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
         _bytes = nullptr;
     }
 
-    stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+    const int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
     if (stride <= 0)
         return false;
 
@@ -178,28 +177,23 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 
 - (void)renderFrame
 {
-    AUICairoTextMeasureContext measureContext;
-    Clay_RenderCommandArray commands;
-    AUISize nativeSize;
-    AUISize viewportSize;
-
     if (not _open or not [self _ensureSurface])
         return;
 
-    nativeSize = _nativeSize;
-    viewportSize = self.viewportSize;
+    const AUISize nativeSize = _nativeSize;
+    const AUISize viewportSize = self.viewportSize;
     cairo_save($assert_nonnil(_cairo));
     @try {
         cairo_set_operator($assert_nonnil(_cairo), CAIRO_OPERATOR_SOURCE);
         cairo_set_source_rgba($assert_nonnil(_cairo), 0.0, 0.0, 0.0, 0.0);
         cairo_paint($assert_nonnil(_cairo));
-        measureContext = (AUICairoTextMeasureContext){
+        AUICairoTextMeasureContext measureContext = (AUICairoTextMeasureContext){
             .context = $assert_nonnil(_cairo),
             .fonts = AUIHeadlessWindowFonts
         };
-        commands = [self _buildRenderCommandsForViewportSize: viewportSize
-                                         textMeasureFunction: AUICairoMeasureText
-                                                    userData: &measureContext];
+        Clay_RenderCommandArray commands = [self _buildRenderCommandsForViewportSize: viewportSize
+                                                                  textMeasureFunction: AUICairoMeasureText
+                                                                             userData: &measureContext];
         if (viewportSize.width > 0.0f and viewportSize.height > 0.0f)
             cairo_scale($assert_nonnil(_cairo),
                         (double)nativeSize.width / (double)viewportSize.width,

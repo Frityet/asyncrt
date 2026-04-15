@@ -7,12 +7,12 @@
 
 #pragma clang assume_nonnull begin
 
-typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
-    AUIViewNodeFamilyFragment,
-    AUIViewNodeFamilyBox,
-    AUIViewNodeFamilyText,
-    AUIViewNodeFamilyEditableText
-} AUIViewNodeFamily;
+typedef enum [[clang::enum_extensibility(closed)]] AUIViewFamily {
+    AUIViewFamilyFragment,
+    AUIViewFamilyBox,
+    AUIViewFamilyText,
+    AUIViewFamilyEditableText
+} AUIViewFamily;
 
 [[subclassing_restricted, direct_members]]
 @interface AUIViewInteractionConfiguration : OFObject
@@ -40,9 +40,9 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 
 @end
 
-@interface AUIViewNode : OFObject<AUIRenderable>
+@interface AUIView : OFObject<AUIRenderable>
 
-@property(readonly, nonatomic) AUIViewNodeFamily nodeFamily;
+@property(readonly, nonatomic) AUIViewFamily viewFamily;
 @property(readonly, copy, nonatomic) OFString *nillable stableKey;
 
 - (instancetype)init OF_UNAVAILABLE;
@@ -50,23 +50,23 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AUIViewFragmentNode : AUIViewNode
+@interface AUIViewFragment : AUIView
 
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;
 
-+ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children;
++ (instancetype)fragmentWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AUIViewBoxNode : AUIViewNode
+@interface AUIViewBox : AUIView
 
 @property(readonly, nonatomic) AUIBoxProps boxProps;
 @property(readonly, retain, nonatomic) AUIViewInteractionConfiguration *nillable interactionConfiguration;
 @property(readonly, copy, nonatomic) OFArray<id<AUIRenderable>> *children;
 
-+ (instancetype)boxNodeWithKey: (OFString *nillable)stableKey
++ (instancetype)boxWithKey: (OFString *nillable)stableKey
                       boxProps: (AUIBoxProps)boxProps
         interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
                       children: (OFArray<id<AUIRenderable>> *nonnil)children;
@@ -75,18 +75,18 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AUIViewTextNode : AUIViewNode
+@interface AUIViewText : AUIView
 
 @property(readonly, copy, nonatomic) OFString *text;
 @property(readonly, nonatomic) AUITextStyle textStyle;
 
-+ (instancetype)textNodeWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle;
++ (instancetype)textWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AUIViewEditableTextNode : AUIViewNode
+@interface AUIViewEditableText : AUIView
 
 @property(readonly, copy, nonatomic) OFString *nillable text;
 @property(readonly, copy, nonatomic) OFString *placeholder;
@@ -101,7 +101,7 @@ typedef enum [[clang::enum_extensibility(closed)]] AUIViewNodeFamily {
 @property(readonly, copy, nonatomic) void (^nillable textChangeHandler)(OFString *text);
 @property(readonly, copy, nonatomic) void (^nillable submitHandler)(OFString *text);
 
-+ (instancetype)editableTextNodeWithKey: (OFString *nillable)stableKey
++ (instancetype)editableTextWithKey: (OFString *nillable)stableKey
                                    text: (OFString *nillable)text
                             placeholder: (OFString *nonnil)placeholder
                                   style: (AUITextStyle)textStyle

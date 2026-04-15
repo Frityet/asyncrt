@@ -104,7 +104,7 @@
 @end
 
 [[direct_members]]
-@implementation AUIRetainedChildViewComponentNode {
+@implementation AUIRetainedChildViewComponent {
     AUIViewComponent *_childViewComponent;
     OFString *_componentKey;
 }
@@ -112,7 +112,7 @@
 - (instancetype)initWithChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
                               componentKey: (OFString *nonnil)componentKey
 {
-    self = [super initWithNodeFamily: AUIViewNodeFamilyFragment stableKey: componentKey];
+    self = [super initWithViewFamily: AUIViewFamilyFragment stableKey: componentKey];
     _childViewComponent = childViewComponent;
     _componentKey = [componentKey copy];
     return self;
@@ -127,8 +127,8 @@
     AsyncTaskGroup *nillable _mountedTaskGroup;
     bool _isMounted;
     bool _needsViewUpdate;
-    bool _isRenderingViewNode;
-    AUIViewNode *nillable _cachedRenderedViewNode;
+    bool _isRenderingView;
+    AUIView *nillable _cachedRenderedView;
     OFMutableDictionary<OFString *, AUIViewComponent *> *_childViewComponentsByKey;
     OFMutableSet<OFString *> *nillable _renderedChildComponentKeys;
     OFMutableArray<AUIViewHookSlot *> *_hookSlots;
@@ -144,9 +144,9 @@
     return self;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
-    return [AUIViewFragmentNode fragmentNodeWithChildren: @[]];
+    return [AUIViewFragment fragmentWithChildren: @[]];
 }
 
 - (void)viewComponentDidMount
@@ -175,8 +175,8 @@
     AUIViewHookSlot *slot = [self _hookSlotAtIndex: _currentHookIndex];
     AUIViewStateHookSlot *stateSlot;
 
-    if (not _isRenderingViewNode)
-        @throw [[AUIRenderException alloc] initWithReason: @"State hooks can only run during -renderViewNode"];
+    if (not _isRenderingView)
+        @throw [[AUIRenderException alloc] initWithReason: @"State hooks can only run during -renderView"];
 
     if (slot == nilptr) {
         stateSlot = [[AUIViewStateHookSlot alloc] initWithOwner: self initialValue: initialValue];
@@ -198,8 +198,8 @@
     AUIViewEffectHookSlot *effectSlot;
     bool dependenciesChanged = false;
 
-    if (not _isRenderingViewNode)
-        @throw [[AUIRenderException alloc] initWithReason: @"Effect hooks can only run during -renderViewNode"];
+    if (not _isRenderingView)
+        @throw [[AUIRenderException alloc] initWithReason: @"Effect hooks can only run during -renderView"];
 
     if (slot == nilptr) {
         effectSlot = [[AUIViewEffectHookSlot alloc] init];
@@ -227,8 +227,8 @@
     AUIViewTaskHookSlot *taskSlot;
     bool dependenciesChanged = false;
 
-    if (not _isRenderingViewNode)
-        @throw [[AUIRenderException alloc] initWithReason: @"Task hooks can only run during -renderViewNode"];
+    if (not _isRenderingView)
+        @throw [[AUIRenderException alloc] initWithReason: @"Task hooks can only run during -renderView"];
 
     if (slot == nilptr) {
         taskSlot = [[AUIViewTaskHookSlot alloc] init];
@@ -278,13 +278,13 @@
     return $assert_nonnil(context);
 }
 
-- (AUIViewNode *)renderChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
+- (AUIView *)renderChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
                                       key: (OFString *nonnil)key
 {
     AUIViewComponent *existingChildViewComponent;
 
-    if (not _isRenderingViewNode)
-        @throw [[AUIRenderException alloc] initWithReason: @"Child view components can only be rendered during -renderViewNode"];
+    if (not _isRenderingView)
+        @throw [[AUIRenderException alloc] initWithReason: @"Child view components can only be rendered during -renderView"];
     if (_renderedChildComponentKeys == nilptr)
         @throw [[AUIRenderException alloc] initWithReason: @"Internal child component tracking is unavailable"];
     if (key.length == 0)
@@ -314,7 +314,7 @@
         existingChildViewComponent = childViewComponent;
     }
 
-    return [[AUIRetainedChildViewComponentNode alloc] initWithChildViewComponent: $assert_nonnil(existingChildViewComponent)
+    return [[AUIRetainedChildViewComponent alloc] initWithChildViewComponent: $assert_nonnil(existingChildViewComponent)
                                                                     componentKey: key];
 }
 
@@ -369,44 +369,44 @@
 
     [_hookSlots removeAllObjects];
     [_childViewComponentsByKey removeAllObjects];
-    _cachedRenderedViewNode = nilptr;
+    _cachedRenderedView = nilptr;
     _renderedChildComponentKeys = nilptr;
     _isMounted = false;
     _needsViewUpdate = true;
     [self viewComponentWillUnmount];
 }
 
-- (AUIViewNode *)_resolvedRenderedViewNode
+- (AUIView *)_resolvedRenderedView
 {
-    AUIViewNode *renderedViewNode;
+    AUIView *renderedView;
 
     if (not _isMounted)
         @throw [[AUIRenderException alloc] initWithReason: @"Cannot render a view component that is not mounted"];
-    if (not _needsViewUpdate and _cachedRenderedViewNode != nilptr)
-        return $assert_nonnil(_cachedRenderedViewNode);
-    if (_isRenderingViewNode)
+    if (not _needsViewUpdate and _cachedRenderedView != nilptr)
+        return $assert_nonnil(_cachedRenderedView);
+    if (_isRenderingView)
         @throw [[AUIRenderException alloc] initWithReason: @"A view component render cycle was detected"];
 
-    _isRenderingViewNode = true;
+    _isRenderingView = true;
     _currentHookIndex = 0;
     _renderedChildComponentKeys = [OFMutableSet set];
 
     @try {
-        renderedViewNode = [self renderViewNode];
-        if (renderedViewNode == nilptr)
-            @throw [[AUIRenderException alloc] initWithReason: @"-renderViewNode must return a nonnil view node"];
+        renderedView = [self renderView];
+        if (renderedView == nilptr)
+            @throw [[AUIRenderException alloc] initWithReason: @"-renderView must return a nonnil view"];
 
-        _cachedRenderedViewNode = $assert_nonnil(renderedViewNode);
+        _cachedRenderedView = $assert_nonnil(renderedView);
         [self _trimHookSlotsToCount: _currentHookIndex];
         [self _pruneUnusedChildViewComponents];
         [self _enqueuePendingEffectCommits];
         _needsViewUpdate = false;
     } @finally {
         _renderedChildComponentKeys = nilptr;
-        _isRenderingViewNode = false;
+        _isRenderingView = false;
     }
 
-    return $assert_nonnil(_cachedRenderedViewNode);
+    return $assert_nonnil(_cachedRenderedView);
 }
 
 - (AUIViewHookSlot *nillable)_hookSlotAtIndex: (size_t)index

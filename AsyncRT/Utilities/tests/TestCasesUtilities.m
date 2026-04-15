@@ -65,8 +65,7 @@
         Pointer *firstPointer = [Pointer from: firstBuffer];
         Pointer *sameFirstPointer = [Pointer from: firstBuffer];
         Pointer *secondPointer = [Pointer from: secondBuffer];
-        OFComparisonResult expectedOrdering;
-        OFMutableData *mutableCopy;
+        OFComparisonResult expectedOrdering = OFOrderedSame;
 
         if (firstBuffer < secondBuffer)
             expectedOrdering = OFOrderedAscending;
@@ -81,7 +80,7 @@
         OTAssert((firstPointer.copy == firstPointer), @"Pointer.copy should return the same tagged pointer instance");
         OTAssert((firstPointer.hash == (unsigned long)firstBuffer), @"Pointer.hash should be derived from the wrapped pointer value");
 
-        mutableCopy = (OFMutableData *)firstPointer.mutableCopy;
+        OFMutableData *mutableCopy = (OFMutableData *)firstPointer.mutableCopy;
         OTAssert(([mutableCopy isKindOfClass: OFMutableData.class]), @"Pointer.mutableCopy should produce mutable OFData");
         OTAssert(([AsyncRuntimeTestSupport pointerValueFromBytes: $assert_nonnil(mutableCopy.items)] == (uintptr_t)firstBuffer), @"Pointer.mutableCopy should preserve the wrapped pointer bytes");
     } @finally {

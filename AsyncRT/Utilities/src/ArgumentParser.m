@@ -12,8 +12,6 @@
 
 #pragma clang assume_nonnull begin
 
-@class CLICommandIntrospection;
-
 @interface CLIOption (ArgumentParserInternal)
 - (void)cli_reset;
 - (void)cli_setParsedValue: (id)value;
@@ -64,51 +62,38 @@
     OFDictionary<OFString *, CLIResolvedOption *> *_optionsByShortName;
     OFDictionary<OFString *, CLIResolvedSubcommand *> *_subcommandsByName;
 }
++ (instancetype)schemaForCommand: (CLICommand *)command;
+- (size_t)parseArguments: (OFArray<OFString *> *)arguments
+              startIndex: (size_t)startIndex
+             commandPath: (OFString *)commandPath;
 - (void)resetValues;
 - (OFString *)helpTextForCommandPath: (OFString *)commandPath;
 @end
 
-[[subclassing_restricted, direct_members]]
-@interface CLINameTransform : OFObject
-+ (OFString *)kebabCaseForString: (OFString *)string;
-+ (OFString *)upperValueNameForPropertyName: (OFString *)propertyName;
-+ (OFString *)className: (Class nillable)class_;
-+ (OFString *)shortNameString: (char)shortName;
+@interface OFString (ArgumentParserAdditions)
+
+- (OFString *)kebabCaseString;
+
 @end
 
-[[subclassing_restricted, direct_members]]
-@interface CLITypeInspector : OFObject
+@namespace(CLITypeInspector)
+
 + (Class nillable)propertyClassForProperty: (objc_property_t)property
                                     onClass: (Class)class_
                                propertyName: (OFString *)propertyName;
 @end
 
-[[subclassing_restricted, direct_members]]
-@interface CLIValueCodec : OFObject
+@namespace(CLIValueCodec)
+
 + (id)parseToken: (OFString *)token forValueClass: (Class nillable)valueClass;
 @end
 
-[[subclassing_restricted, direct_members]]
-@interface CLICommandIntrospection : OFObject
-+ (CLICommandSchema *)schemaForCommand: (CLICommand *)command;
-@end
+@implementation OFString (ArgumentParserAdditions)
 
-[[subclassing_restricted, direct_members]]
-@interface CLICommandParserEngine : OFObject
-+ (size_t)parseCommand: (CLICommand *)command
-                 schema: (CLICommandSchema *)schema
-              arguments: (OFArray<OFString *> *)arguments
-             startIndex: (size_t)startIndex
-            commandPath: (OFString *)commandPath;
-@end
-
-[[direct_members]]
-@implementation CLINameTransform
-
-+ (OFString *)kebabCaseForString: (OFString *)string
+- (OFString *)kebabCaseString
 {
-    const char *utf8 = string.UTF8String;
-    size_t length = string.UTF8StringLength;
+    const char *utf8 = self.UTF8String;
+    size_t length = self.UTF8StringLength;
     auto builder = [[OFMutableString alloc] init];
     bool previousWasDash = false;
 
@@ -138,30 +123,6 @@
     return builder;
 }
 
-+ (OFString *)upperValueNameForPropertyName: (OFString *)propertyName
-{
-    return [[self kebabCaseForString: propertyName] uppercaseString];
-}
-
-+ (OFString *)className: (Class nillable)class
-{
-    if (class == nullptr)
-        return @"<unknown>";
-
-    const char *nillable classNameCString = class_getName(class);
-    if (classNameCString == nullptr)
-        return @"<unknown>";
-
-    const char *className = classNameCString;
-    return [OFString stringWithUTF8String: className];
-}
-
-+ (OFString *)shortNameString: (char)shortName
-{
-    char buffer[] = { shortName, '\0' };
-    return [OFString stringWithUTF8String: buffer];
-}
-
 @end
 
 [[direct_members]]
@@ -174,10 +135,10 @@
 
     resolvedOption->_propertyName = [propertyName copy];
     resolvedOption->_option = option;
-    resolvedOption->_longName = [(option.longName ?: [CLINameTransform kebabCaseForString: propertyName]) copy];
+    resolvedOption->_longName = [(option.longName ?: [propertyName kebabCaseString]) copy];
     resolvedOption->_shortName = option.shortName;
     resolvedOption->_help = [option.help copy];
-    resolvedOption->_valueName = [(option.valueName ?: [CLINameTransform upperValueNameForPropertyName: propertyName]) copy];
+    resolvedOption->_valueName = [(option.valueName ?: [[propertyName kebabCaseString] uppercaseString]) copy];
 
     return resolvedOption;
 }
@@ -245,7 +206,7 @@
 
     resolvedSubcommand->_propertyName = [propertyName copy];
     resolvedSubcommand->_command = command;
-    resolvedSubcommand->_commandName = [[CLINameTransform kebabCaseForString: propertyName] copy];
+    resolvedSubcommand->_commandName = [[propertyName kebabCaseString] copy];
     resolvedSubcommand->_help = [[command.class cliCommandDescription] copy];
 
     return resolvedSubcommand;
@@ -253,8 +214,7 @@
 
 @end
 
-[[direct_members]]
-@implementation CLITypeInspector
+@namespace_implementation(CLITypeInspector)
 
 + (Class nillable)_classFromQuotedObjectEncoding: (const char *nillable)encoding
 {
@@ -337,14 +297,13 @@
 
 @end
 
-[[direct_members]]
-@implementation CLIValueCodec
+@namespace_implementation(CLIValueCodec)
 
 + (id)_invalidValueExceptionForToken: (OFString *)token
                            valueClass: (Class)valueClass
 {
     return [[ArgumentParserException alloc] initWithMessage: [OFString stringWithFormat: @"Invalid %@ value '%@'",
-                                                                                          [CLINameTransform className: valueClass],
+                                                                                          [valueClass className],
                                                                                           token]
                                                       usage: nilptr];
 }
@@ -400,7 +359,7 @@
         return [[valueClass alloc] initWithString: token];
 
     @throw [[ArgumentParserException alloc] initWithMessage: [OFString stringWithFormat: @"Don't know how to parse '%@' as %@",
-                                                                                          token, [CLINameTransform className: valueClass]]
+                                                                                          token, [valueClass className]]
                                                       usage: nilptr];
 }
 
@@ -408,6 +367,172 @@
 
 [[direct_members]]
 @implementation CLICommandSchema
+
++ (ArgumentParserException *)_schemaExceptionWithMessage: (OFString *)message
+{
+    return [[ArgumentParserException alloc] initWithMessage: message usage: nilptr];
+}
+
++ (instancetype)schemaForCommand: (CLICommand *)command
+{
+    auto schema = [[self alloc] init];
+    auto namedOptions = [OFMutableArray<CLIResolvedOption *> array],
+         positionals = [OFMutableArray<CLIResolvedOption *> array],
+         flags = [OFMutableArray<CLIResolvedOption *> array];
+
+    auto subcommands = [OFMutableArray<CLIResolvedSubcommand *> array];
+    auto optionsByLongName = [OFMutableDictionary<OFString *, CLIResolvedOption *> dictionary];
+    auto optionsByShortName = [OFMutableDictionary<OFString *, CLIResolvedOption *> dictionary];
+    auto subcommandsByName = [OFMutableDictionary<OFString *, CLIResolvedSubcommand *> dictionary];
+    auto seenPropertyNames = [OFMutableSet<OFString *> set];
+
+    schema->_command = command;
+    schema->_commandName = [[command.class cliCommandName] copy];
+    schema->_commandDescription = [[command.class cliCommandDescription] copy];
+
+    for (Class currentClass = command.class;
+         currentClass != nullptr and [currentClass isSubclassOfClass: CLICommand.class];
+         currentClass = [currentClass superclass]) {
+        unsigned int propertyCount = 0;
+        objc_property_t *properties = class_copyPropertyList(currentClass, &propertyCount);
+
+        @try {
+            for (unsigned int propertyIndex = 0; propertyIndex < propertyCount; propertyIndex++) {
+                objc_property_t property = properties[propertyIndex];
+                auto propertyName = [OFString stringWithUTF8String: property_getName(property)];
+
+                if ([seenPropertyNames containsObject: propertyName])
+                    continue;
+                [seenPropertyNames addObject: propertyName];
+
+                id currentValue = [command valueForKey: propertyName];
+                Class propertyClass = [CLITypeInspector propertyClassForProperty: property
+                                                                         onClass: currentClass
+                                                                    propertyName: propertyName];
+
+                if (currentValue == nilptr) {
+                    if ((propertyClass != nullptr and [propertyClass isSubclassOfClass: CLIOption.class])
+                        or (propertyClass != nullptr and [propertyClass isSubclassOfClass: CLICommand.class]))
+                        @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Property '%@' on %@ must be initialized in -init",
+                                                                                                propertyName,
+                                                                                                [command.class className]]];
+                    continue;
+                }
+
+                if ([currentValue isKindOfClass: CLIOption.class]) {
+                    CLIOption *option = currentValue;
+                    auto resolvedOption = [CLIResolvedOption optionWithPropertyName: propertyName option: option];
+
+                    if (option.kind == CLIOptionKindPositional) {
+                        [positionals addObject: resolvedOption];
+                        continue;
+                    }
+
+                    if (optionsByLongName[resolvedOption->_longName] != nilptr)
+                        @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate option name '--%@' on %@",
+                                                                                                resolvedOption->_longName,
+                                                                                                [command.class className]]];
+
+                    optionsByLongName[resolvedOption->_longName] = resolvedOption;
+                    if (resolvedOption->_shortName != '\0') {
+                        OFString *shortKey = [OFString stringWithFormat: @"%c", resolvedOption->_shortName];
+                        if (optionsByShortName[shortKey] != nilptr)
+                            @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate short option '-%c' on %@",
+                                                                                                    resolvedOption->_shortName,
+                                                                                                    [command.class className]]];
+                        optionsByShortName[shortKey] = resolvedOption;
+                    }
+
+                    if (option.kind == CLIOptionKindFlag)
+                        [flags addObject: resolvedOption];
+                    else
+                        [namedOptions addObject: resolvedOption];
+
+                    continue;
+                }
+
+                if ([currentValue isKindOfClass: CLICommand.class]) {
+                    auto resolvedSubcommand = [CLIResolvedSubcommand subcommandWithPropertyName: propertyName command: currentValue];
+
+                    if (subcommandsByName[resolvedSubcommand->_commandName] != nilptr)
+                        @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate subcommand name '%@' on %@",
+                                                                                                resolvedSubcommand->_commandName,
+                                                                                                [command.class className]]];
+
+                    subcommandsByName[resolvedSubcommand->_commandName] = resolvedSubcommand;
+                    [subcommands addObject: resolvedSubcommand];
+                }
+            }
+        } @finally {
+            free(properties);
+        }
+
+        if (currentClass == CLICommand.class)
+            break;
+    }
+
+    schema->_namedOptions = [namedOptions copy];
+    schema->_positionals = [positionals copy];
+    schema->_flags = [flags copy];
+    schema->_subcommands = [subcommands copy];
+    schema->_optionsByLongName = [optionsByLongName copy];
+    schema->_optionsByShortName = [optionsByShortName copy];
+    schema->_subcommandsByName = [subcommandsByName copy];
+
+    return schema;
+}
+
+- (ArgumentParserException *)usageErrorWithMessage: (OFString *)message
+                                      commandPath: (OFString *)commandPath
+{
+    return [[ArgumentParserException alloc] initWithMessage: message
+                                                      usage: [self helpTextForCommandPath: commandPath]];
+}
+
+- (ArgumentParserHelpException *)helpExceptionForCommandPath: (OFString *)commandPath
+{
+    return [[ArgumentParserHelpException alloc] initWithMessage: @"Help requested"
+                                                          usage: [self helpTextForCommandPath: commandPath]];
+}
+
+- (void)assignToken: (OFString *)token
+           toOption: (CLIResolvedOption *)resolvedOption
+        commandPath: (OFString *)commandPath
+{
+    @try {
+        [resolvedOption->_option cli_setParsedValue: [CLIValueCodec parseToken: token
+                                                                  forValueClass: resolvedOption->_option.valueClass]];
+    } @catch (ArgumentParserException *exception) {
+        @throw [self usageErrorWithMessage: exception.message commandPath: commandPath];
+    }
+}
+
+- (bool)hasRemainingRequiredPositionalsFromIndex: (size_t)positionIndex
+{
+    for (size_t index = positionIndex; index < _positionals.count; index++) {
+        if (_positionals[index].isRequired and not _positionals[index]->_option.hasValue)
+            return true;
+    }
+
+    return false;
+}
+
+- (void)finalizeCommandPath: (OFString *)commandPath
+{
+    for (CLIResolvedOption *resolvedPositional in _positionals) {
+        if (resolvedPositional.isRequired and not resolvedPositional->_option.hasValue)
+            @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Missing required argument %@",
+                                                                            resolvedPositional.usageLabel]
+                                    commandPath: commandPath];
+    }
+
+    for (CLIResolvedOption *resolvedOption in _namedOptions) {
+        if (resolvedOption.isRequired and not resolvedOption->_option.hasValue)
+            @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Missing required option '--%@'",
+                                                                            resolvedOption->_longName]
+                                    commandPath: commandPath];
+    }
+}
 
 - (void)resetValues
 {
@@ -421,7 +546,7 @@
         [resolvedPositional->_option cli_reset];
 
     for (CLIResolvedSubcommand *resolvedSubcommand in _subcommands)
-        [[CLICommandIntrospection schemaForCommand: resolvedSubcommand->_command] resetValues];
+        [[CLICommandSchema schemaForCommand: resolvedSubcommand->_command] resetValues];
 }
 
 - (OFString *)_usageLineForCommandPath: (OFString *)commandPath
@@ -512,213 +637,13 @@
 
     return builder;
 }
-
-@end
-
-[[direct_members]]
-@implementation CLICommandIntrospection
-
-+ (ArgumentParserException *)_schemaExceptionWithMessage: (OFString *)message
-{
-    return [[ArgumentParserException alloc] initWithMessage: message usage: nilptr];
-}
-
-+ (CLICommandSchema *)schemaForCommand: (CLICommand *)command
-{
-    auto schema = [[CLICommandSchema alloc] init];
-    auto namedOptions = [OFMutableArray<CLIResolvedOption *> array],
-         positionals = [OFMutableArray<CLIResolvedOption *> array],
-         flags = [OFMutableArray<CLIResolvedOption *> array];
-
-    auto subcommands = [OFMutableArray<CLIResolvedSubcommand *> array];
-    auto optionsByLongName = [OFMutableDictionary<OFString *, CLIResolvedOption *> dictionary];
-    auto optionsByShortName = [OFMutableDictionary<OFString *, CLIResolvedOption *> dictionary];
-    auto subcommandsByName = [OFMutableDictionary<OFString *, CLIResolvedSubcommand *> dictionary];
-    auto seenPropertyNames = [OFMutableSet<OFString *> set];
-
-    schema->_command = command;
-    schema->_commandName = [[command.class cliCommandName] copy];
-    schema->_commandDescription = [[command.class cliCommandDescription] copy];
-
-    for (Class currentClass = command.class;
-         currentClass != nullptr and [currentClass isSubclassOfClass: CLICommand.class];
-         currentClass = class_getSuperclass(currentClass)) {
-        unsigned int propertyCount = 0;
-        objc_property_t *properties = class_copyPropertyList(currentClass, &propertyCount);
-
-        @try {
-            for (unsigned int propertyIndex = 0; propertyIndex < propertyCount; propertyIndex++) {
-                objc_property_t property = properties[propertyIndex];
-                auto propertyName = [OFString stringWithUTF8String: property_getName(property)];
-                id currentValue;
-                Class propertyClass;
-
-                if ([seenPropertyNames containsObject: propertyName])
-                    continue;
-                [seenPropertyNames addObject: propertyName];
-
-                currentValue = [command valueForKey: propertyName];
-                propertyClass = [CLITypeInspector propertyClassForProperty: property
-                                                                   onClass: currentClass
-                                                              propertyName: propertyName];
-
-                if (currentValue == nilptr) {
-                    if ((propertyClass != nullptr and [propertyClass isSubclassOfClass: CLIOption.class])
-                        or (propertyClass != nullptr and [propertyClass isSubclassOfClass: CLICommand.class]))
-                        @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Property '%@' on %@ must be initialized in -init",
-                                                                                                propertyName,
-                                                                                                [CLINameTransform className: command.class]]];
-                    continue;
-                }
-
-                if ([currentValue isKindOfClass: CLIOption.class]) {
-                    CLIOption *option = currentValue;
-                    auto resolvedOption = [CLIResolvedOption optionWithPropertyName: propertyName option: option];
-
-                    if (option.kind == CLIOptionKindPositional) {
-                        [positionals addObject: resolvedOption];
-                    } else if (option.kind == CLIOptionKindFlag) {
-                        if (optionsByLongName[resolvedOption->_longName] != nilptr)
-                            @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate option name '--%@' on %@",
-                                                                                                    resolvedOption->_longName,
-                                                                                                    [CLINameTransform className: command.class]]];
-                        optionsByLongName[resolvedOption->_longName] = resolvedOption;
-                        if (resolvedOption->_shortName != '\0') {
-                            OFString *shortKey = [CLINameTransform shortNameString: resolvedOption->_shortName];
-                            if (optionsByShortName[shortKey] != nilptr)
-                                @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate short option '-%c' on %@",
-                                                                                                        resolvedOption->_shortName,
-                                                                                                        [CLINameTransform className: command.class]]];;
-                            optionsByShortName[shortKey] = resolvedOption;
-                        }
-                        [flags addObject: resolvedOption];
-                    } else {
-                        if (optionsByLongName[resolvedOption->_longName] != nilptr)
-                            @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate option name '--%@' on %@",
-                                                                                                    resolvedOption->_longName,
-                                                                                                    [CLINameTransform className: command.class]]];
-
-                        optionsByLongName[resolvedOption->_longName] = resolvedOption;
-                        if (resolvedOption->_shortName != '\0') {
-                            OFString *shortKey = [CLINameTransform shortNameString: resolvedOption->_shortName];
-                            if (optionsByShortName[shortKey] != nilptr)
-                                @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate short option '-%c' on %@",
-                                                                                                        resolvedOption->_shortName, [CLINameTransform className: command.class]]];
-                            optionsByShortName[shortKey] = resolvedOption;
-                        }
-                        [namedOptions addObject: resolvedOption];
-                    }
-
-                    continue;
-                }
-
-                if ([currentValue isKindOfClass: CLICommand.class]) {
-                    auto resolvedSubcommand = [CLIResolvedSubcommand subcommandWithPropertyName: propertyName command: currentValue];
-
-                    if (subcommandsByName[resolvedSubcommand->_commandName] != nilptr)
-                        @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Duplicate subcommand name '%@' on %@",
-                                                                                                resolvedSubcommand->_commandName, [CLINameTransform className: command.class]]];
-
-                    subcommandsByName[resolvedSubcommand->_commandName] = resolvedSubcommand;
-                    [subcommands addObject: resolvedSubcommand];
-                }
-            }
-        } @finally {
-            free(properties);
-        }
-
-        if (currentClass == CLICommand.class)
-            break;
-    }
-
-    schema->_namedOptions = [namedOptions copy];
-    schema->_positionals = [positionals copy];
-    schema->_flags = [flags copy];
-    schema->_subcommands = [subcommands copy];
-    schema->_optionsByLongName = [optionsByLongName copy];
-    schema->_optionsByShortName = [optionsByShortName copy];
-    schema->_subcommandsByName = [subcommandsByName copy];
-
-    return schema;
-}
-
-@end
-
-[[direct_members]]
-@implementation CLICommandParserEngine
-
-+ (ArgumentParserException *)usageErrorWithMessage: (OFString *)message
-                                            schema: (CLICommandSchema *)schema
-                                       commandPath: (OFString *)commandPath
-{
-    return [[ArgumentParserException alloc] initWithMessage: message
-                                                      usage: [schema helpTextForCommandPath: commandPath]];
-}
-
-+ (ArgumentParserHelpException *)helpExceptionForSchema: (CLICommandSchema *)schema
-                                            commandPath: (OFString *)commandPath
-{
-    return [[ArgumentParserHelpException alloc] initWithMessage: @"Help requested"
-                                                          usage: [schema helpTextForCommandPath: commandPath]];
-}
-
-+ (void)assignToken: (OFString *)token
-          toOption: (CLIResolvedOption *)resolvedOption
-            schema: (CLICommandSchema *)schema
-       commandPath: (OFString *)commandPath
-{
-    @try {
-        [resolvedOption->_option cli_setParsedValue: [CLIValueCodec parseToken: token forValueClass: resolvedOption->_option.valueClass]];
-    } @catch (ArgumentParserException *exception) {
-        @throw [self usageErrorWithMessage: exception.message
-                                    schema: schema
-                               commandPath: commandPath];
-    }
-}
-
-+ (bool)hasRemainingRequiredPositionalsInSchema: (CLICommandSchema *)schema
-                                     fromIndex: (size_t)positionIndex
-{
-    for (size_t index = positionIndex; index < schema->_positionals.count; index++) {
-        if (schema->_positionals[index].isRequired and not schema->_positionals[index]->_option.hasValue)
-            return true;
-    }
-
-    return false;
-}
-
-+ (void)finalizeCommand: (CLICommand *)command
-                 schema: (CLICommandSchema *)schema
-            commandPath: (OFString *)commandPath
-{
-    (void)command;
-
-    for (CLIResolvedOption *resolvedPositional in schema->_positionals) {
-        if (resolvedPositional.isRequired and not resolvedPositional->_option.hasValue)
-            @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Missing required argument %@", resolvedPositional.usageLabel]
-                                        schema: schema
-                                   commandPath: commandPath];
-    }
-
-    for (CLIResolvedOption *resolvedOption in schema->_namedOptions) {
-        if (resolvedOption.isRequired and not resolvedOption->_option.hasValue)
-            @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Missing required option '--%@'", resolvedOption->_longName]
-                                        schema: schema
-                                   commandPath: commandPath];
-    }
-}
-
-+ (size_t)parseCommand: (CLICommand *)command
-                 schema: (CLICommandSchema *)schema
-              arguments: (OFArray<OFString *> *)arguments
-             startIndex: (size_t)startIndex
-            commandPath: (OFString *)commandPath
+- (size_t)parseArguments: (OFArray<OFString *> *)arguments
+              startIndex: (size_t)startIndex
+             commandPath: (OFString *)commandPath
 {
     size_t argumentIndex = startIndex;
     size_t positionalIndex = 0;
     bool optionsEnabled = true;
-
-    (void)command;
 
     while (argumentIndex < arguments.count) {
         OFString *token = arguments[argumentIndex];
@@ -730,30 +655,27 @@
         }
 
         if (optionsEnabled and ([token isEqual: @"--help"] or [token isEqual: @"-h"]))
-            @throw [self helpExceptionForSchema: schema commandPath: commandPath];
+            @throw [self helpExceptionForCommandPath: commandPath];
 
         if (optionsEnabled and [token hasPrefix: @"--"] and token.UTF8StringLength > 2) {
             OFString *body = [token substringFromIndex: 2];
             OFRange equalsRange = [body rangeOfString: @"="];
             OFString *optionName = body;
             OFString *nillable explicitValue = nilptr;
-            CLIResolvedOption *resolvedOption;
 
             if (equalsRange.location != OFNotFound) {
                 optionName = [body substringToIndex: equalsRange.location];
                 explicitValue = [body substringFromIndex: equalsRange.location + equalsRange.length];
             }
 
-            resolvedOption = schema->_optionsByLongName[optionName];
+            CLIResolvedOption *resolvedOption = _optionsByLongName[optionName];
             if (resolvedOption == nilptr)
                 @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Unknown option '--%@'", optionName]
-                                            schema: schema
                                        commandPath: commandPath];
 
             if (resolvedOption.isFlag) {
                 if (explicitValue != nilptr)
                     @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Flag '--%@' does not take a value", optionName]
-                                                schema: schema
                                            commandPath: commandPath];
 
                 [resolvedOption->_option cli_setParsedValue: @true];
@@ -765,14 +687,12 @@
                 argumentIndex++;
                 if (argumentIndex >= arguments.count)
                     @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Option '--%@' requires a value", optionName]
-                                                schema: schema
                                            commandPath: commandPath];
                 explicitValue = arguments[argumentIndex];
             }
 
             [self assignToken: $assert_nonnil(explicitValue)
                      toOption: resolvedOption
-                       schema: schema
                   commandPath: commandPath];
             argumentIndex++;
             continue;
@@ -783,12 +703,11 @@
             size_t clusterLength = token.UTF8StringLength - 1;
 
             for (size_t clusterIndex = 0; clusterIndex < clusterLength; clusterIndex++) {
-                OFString *shortKey = [CLINameTransform shortNameString: cluster[clusterIndex]];
-                CLIResolvedOption *resolvedOption = schema->_optionsByShortName[shortKey];
+                OFString *shortKey = [OFString stringWithFormat: @"%c", cluster[clusterIndex]];
+                CLIResolvedOption *resolvedOption = _optionsByShortName[shortKey];
 
                 if (resolvedOption == nilptr)
                     @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Unknown option '-%c'", cluster[clusterIndex]]
-                                                schema: schema
                                            commandPath: commandPath];
 
                 if (resolvedOption.isFlag) {
@@ -805,14 +724,12 @@
                     argumentIndex++;
                     if (argumentIndex >= arguments.count)
                         @throw [self usageErrorWithMessage: [OFString stringWithFormat: @"Option '-%c' requires a value", resolvedOption->_shortName]
-                                                    schema: schema
                                                commandPath: commandPath];
                     value = arguments[argumentIndex];
                 }
 
                 [self assignToken: $assert_nonnil(value)
                          toOption: resolvedOption
-                           schema: schema
                       commandPath: commandPath];
                 break;
             }
@@ -821,46 +738,40 @@
             continue;
         }
 
-        CLIResolvedSubcommand *resolvedSubcommand = schema->_subcommandsByName[token];
+        CLIResolvedSubcommand *resolvedSubcommand = _subcommandsByName[token];
         if (optionsEnabled
             and resolvedSubcommand != nilptr
-            and not [self hasRemainingRequiredPositionalsInSchema: schema fromIndex: positionalIndex]) {
-            [self finalizeCommand: command schema: schema commandPath: commandPath];
+            and not [self hasRemainingRequiredPositionalsFromIndex: positionalIndex]) {
+            [self finalizeCommandPath: commandPath];
 
-            CLICommandSchema *subcommandSchema = [CLICommandIntrospection schemaForCommand: resolvedSubcommand->_command];
+            CLICommandSchema *subcommandSchema = [CLICommandSchema schemaForCommand: resolvedSubcommand->_command];
             auto subcommandPath = [OFString stringWithFormat: @"%@ %@", commandPath, token];
-            return [self parseCommand: resolvedSubcommand->_command
-                                schema: subcommandSchema
-                             arguments: arguments
-                            startIndex: argumentIndex + 1
-                           commandPath: subcommandPath];
+            return [subcommandSchema parseArguments: arguments
+                                         startIndex: argumentIndex + 1
+                                        commandPath: subcommandPath];
         }
 
-        if (positionalIndex < schema->_positionals.count) {
-            CLIResolvedOption *resolvedPositional =
-                schema->_positionals[positionalIndex];
+        if (positionalIndex < _positionals.count) {
+            CLIResolvedOption *resolvedPositional = _positionals[positionalIndex];
             [self assignToken: token
                      toOption: resolvedPositional
-                       schema: schema
                   commandPath: commandPath];
             positionalIndex++;
             argumentIndex++;
             continue;
         }
 
-        if (schema->_subcommands.count > 0)
+        if (_subcommands.count > 0)
             @throw [self usageErrorWithMessage:
                 [OFString stringWithFormat: @"Unknown command '%@'", token]
-                                     schema: schema
                                 commandPath: commandPath];
 
         @throw [self usageErrorWithMessage:
             [OFString stringWithFormat: @"Unexpected argument '%@'", token]
-                                 schema: schema
                             commandPath: commandPath];
     }
 
-    [self finalizeCommand: command schema: schema commandPath: commandPath];
+    [self finalizeCommandPath: commandPath];
     return argumentIndex;
 }
 
@@ -1022,7 +933,7 @@
 
 + (OFString *)cliCommandName
 {
-    return [CLINameTransform kebabCaseForString: [CLINameTransform className: self]];
+    return [[self className] kebabCaseString];
 }
 
 + (OFString *nillable)cliCommandDescription
@@ -1078,14 +989,12 @@
 
 - (id)parseArguments: (OFArray<OFString *> *)arguments
 {
-    CLICommandSchema *schema = [CLICommandIntrospection schemaForCommand: _command];
+    CLICommandSchema *schema = [CLICommandSchema schemaForCommand: _command];
 
     [schema resetValues];
-    [CLICommandParserEngine parseCommand: _command
-                                  schema: schema
-                               arguments: arguments
-                              startIndex: 0
-                             commandPath: schema->_commandName];
+    [schema parseArguments: arguments
+                startIndex: 0
+               commandPath: schema->_commandName];
 
     return _command;
 }
@@ -1095,7 +1004,7 @@
 
 - (OFString *)helpText
 {
-    CLICommandSchema *schema = [CLICommandIntrospection schemaForCommand: _command];
+    CLICommandSchema *schema = [CLICommandSchema schemaForCommand: _command];
     return [schema helpTextForCommandPath: schema->_commandName];
 }
 

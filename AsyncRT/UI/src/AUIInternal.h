@@ -124,19 +124,19 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 - (void)_detachFromApplication;
 - (void)_ensureMountedInTaskGroup: (AsyncTaskGroup *nonnil)taskGroup;
 - (void)_unmountRecursively;
-- (AUIViewNode *)_resolvedRenderedViewNode;
+- (AUIView *)_resolvedRenderedView;
 
 @end
 
-@interface AUIViewNode ()
+@interface AUIView ()
 
-- (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
+- (instancetype)initWithViewFamily: (AUIViewFamily)viewFamily
                          stableKey: (OFString *nillable)stableKey;
 
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AUIRetainedChildViewComponentNode : AUIViewNode
+@interface AUIRetainedChildViewComponent : AUIView
 
 @property(readonly, nonatomic) AUIViewComponent *childViewComponent;
 @property(readonly, copy, nonatomic) OFString *componentKey;

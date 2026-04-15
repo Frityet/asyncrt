@@ -21,30 +21,18 @@
 
 [[subclassing_restricted]]
 @interface CLICommandSchema : OFObject
++ (instancetype)schemaForCommand: (CLICommand *)command;
 - (void)resetValues;
 - (OFString *)helpTextForCommandPath: (OFString *)commandPath;
 @end
 
-[[subclassing_restricted]]
-@interface CLINameTransform : OFObject
-+ (OFString *)kebabCaseForString: (OFString *)string;
-+ (OFString *)upperValueNameForPropertyName: (OFString *)propertyName;
-+ (OFString *)className: (Class nillable)class_;
-+ (OFString *)shortNameString: (char)shortName;
-@end
+@namespace(CLIValueCodec)
 
-[[subclassing_restricted]]
-@interface CLIValueCodec : OFObject
 + (id)parseToken: (OFString *)token forValueClass: (Class nillable)valueClass;
 @end
 
 [[subclassing_restricted]]
-@interface CLICommandIntrospection : OFObject
-+ (CLICommandSchema *)schemaForCommand: (CLICommand *)command;
-@end
-
-[[subclassing_restricted]]
-@interface ParserCustomParsedValue : OFObject<CLIValueParsing>
+@interface ParserCustomParsedValue : OFObject<CLIValueParsable>
 
 @property(readonly, copy, nonatomic) OFString *rawValue;
 
@@ -429,11 +417,7 @@
 
     (void)[fallbackParser parseArguments: @[@"--mystery", @"shadow"]];
 
-    OTAssert(([[CLINameTransform kebabCaseForString: @"foo_barBaz2Qux"] isEqual: @"foo-bar-baz2-qux"]), @"CLINameTransform should convert underscores and camel-case into kebab-case");
-    OTAssert(([[CLINameTransform upperValueNameForPropertyName: @"cachePath"] isEqual: @"CACHE-PATH"]), @"CLINameTransform should derive upper-cased value labels from property names");
-    OTAssert(([[CLINameTransform className: Nil] isEqual: @"<unknown>"]), @"CLINameTransform should report unknown when the value class is missing");
-    OTAssert(([[CLINameTransform shortNameString: 'z'] isEqual: @"z"]), @"CLINameTransform should render single-character short options as strings");
-
+    OTAssert(([[ParserIvarFallbackCommand cliCommandName] isEqual: @"parser-ivar-fallback-command"]), @"CLICommand should derive kebab-case names from the class name");
     OTAssert((optionalPositional.isPositional and not optionalPositional.isRequired), @"Resolved optional positionals should report their positional and required state");
     OTAssert(([optionalPositional.usageLabel isEqual: @"[<INPUT-VALUE>]"]), @"Optional positional usage labels should render with brackets");
     OTAssert(([optionalPositional.helpSyntax isEqual: @"[<INPUT-VALUE>]"]), @"Optional positional help syntax should mirror the usage label");
@@ -611,19 +595,19 @@
     auto helpException = [[ArgumentParserHelpException alloc] initWithMessage: @"help" usage: @"Usage: demo"];
 
     @try {
-        (void)[CLICommandIntrospection schemaForCommand: [[ParserDuplicateLongCommand alloc] init]];
+        (void)[CLICommandSchema schemaForCommand: [[ParserDuplicateLongCommand alloc] init]];
     } @catch (ArgumentParserException *exception) {
         caughtDuplicateLong = [exception.description containsString: @"Duplicate option name '--duplicate'"];
     }
 
     @try {
-        (void)[CLICommandIntrospection schemaForCommand: [[ParserDuplicateShortCommand alloc] init]];
+        (void)[CLICommandSchema schemaForCommand: [[ParserDuplicateShortCommand alloc] init]];
     } @catch (ArgumentParserException *exception) {
         caughtDuplicateShort = [exception.description containsString: @"Duplicate short option '-d'"];
     }
 
     @try {
-        (void)[CLICommandIntrospection schemaForCommand: [[ParserDuplicateSubcommandCommand alloc] init]];
+        (void)[CLICommandSchema schemaForCommand: [[ParserDuplicateSubcommandCommand alloc] init]];
     } @catch (ArgumentParserException *exception) {
         caughtDuplicateSubcommand = [exception.description containsString: @"Duplicate subcommand name 'dup-value'"];
     }

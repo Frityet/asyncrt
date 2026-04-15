@@ -152,7 +152,6 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 
 - (void)openWindow
 {
-    XSetWindowAttributes attributes;
     long eventMask = ExposureMask | StructureNotifyMask | KeyPressMask | KeyReleaseMask |
                      ButtonPressMask | ButtonReleaseMask | PointerMotionMask | FocusChangeMask;
 
@@ -161,6 +160,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
         @throw [[AUIInitializationException alloc] initWithReason: @"Failed to open the X11 display"];
 
     _screen = DefaultScreen($assert_nonnil(_display));
+    XSetWindowAttributes attributes = (XSetWindowAttributes){0};
     attributes.event_mask = eventMask;
     _window = XCreateWindow($assert_nonnil(_display),
                             RootWindow($assert_nonnil(_display), _screen),
@@ -194,7 +194,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
                                   nullptr);
     }
 
-    XWindowAttributes windowAttributes;
+    XWindowAttributes windowAttributes = (XWindowAttributes){0};
     XGetWindowAttributes($assert_nonnil(_display), _window, &windowAttributes);
     _surface = cairo_xlib_surface_create($assert_nonnil(_display),
                                          _window,
@@ -211,7 +211,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 - (void)pollEvents
 {
     while (_open and _display != nullptr and XPending($assert_nonnil(_display)) > 0) {
-        XEvent event;
+        XEvent event = (XEvent){0};
 
         XNextEvent($assert_nonnil(_display), &event);
 
@@ -277,7 +277,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
                 char buffer[64] = {0};
                 int length = 0;
                 AUIModifierFlags modifiers = [AUIX11EventSupport modifierFlagsFromState: event.xkey.state];
-                AUIKey key;
+                AUIKey key = AUIKeyUnknown;
 
                 if (_inputContext != nullptr) {
                     length = Xutf8LookupString($assert_nonnil(_inputContext),
@@ -357,15 +357,11 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 
 - (void)_setViewportSize: (AUISize)viewportSize
 {
-    AUISize nativeSize;
-    int width;
-    int height;
-
     [super _setViewportSize: viewportSize];
-    nativeSize = [self _nativeSizeForViewportSize: viewportSize];
+    const AUISize nativeSize = [self _nativeSizeForViewportSize: viewportSize];
     _nativeSize = nativeSize;
-    width = (int)nativeSize.width;
-    height = (int)nativeSize.height;
+    const int width = (int)nativeSize.width;
+    const int height = (int)nativeSize.height;
 
     if (_display != nullptr and _window != 0) {
         XResizeWindow($assert_nonnil(_display), _window, (unsigned int)width, (unsigned int)height);
@@ -388,31 +384,25 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 
 - (void)renderFrame
 {
-    cairo_t *cairo;
-    AUICairoTextMeasureContext measureContext;
-    Clay_RenderCommandArray commands;
-    AUISize nativeSize;
-    AUISize viewportSize;
-
     if (not _open or _surface == nullptr)
         return;
 
-    nativeSize = _nativeSize;
-    viewportSize = self.viewportSize;
-    cairo = cairo_create($assert_nonnil(_surface));
+    const AUISize nativeSize = _nativeSize;
+    const AUISize viewportSize = self.viewportSize;
+    cairo_t *cairo = cairo_create($assert_nonnil(_surface));
     if (cairo_status(cairo) != CAIRO_STATUS_SUCCESS) {
         cairo_destroy(cairo);
         return;
     }
 
     @try {
-        measureContext = (AUICairoTextMeasureContext){
+        AUICairoTextMeasureContext measureContext = (AUICairoTextMeasureContext){
             .context = cairo,
             .fonts = AUICairoX11WindowFonts
         };
-        commands = [self _buildRenderCommandsForViewportSize: viewportSize
-                                         textMeasureFunction: AUICairoMeasureText
-                                                    userData: &measureContext];
+        Clay_RenderCommandArray commands = [self _buildRenderCommandsForViewportSize: viewportSize
+                                                                  textMeasureFunction: AUICairoMeasureText
+                                                                             userData: &measureContext];
         if (viewportSize.width > 0.0f and viewportSize.height > 0.0f)
             cairo_scale(cairo,
                         (double)nativeSize.width / (double)viewportSize.width,

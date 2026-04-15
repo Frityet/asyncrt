@@ -115,10 +115,8 @@
 
 - (void)registerInteraction: (AUIInteractionRegistration *nonnil)registration
 {
-    size_t existingIndex;
-
-    existingIndex = [AUIInteractionControllerSupport indexOfIdentifier: registration.identifier
-                                                       inRegistrations: _registrationsThisFrame];
+    const size_t existingIndex = [AUIInteractionControllerSupport indexOfIdentifier: registration.identifier
+                                                                     inRegistrations: _registrationsThisFrame];
     if (existingIndex != OFNotFound) {
         [AUIInteractionControllerSupport mergeRegistration: registration
                                                       into: [_registrationsThisFrame objectAtIndex: existingIndex]];

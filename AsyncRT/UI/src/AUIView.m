@@ -1,4 +1,4 @@
-#import "AUIViewNode.h"
+#import "AUIView.h"
 
 #pragma clang assume_nonnull begin
 
@@ -65,16 +65,16 @@
 
 @end
 
-@implementation AUIViewNode {
-    AUIViewNodeFamily _nodeFamily;
+@implementation AUIView {
+    AUIViewFamily _viewFamily;
     OFString *nillable _stableKey;
 }
 
-- (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
+- (instancetype)initWithViewFamily: (AUIViewFamily)viewFamily
                          stableKey: (OFString *nillable)stableKey
 {
     self = [super init];
-    _nodeFamily = nodeFamily;
+    _viewFamily = viewFamily;
     _stableKey = [stableKey copy];
     return self;
 }
@@ -82,18 +82,18 @@
 @end
 
 [[direct_members]]
-@implementation AUIViewFragmentNode {
+@implementation AUIViewFragment {
     OFArray<id<AUIRenderable>> *_children;
 }
 
-+ (instancetype)fragmentNodeWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children [[direct]]
++ (instancetype)fragmentWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children [[direct]]
 {
     return [[self alloc] initWithChildren: children];
 }
 
 - (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nonnil)children
 {
-    self = [super initWithNodeFamily: AUIViewNodeFamilyFragment stableKey: nilptr];
+    self = [super initWithViewFamily: AUIViewFamilyFragment stableKey: nilptr];
     _children = [children copy];
     return self;
 }
@@ -101,13 +101,13 @@
 @end
 
 [[direct_members]]
-@implementation AUIViewBoxNode {
+@implementation AUIViewBox {
     AUIBoxProps _boxProps;
     AUIViewInteractionConfiguration *nillable _interactionConfiguration;
     OFArray<id<AUIRenderable>> *_children;
 }
 
-+ (instancetype)boxNodeWithKey: (OFString *nillable)stableKey
++ (instancetype)boxWithKey: (OFString *nillable)stableKey
                       boxProps: (AUIBoxProps)boxProps
       interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
                       children: (OFArray<id<AUIRenderable>> *nonnil)children
@@ -124,7 +124,7 @@
          interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
                          children: (OFArray<id<AUIRenderable>> *nonnil)children
 {
-    self = [super initWithNodeFamily: AUIViewNodeFamilyBox stableKey: stableKey];
+    self = [super initWithViewFamily: AUIViewFamilyBox stableKey: stableKey];
     _boxProps = boxProps;
     _interactionConfiguration = interactionConfiguration;
     _children = [children copy];
@@ -134,19 +134,19 @@
 @end
 
 [[direct_members]]
-@implementation AUIViewTextNode {
+@implementation AUIViewText {
     OFString *_text;
     AUITextStyle _textStyle;
 }
 
-+ (instancetype)textNodeWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle
++ (instancetype)textWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle
 {
     return [[self alloc] initWithText: text style: textStyle];
 }
 
 - (instancetype)initWithText: (OFString *nonnil)text style: (AUITextStyle)textStyle
 {
-    self = [super initWithNodeFamily: AUIViewNodeFamilyText stableKey: nilptr];
+    self = [super initWithViewFamily: AUIViewFamilyText stableKey: nilptr];
     _text = [text copy];
     _textStyle = textStyle;
     return self;
@@ -155,7 +155,7 @@
 @end
 
 [[direct_members]]
-@implementation AUIViewEditableTextNode {
+@implementation AUIViewEditableText {
     OFString *nillable _text;
     OFString *_placeholder;
     AUITextStyle _textStyle;
@@ -170,7 +170,7 @@
     void (^nillable _submitHandler)(OFString *text);
 }
 
-+ (instancetype)editableTextNodeWithKey: (OFString *nillable)stableKey
++ (instancetype)editableTextWithKey: (OFString *nillable)stableKey
                                    text: (OFString *nillable)text
                             placeholder: (OFString *nonnil)placeholder
                                   style: (AUITextStyle)textStyle
@@ -213,7 +213,7 @@
                            onChange: (void (^nillable)(OFString *text))textChangeHandler
                            onSubmit: (void (^nillable)(OFString *text))submitHandler
 {
-    self = [super initWithNodeFamily: AUIViewNodeFamilyEditableText stableKey: stableKey];
+    self = [super initWithViewFamily: AUIViewFamilyEditableText stableKey: stableKey];
     _text = [text copy];
     _placeholder = [placeholder copy];
     _textStyle = textStyle;

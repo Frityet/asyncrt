@@ -168,21 +168,16 @@
            clipboardText: (OFString *nillable (^nonnil)(void))clipboardTextProvider
      setClipboardText: (void (^nonnil)(OFString *nillable text))clipboardTextSetter
 {
-    AUITextEditingState *editingState;
-    OFString *text;
-    size_t previousCaretIndex;
-    size_t previousAnchorIndex;
-    size_t previousFocusIndex;
     bool textChanged = false;
 
     if (registration.textChangeHandler == nilptr and registration.submitHandler == nilptr)
         return false;
 
-    text = (registration.text ?: @"");
-    editingState = [self editingStateForIdentifier: registration.identifier textLength: text.length];
-    previousCaretIndex = editingState.caretIndex;
-    previousAnchorIndex = editingState.selectionAnchorIndex;
-    previousFocusIndex = editingState.selectionFocusIndex;
+    OFString *text = (registration.text ?: @"");
+    AUITextEditingState *editingState = [self editingStateForIdentifier: registration.identifier textLength: text.length];
+    const size_t previousCaretIndex = editingState.caretIndex;
+    const size_t previousAnchorIndex = editingState.selectionAnchorIndex;
+    const size_t previousFocusIndex = editingState.selectionFocusIndex;
 
     if (inputState.typedText.length > 0) {
         OFString *insertedText = inputState.typedText;

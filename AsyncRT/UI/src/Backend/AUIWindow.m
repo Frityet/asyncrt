@@ -27,12 +27,10 @@
 
 + (float)scaledDimensionForNativeDimension: (float)nativeDimension contentScale: (double)contentScale
 {
-    float scaledDimension;
-
     if (nativeDimension <= 0.0f)
         return 0.0f;
 
-    scaledDimension = nativeDimension / (float)contentScale;
+    const float scaledDimension = nativeDimension / (float)contentScale;
     if (scaledDimension < 1.0f)
         return 1.0f;
 
@@ -47,11 +45,8 @@
 
 + (AUISize)viewportSizeForBoundingBox: (Clay_BoundingBox)boundingBox
 {
-    float width;
-    float height;
-
-    width = ceilf(boundingBox.width);
-    height = ceilf(boundingBox.height);
+    float width = ceilf(boundingBox.width);
+    float height = ceilf(boundingBox.height);
     if (width < 1.0f)
         width = 1.0f;
     if (height < 1.0f)
@@ -71,7 +66,6 @@
 
     for (int32_t index = 0; index < commands.length; index++) {
         Clay_RenderCommand *command = Clay_RenderCommandArray_Get(&commands, index);
-        Clay_BoundingBox boundingBox;
 
         if (command == nullptr or command->zIndex >= 32767)
             continue;
@@ -91,7 +85,7 @@
                 continue;
         }
 
-        boundingBox = command->boundingBox;
+        const Clay_BoundingBox boundingBox = command->boundingBox;
         if (not sawBounds) {
             minX = boundingBox.x;
             minY = boundingBox.y;
@@ -296,8 +290,6 @@
                                                 textMeasureFunction: (AUITextMeasureFunction)textMeasureFunction
                                                            userData: (void *nillable)userData
 {
-    AUIInputState *inputState;
-    Clay_RenderCommandArray commands;
     OFString *nillable clayError = nilptr;
 
     if (textMeasureFunction == (AUITextMeasureFunction)nullptr)
@@ -306,12 +298,12 @@
     [AUIClay clearError];
     [self _prepareClayContextForViewportSize: viewportSize];
     Clay_SetMeasureTextFunction(textMeasureFunction, userData);
-    inputState = self.application._inputState;
+    AUIInputState *inputState = self.application._inputState;
     [AUIClay setPointerPositionX: inputState.pointerX
                                 y: inputState.pointerY
                              down: inputState.isPrimaryButtonDown];
-    commands = [self.application _buildRenderCommandsWithViewportSize: viewportSize
-                                                            deltaTime: (1.0f / 60.0f)];
+    Clay_RenderCommandArray commands = [self.application _buildRenderCommandsWithViewportSize: viewportSize
+                                                                                     deltaTime: (1.0f / 60.0f)];
 
     clayError = [AUIClay consumeError];
     if (clayError != nilptr)

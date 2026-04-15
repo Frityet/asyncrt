@@ -9,13 +9,21 @@ typedef enum CalculatorAngleMode {
     CalculatorAngleModeRadians
 } CalculatorAngleMode;
 
+[[subclassing_restricted, direct_members]]
+@interface CalculatorEvaluationException : OFException
+
+@property(readonly, copy, nonatomic) OFString *reason;
+
+- (instancetype)initWithReason: (OFString *nonnil)reason [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
 @namespace(CalculatorEvaluator)
 
-+ (bool)evaluateExpression: (OFString *nonnil)expression
++ (double)evaluateExpression: (OFString *nonnil)expression
                   angleMode: (CalculatorAngleMode)angleMode
-                 lastAnswer: (double)lastAnswer
-                     result: (double *nonnil)result
-                      error: (OFString *nillable *_Nullable)error;
+                 lastAnswer: (double)lastAnswer;
 
 @end
 

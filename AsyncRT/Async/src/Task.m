@@ -336,9 +336,8 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 - (bool)isCancellationRequested
 {
-    bool cancellationRequested;
-
     [_stateLock lock];
+    bool cancellationRequested = false;
     @try {
         cancellationRequested = _cancellationRequested;
     } @finally {
@@ -350,11 +349,11 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 - (bool)_shouldDeliverCancellationCheckpoint
 {
-    bool taskCancellationRequested;
-    bool cancellationSuppressed;
     AsyncTaskGroup *taskGroup = async_current_task_group;
 
     [_stateLock lock];
+    bool taskCancellationRequested = false;
+    bool cancellationSuppressed = false;
     @try {
         taskCancellationRequested = _cancellationRequested;
         cancellationSuppressed = (_cancellationSuppressionDepth > 0);

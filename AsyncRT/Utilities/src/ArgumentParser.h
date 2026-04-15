@@ -3,15 +3,15 @@
 #import "common.h"
 #pragma clang assume_nonnull begin
 
-typedef enum : uint8_t {
+typedef enum [[clang::enum_extensibility(closed)]] : uint8_t {
     CLIOptionKindNamed,
     CLIOptionKindPositional,
     CLIOptionKindFlag,
 } CLIOptionKind;
 
-@protocol CLIValueParsing
+@protocol CLIValueParsable
 
-+ (id)cliParseValue: (OFString *)value;
++ (instancetype)cliParseValue: (OFString *)value;
 
 @end
 

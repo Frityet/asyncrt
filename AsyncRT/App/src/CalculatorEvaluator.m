@@ -3,6 +3,13 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#if defined(__APPLE__)
+#   import <objc/runtime.h>
+#else
+#   import <ObjFWRT/ObjFWRT.h>
+#endif
 
 #import "CalculatorEvaluator.h"
 
@@ -16,9 +23,90 @@
                         lastAnswer: (double)lastAnswer [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
-- (bool)parseResult: (double *)result error: (OFString *nillable *)error;
+- (double)angleInputForValue: (double)value;
+- (double)angleOutputForValue: (double)value;
+- (double)parseResult;
 
 @end
+
+[[subclassing_restricted, direct_members]]
+@interface MathsException : OFException
+
+@property(readonly, copy, nonatomic) OFString *reason;
+@property(readonly, copy, nonatomic) OFString *function;
+
+- (instancetype)initWithFunction: (OFString *nonnil)function reason: (OFString *nonnil)reason;
+
+@end
+
+@implementation CalculatorEvaluationException
+
+- (instancetype)initWithReason: (OFString *)reason
+{
+    self = [super init];
+    _reason = [reason copy];
+    return self;
+}
+
+- (OFString *)description
+{
+    return _reason;
+}
+
+@end
+
+@implementation MathsException
+
+- (instancetype)initWithFunction: (OFString *)function reason: (OFString *)reason
+{
+    self = [super init];
+    _reason = [reason copy];
+    _function = [function copy];
+    return self;
+}
+
+@end
+
+@class CalculatorParser;
+
+// Calculator math helpers used by function-call parsing.
+[[subclassing_restricted, direct_members]]
+@interface MathsFunctions : OFObject
+
+- (instancetype)initWithParser: (CalculatorParser *nonnil)parser [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+- (double)evaluateFunctionNamed: (OFString *nonnil)name
+                  argumentCount: (size_t)argumentCount
+                      arguments: (const double *nonnil)arguments;
+- (OFDictionary<OFString *, OFNumber *> *)constants;
+
+- (double)rand;
+- (double)pow: (double)base exponent: (double)exponent;
+- (double)min: (double)a b: (double)b;
+- (double)max: (double)a b: (double)b;
+- (double)mod: (double)a b: (double)b;
+- (double)sin: (double)value;
+- (double)cos: (double)value;
+- (double)tan: (double)value;
+- (double)asin: (double)value;
+- (double)acos: (double)value;
+- (double)atan: (double)value;
+- (double)sinh: (double)value;
+- (double)cosh: (double)value;
+- (double)tanh: (double)value;
+- (double)ln: (double)value;
+- (double)log: (double)value;
+- (double)exp: (double)base;
+- (double)sqrt: (double)value;
+- (double)abs: (double)value;
+- (double)floor: (double)value;
+- (double)ceil: (double)value;
+- (double)round: (double)value;
+- (double)cbrt: (double)value;
+
+@end
+
 
 [[direct_members]]
 @implementation CalculatorParser {
@@ -27,8 +115,9 @@
     size_t _index;
     size_t _length;
     CalculatorAngleMode _angleMode;
-    double _lastAnswer;
     OFString *nillable _error;
+    MathsFunctions *_mathsFunctions;
+    @public double lastAnswer;
 }
 
 + (bool)isIdentifierHead: (char)character
@@ -43,7 +132,7 @@
 
 - (instancetype)initWithExpression: (OFString *)expression
                          angleMode: (CalculatorAngleMode)angleMode
-                        lastAnswer: (double)lastAnswer
+                        lastAnswer: (double)aw
 {
     self = [super init];
     _expression = [expression copy];
@@ -51,7 +140,8 @@
     _index = 0;
     _length = strlen(_source);
     _angleMode = angleMode;
-    _lastAnswer = lastAnswer;
+    lastAnswer = aw;
+    _mathsFunctions = [[MathsFunctions alloc] initWithParser: self];
     return self;
 }
 
@@ -90,7 +180,6 @@
 - (bool)readNumber: (double *)value
 {
     char *end = nullptr;
-    double parsed;
 
     [self skipWhitespace];
 
@@ -99,7 +188,7 @@
     if (((_source[_index] < '0' or _source[_index] > '9') and _source[_index] != '.'))
         return false;
 
-    parsed = strtod(_source + _index, &end);
+    const double parsed = strtod(_source + _index, &end);
     if (end == _source + _index)
         return false;
 
@@ -110,14 +199,12 @@
 
 - (OFString *nillable)readIdentifier
 {
-    size_t start;
-
     [self skipWhitespace];
 
     if (_index >= _length or not [CalculatorParser isIdentifierHead: _source[_index]])
         return nilptr;
 
-    start = _index;
+    const size_t start = _index;
     _index++;
 
     while (_index < _length and [CalculatorParser isIdentifierTail: _source[_index]])
@@ -181,98 +268,12 @@
 {
     double value = 0.0;
 
-    if ([name isEqual: @"rand"]) {
-        if (argumentCount != 0) {
-            self.errorMessage = @"rand() does not take arguments.";
-            return false;
-        }
-
-        *result = ((double)arc4random()) / ((double)UINT32_MAX);
-        return true;
-    }
-
-    if ([name isEqual: @"pow"] or [name isEqual: @"min"] or [name isEqual: @"max"] or [name isEqual: @"mod"]) {
-        if (argumentCount != 2) {
-            self.errorMessage = [OFString stringWithFormat: @"%@ expects two arguments.", name];
-            return false;
-        }
-
-        if ([name isEqual: @"pow"])
-            value = pow(arguments[0], arguments[1]);
-        else if ([name isEqual: @"min"])
-            value = fmin(arguments[0], arguments[1]);
-        else if ([name isEqual: @"max"])
-            value = fmax(arguments[0], arguments[1]);
-        else {
-            if (arguments[1] == 0.0) {
-                self.errorMessage = @"mod(x, 0) is undefined.";
-                return false;
-            }
-            value = fmod(arguments[0], arguments[1]);
-        }
-
-        if (not [self ensureFiniteValue: value])
-            return false;
-
-        *result = value;
-        return true;
-    }
-
-    if (argumentCount != 1) {
-        self.errorMessage = [OFString stringWithFormat: @"%@ expects one argument.", name];
-        return false;
-    }
-
-    if ([name isEqual: @"sin"])
-        value = sin([self angleInputForValue: arguments[0]]);
-    else if ([name isEqual: @"cos"])
-        value = cos([self angleInputForValue: arguments[0]]);
-    else if ([name isEqual: @"tan"])
-        value = tan([self angleInputForValue: arguments[0]]);
-    else if ([name isEqual: @"asin"])
-        value = [self angleOutputForValue: asin(arguments[0])];
-    else if ([name isEqual: @"acos"])
-        value = [self angleOutputForValue: acos(arguments[0])];
-    else if ([name isEqual: @"atan"])
-        value = [self angleOutputForValue: atan(arguments[0])];
-    else if ([name isEqual: @"sinh"])
-        value = sinh(arguments[0]);
-    else if ([name isEqual: @"cosh"])
-        value = cosh(arguments[0]);
-    else if ([name isEqual: @"tanh"])
-        value = tanh(arguments[0]);
-    else if ([name isEqual: @"ln"]) {
-        if (arguments[0] <= 0.0) {
-            self.errorMessage = @"ln(x) requires x > 0.";
-            return false;
-        }
-        value = log(arguments[0]);
-    } else if ([name isEqual: @"log"]) {
-        if (arguments[0] <= 0.0) {
-            self.errorMessage = @"log(x) requires x > 0.";
-            return false;
-        }
-        value = log10(arguments[0]);
-    } else if ([name isEqual: @"exp"])
-        value = exp(arguments[0]);
-    else if ([name isEqual: @"sqrt"]) {
-        if (arguments[0] < 0.0) {
-            self.errorMessage = @"sqrt(x) requires x >= 0.";
-            return false;
-        }
-        value = sqrt(arguments[0]);
-    } else if ([name isEqual: @"abs"])
-        value = fabs(arguments[0]);
-    else if ([name isEqual: @"floor"])
-        value = floor(arguments[0]);
-    else if ([name isEqual: @"ceil"])
-        value = ceil(arguments[0]);
-    else if ([name isEqual: @"round"])
-        value = round(arguments[0]);
-    else if ([name isEqual: @"cbrt"])
-        value = cbrt(arguments[0]);
-    else {
-        self.errorMessage = [OFString stringWithFormat: @"Unknown function %@.", name];
+    @try {
+        value = [_mathsFunctions evaluateFunctionNamed: name
+                                         argumentCount: argumentCount
+                                             arguments: arguments];
+    } @catch (MathsException *exception) {
+        self.errorMessage = exception.reason;
         return false;
     }
 
@@ -285,20 +286,10 @@
 
 - (bool)constantNamed: (OFString *)name result: (double *)result
 {
-    if ([name isEqual: @"pi"]) {
-        *result = M_PI;
-        return true;
-    }
-    if ([name isEqual: @"e"]) {
-        *result = M_E;
-        return true;
-    }
-    if ([name isEqual: @"tau"]) {
-        *result = M_PI * 2.0;
-        return true;
-    }
-    if ([name isEqual: @"ans"]) {
-        *result = _lastAnswer;
+    OFNumber *constant = _mathsFunctions.constants[name];
+
+    if (constant != nilptr) {
+        *result = constant.doubleValue;
         return true;
     }
 
@@ -313,18 +304,16 @@
 
 - (bool)parseAdditiveValue: (double *)value
 {
-    double rhs;
-    char operatorCharacter;
-
     if (not [self parseMultiplicativeValue: value])
         return false;
 
     while (true) {
-        operatorCharacter = [self peekCharacter];
+        const char operatorCharacter = [self peekCharacter];
         if (operatorCharacter != '+' and operatorCharacter != '-')
             return true;
 
         _index++;
+        double rhs = 0.0;
         if (not [self parseMultiplicativeValue: &rhs])
             return false;
 
@@ -340,18 +329,16 @@
 
 - (bool)parseMultiplicativeValue: (double *)value
 {
-    double rhs;
-    char operatorCharacter;
-
     if (not [self parsePrefixValue: value])
         return false;
 
     while (true) {
-        operatorCharacter = [self peekCharacter];
+        const char operatorCharacter = [self peekCharacter];
         if (operatorCharacter != '*' and operatorCharacter != '/')
             return true;
 
         _index++;
+        double rhs = 0.0;
         if (not [self parsePrefixValue: &rhs])
             return false;
 
@@ -388,14 +375,13 @@
 
 - (bool)parsePowerValue: (double *)value
 {
-    double exponent;
-
     if (not [self parsePostfixValue: value])
         return false;
 
     if (not [self matchCharacter: '^'])
         return true;
 
+    double exponent = 0.0;
     if (not [self parsePrefixValue: &exponent])
         return false;
 
@@ -426,7 +412,6 @@
 
 - (bool)parsePrimaryValue: (double *)value
 {
-    OFString *nillable identifier;
     double arguments[2] = {0.0, 0.0};
     size_t argumentCount = 0;
 
@@ -443,7 +428,7 @@
     if ([self readNumber: value])
         return [self ensureFiniteValue: *value];
 
-    identifier = [self readIdentifier];
+    OFString *nillable identifier = [self readIdentifier];
     if (identifier == nilptr) {
         self.errorMessage = @"Expected a number, symbol, or opening '('.";
         return false;
@@ -479,54 +464,270 @@
                              result: value];
 }
 
-- (bool)parseResult: (double *)result error: (OFString *nillable *)error
+- (double)parseResult
 {
     if (_length == 0) {
-        if (error != nullptr)
-            *error = @"Enter an expression.";
-        return false;
+        @throw [[CalculatorEvaluationException alloc] initWithReason: @"Enter an expression."];
     }
 
-    if (not [self parseExpressionValue: result]) {
-        if (error != nullptr)
-            *error = (_error ?: @"Expression error.");
-        return false;
-    }
+    double result = 0.0;
+
+    if (not [self parseExpressionValue: &result])
+        @throw [[CalculatorEvaluationException alloc] initWithReason: (_error ?: @"Expression error.")];
 
     [self skipWhitespace];
-    if (_index != _length) {
-        if (error != nullptr)
-            *error = @"Unexpected trailing input.";
+    if (_index != _length)
+        @throw [[CalculatorEvaluationException alloc] initWithReason: @"Unexpected trailing input."];
+
+    if (not [self ensureFiniteValue: result])
+        @throw [[CalculatorEvaluationException alloc] initWithReason: (_error ?: @"Result overflowed the calculator range.")];
+
+    return result;
+}
+
+@end
+
+@implementation MathsFunctions {
+    unretained CalculatorParser *_parser;
+}
+
+- (instancetype)initWithParser: (CalculatorParser *nonnil)parser
+{
+    self = [super init];
+    _parser = parser;
+    return self;
+}
+
+- (bool)method: (Method)method
+matchesFunctionNamed: (OFString *nonnil)name
+  argumentCount: (size_t)argumentCount
+        selector: (SEL *)selector
+{
+    char *returnType = method_copyReturnType(method);
+    const bool returnsDouble = (returnType != nullptr and strcmp(returnType, "d") == 0);
+
+    free(returnType);
+    if (not returnsDouble)
         return false;
+
+    if (method_getNumberOfArguments(method) != argumentCount + 2)
+        return false;
+
+    const SEL reflectedSelector = method_getName(method);
+    const char *selectorName = sel_getName(reflectedSelector);
+    if (selectorName == nullptr)
+        return false;
+
+    for (unsigned int index = 0; index < argumentCount; index++) {
+        char *argumentType = method_copyArgumentType(method, index + 2);
+        const bool argumentMatches = (argumentType != nullptr and strcmp(argumentType, "d") == 0);
+
+        free(argumentType);
+        if (not argumentMatches)
+            return false;
     }
 
-    if (not [self ensureFiniteValue: *result]) {
-        if (error != nullptr)
-            *error = (_error ?: @"Result overflowed the calculator range.");
-        return false;
-    }
+    const char *separator = strchr(selectorName, ':');
+    OFString *selectorBaseName = [OFString stringWithUTF8String: selectorName];
+    if (separator != nullptr)
+        selectorBaseName = [selectorBaseName substringToIndex: (size_t)(separator - selectorName)];
 
-    if (error != nullptr)
-        *error = nilptr;
+    if (not [selectorBaseName isEqual: name])
+        return false;
+
+    if (selector != nullptr)
+        *selector = reflectedSelector;
+
     return true;
+}
+
+- (double)evaluateFunctionNamed: (OFString *nonnil)name
+                  argumentCount: (size_t)argumentCount
+                      arguments: (const double *nonnil)arguments
+{
+    unsigned int methodCount = 0;
+    Method *methods = class_copyMethodList(self.class, &methodCount);
+
+    @try {
+        for (unsigned int index = 0; index < methodCount; index++) {
+            SEL selector = nullptr;
+
+            if (not [self method: methods[index]
+             matchesFunctionNamed: name
+                   argumentCount: argumentCount
+                         selector: &selector])
+                continue;
+
+            IMP implementation = method_getImplementation(methods[index]);
+
+            switch (argumentCount) {
+                case 0:
+                    return ((double (*)(id, SEL))implementation)(self, selector);
+                case 1:
+                    return ((double (*)(id, SEL, double))implementation)(self, selector, arguments[0]);
+                case 2:
+                    return ((double (*)(id, SEL, double, double))implementation)(self, selector, arguments[0], arguments[1]);
+                default:
+                    @throw [[MathsException alloc] initWithFunction: name
+                                                             reason: [OFString stringWithFormat: @"Unsupported number of arguments for function %@.", name]];
+            }
+        }
+
+        @throw [[MathsException alloc] initWithFunction: name
+                                                 reason: [OFString stringWithFormat: @"Unknown function %@.", name]];
+    } @finally {
+        free(methods);
+    }
+}
+
+- (OFDictionary<OFString *, OFNumber *> *)constants
+{
+    return @{
+        @"pi": @(M_PI),
+        @"e": @(M_E),
+        @"tau": @(M_PI * 2.0),
+        @"ans": @(_parser->lastAnswer),
+    };
+}
+
+- (double)rand
+{ return ((double)arc4random()) / ((double)UINT32_MAX); }
+
+- (double)pow: (double)base exponent: (double)exponent
+{ return pow(base, exponent); }
+
+- (double)min: (double)a b: (double)b
+{ return fmin(a, b); }
+
+- (double)max: (double)a b: (double)b
+{
+    return fmax(a, b);
+}
+
+- (double)mod: (double)a b: (double)b
+{
+    if (b == 0.0)
+        @throw [[MathsException alloc] initWithFunction: @"mod" reason: @"mod(x, 0) is undefined."];
+    return fmod(a, b);
+}
+
+- (double)sin: (double)value
+{
+    return sin([_parser angleInputForValue: value]);
+}
+
+- (double)cos: (double)value
+{
+    return cos([_parser angleInputForValue: value]);
+}
+
+- (double)tan: (double)value
+{
+    double angle = [_parser angleInputForValue: value];
+
+    if (fabs(cos(angle)) < 1e-12)
+        @throw [[MathsException alloc] initWithFunction: @"tan" reason: @"tan(x) is undefined for angles where cos(x) = 0."];
+
+    return tan(angle);
+}
+
+- (double)asin: (double)value
+{
+    if (value < -1.0 or value > 1.0)
+        @throw [[MathsException alloc] initWithFunction: @"asin" reason: @"asin(x) is only defined for -1 <= x <= 1."];
+    return [_parser angleOutputForValue: asin(value)];
+}
+
+- (double)acos: (double)value
+{
+    if (value < -1.0 or value > 1.0)
+        @throw [[MathsException alloc] initWithFunction: @"acos" reason: @"acos(x) is only defined for -1 <= x <= 1."];
+    return [_parser angleOutputForValue: acos(value)];
+}
+
+- (double)atan: (double)value
+{
+    return [_parser angleOutputForValue: atan(value)];
+}
+
+- (double)sinh: (double)value
+{
+    return sinh(value);
+}
+
+- (double)cosh: (double)value
+{
+    return cosh(value);
+}
+
+- (double)tanh: (double)value
+{
+    return tanh(value);
+}
+
+- (double)ln: (double)value
+{
+    if (value <= 0.0)
+        @throw [[MathsException alloc] initWithFunction: @"ln" reason: @"ln(x) requires x > 0."];
+    return log(value);
+}
+
+- (double)log: (double)value
+{
+    if (value <= 0.0)
+        @throw [[MathsException alloc] initWithFunction: @"log" reason: @"log(x) requires x > 0."];
+    return log10(value);
+}
+
+- (double)exp: (double)value
+{
+    return exp(value);
+}
+
+- (double)sqrt: (double)value
+{
+    if (value < 0.0)
+        @throw [[MathsException alloc] initWithFunction: @"sqrt" reason: @"sqrt(x) requires x >= 0."];
+    return sqrt(value);
+}
+
+- (double)abs: (double)value
+{
+    return fabs(value);
+}
+
+- (double)floor: (double)value
+{
+    return floor(value);
+}
+
+- (double)ceil: (double)value
+{
+    return ceil(value);
+}
+
+- (double)round: (double)value
+{
+    return round(value);
+}
+
+- (double)cbrt: (double)value
+{
+    return cbrt(value);
 }
 
 @end
 
 @namespace_implementation(CalculatorEvaluator)
 
-+ (bool)evaluateExpression: (OFString *nonnil)expression
-                 angleMode: (CalculatorAngleMode)angleMode
-                lastAnswer: (double)lastAnswer
-                    result: (double *nonnil)result
-                     error: (OFString *nillable *)error
++ (double)evaluateExpression: (OFString *nonnil)expression
+                  angleMode: (CalculatorAngleMode)angleMode
+                 lastAnswer: (double)lastAnswer
 {
-    CalculatorParser *parser;
-
-    parser = [[CalculatorParser alloc] initWithExpression: expression
-                                                       angleMode: angleMode
-                                                      lastAnswer: lastAnswer];
-    return [parser parseResult: result error: error];
+    auto parser = [[CalculatorParser alloc] initWithExpression: expression
+                                                     angleMode: angleMode
+                                                    lastAnswer: lastAnswer];
+    return [parser parseResult];
 }
 
 @end

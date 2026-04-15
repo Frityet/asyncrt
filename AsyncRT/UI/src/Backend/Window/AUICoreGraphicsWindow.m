@@ -299,14 +299,12 @@
 
 - (AUISize)viewportSize
 {
-    AUISize nativeSize;
-
     if (_backend == nilptr)
         return [AUI sizeWithWidth: (float)self.bounds.size.width
                            height: (float)self.bounds.size.height];
 
-    nativeSize = [AUI sizeWithWidth: (float)self.bounds.size.width
-                             height: (float)self.bounds.size.height];
+    const AUISize nativeSize = [AUI sizeWithWidth: (float)self.bounds.size.width
+                                           height: (float)self.bounds.size.height];
     return [$assert_nonnil(_backend) _viewportSizeForNativeSize: nativeSize];
 }
 
@@ -494,18 +492,13 @@
 
 - (void)renderFrameWithBlock: (void (^)(CGContextRef context, AUISize viewportSize))renderBlock
 {
-    AUISize pixelSize;
-    AUISize viewportSize;
-    CGFloat scaleX;
-    CGFloat scaleY;
-
     if (renderBlock == nilptr or not [self ui_ensureBackingStore] or _bitmapContext == nullptr)
         return;
 
-    pixelSize = self.pixelSize;
-    viewportSize = self.viewportSize;
-    scaleX = (viewportSize.width > 0.0f ? (CGFloat)pixelSize.width / (CGFloat)viewportSize.width : self.ui_contentsScale);
-    scaleY = (viewportSize.height > 0.0f ? (CGFloat)pixelSize.height / (CGFloat)viewportSize.height : self.ui_contentsScale);
+    const AUISize pixelSize = self.pixelSize;
+    const AUISize viewportSize = self.viewportSize;
+    const CGFloat scaleX = (viewportSize.width > 0.0f ? (CGFloat)pixelSize.width / (CGFloat)viewportSize.width : self.ui_contentsScale);
+    const CGFloat scaleY = (viewportSize.height > 0.0f ? (CGFloat)pixelSize.height / (CGFloat)viewportSize.height : self.ui_contentsScale);
     CGContextSaveGState($assert_nonnil(_bitmapContext));
     @try {
         CGContextResetClip($assert_nonnil(_bitmapContext));
@@ -633,24 +626,20 @@
 
 - (void)drawRect: (NSRect)dirtyRect
 {
-    NSGraphicsContext *graphicsContext;
-    CGContextRef cgContext;
-    NSRect bounds;
-
     (void)dirtyRect;
 
     if (_image == nullptr)
         return;
 
-    graphicsContext = NSGraphicsContext.currentContext;
+    NSGraphicsContext *graphicsContext = NSGraphicsContext.currentContext;
     if (graphicsContext == nilptr)
         return;
 
-    cgContext = graphicsContext.CGContext;
+    CGContextRef cgContext = graphicsContext.CGContext;
     if (cgContext == nullptr)
         return;
 
-    bounds = self.bounds;
+    const NSRect bounds = self.bounds;
     // Clay leaves uncovered regions transparent, so the native view must
     // paint the window background before compositing the bitmap.
     [NSColor.windowBackgroundColor setFill];
@@ -1053,14 +1042,12 @@
 
 - (void)openWindow
 {
-    NSApplication *sharedApplication;
     NSUInteger styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable;
-    NSRect frame;
 
     if (not NSThread.isMainThread)
         @throw [[AUIInitializationException alloc] initWithReason: @"AUICoreGraphicsWindow must be used on the main thread"];
 
-    sharedApplication = [AUICocoaApplicationSupport ensureCocoaApplication];
+    NSApplication *sharedApplication = [AUICocoaApplicationSupport ensureCocoaApplication];
     if (not self._hasExplicitDarkMode)
         [self _setDarkMode: [self ui_systemUsesDarkModeForApplication: sharedApplication] explicitly: false];
 
@@ -1077,7 +1064,7 @@
     if ([NSWindow respondsToSelector: @selector(setAllowsAutomaticWindowTabbing:)])
         NSWindow.allowsAutomaticWindowTabbing = NO;
 
-    frame = NSMakeRect(0.0, 0.0, self.options.initialSize.width, self.options.initialSize.height);
+    const NSRect frame = NSMakeRect(0.0, 0.0, self.options.initialSize.width, self.options.initialSize.height);
     _window = [[AUICoreGraphicsNativeWindow alloc] initWithContentRect: frame
                                                              styleMask: styleMask
                                                                backing: NSBackingStoreBuffered
@@ -1185,13 +1172,11 @@
 
 - (void)_setViewportSize: (AUISize)viewportSize
 {
-    AUISize nativeSize;
-
     [super _setViewportSize: viewportSize];
     if (_window == nilptr)
         return;
 
-    nativeSize = [self _nativeSizeForViewportSize: viewportSize];
+    const AUISize nativeSize = [self _nativeSizeForViewportSize: viewportSize];
     _window.contentSize = NSMakeSize((CGFloat)nativeSize.width, (CGFloat)nativeSize.height);
     if (_renderView != nilptr)
         _renderView.frame = _window.contentView.bounds;

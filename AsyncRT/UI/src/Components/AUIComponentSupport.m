@@ -146,14 +146,12 @@
 
 + (AUIBorder)controlBorderForVariant: (AUIControlVariant)variant enabled: (bool)enabled
 {
-    AUIColor color;
+    AUIColor color = [self componentColorWithRed: 198 green: 204 blue: 210 alpha: 255];
 
     if (enabled == false)
         color = [self componentColorWithRed: 220 green: 224 blue: 228 alpha: 255];
-    else if (variant == AUIControlVariantPrimary || variant == AUIControlVariantDanger)
+    else if (variant == AUIControlVariantPrimary or variant == AUIControlVariantDanger)
         color = [self componentColorWithRed: 0 green: 0 blue: 0 alpha: 0];
-    else
-        color = [self componentColorWithRed: 198 green: 204 blue: 210 alpha: 255];
 
     return [AUI borderAll: 1 color: color];
 }

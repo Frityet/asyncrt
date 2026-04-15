@@ -53,9 +53,8 @@
 
 - (bool)isCancellationRequested
 {
-    bool cancellationRequested;
-
     [_lock lock];
+    bool cancellationRequested = false;
     @try {
         cancellationRequested = _cancellationRequested;
     } @finally {

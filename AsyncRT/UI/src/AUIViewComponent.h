@@ -1,7 +1,7 @@
 #pragma once
 
 #import "AsyncRuntime.h"
-#import "AUIViewNode.h"
+#import "AUIView.h"
 #import "AUIRenderContext.h"
 
 #pragma clang assume_nonnull begin
@@ -29,7 +29,7 @@ typedef AUIViewEffectCleanupHandler _Nullable (^AUIViewEffectHandler)(void);
 @property(readonly, nonatomic) AsyncTaskGroup *nillable mountedTaskGroup;
 @property(readonly, nonatomic) bool isMounted;
 
-- (AUIViewNode *)renderViewNode;
+- (AUIView *)renderView;
 - (void)viewComponentDidMount;
 - (void)viewComponentWillUnmount;
 - (void)setNeedsViewUpdate;
@@ -41,7 +41,7 @@ typedef AUIViewEffectCleanupHandler _Nullable (^AUIViewEffectHandler)(void);
                                          name: (OFString *nillable)name
                                    launchTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock;
 - (AUIRenderContext *)useRenderContext;
-- (AUIViewNode *)renderChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
+- (AUIView *)renderChildViewComponent: (AUIViewComponent *nonnil)childViewComponent
                                       key: (OFString *nonnil)key;
 
 - (instancetype)init [[designated_initailiser]];

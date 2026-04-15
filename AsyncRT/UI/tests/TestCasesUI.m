@@ -173,10 +173,10 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     AUIStateBinding<OFString *> *nillable _stateBinding;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
     _stateBinding = [self useStateWithInitialValue: @"alpha"];
-    return [AUIViewTextNode textNodeWithText: _stateBinding.value style: AUI.defaultTextStyle];
+    return [AUIViewText textWithText: _stateBinding.value style: AUI.defaultTextStyle];
 }
 
 @end
@@ -211,10 +211,10 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     _mountCount++;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
     _stateBinding = [self useStateWithInitialValue: _name];
-    return [AUIViewTextNode textNodeWithText: _stateBinding.value style: AUI.defaultTextStyle];
+    return [AUIViewText textWithText: _stateBinding.value style: AUI.defaultTextStyle];
 }
 
 @end
@@ -243,16 +243,16 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     return self;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
     if (_isReversed) {
-        return [AUIViewFragmentNode fragmentNodeWithChildren: @[
+        return [AUIViewFragment fragmentWithChildren: @[
             [self renderChildViewComponent: _right key: @"right"],
             [self renderChildViewComponent: _left key: @"left"]
         ]];
     }
 
-    return [AUIViewFragmentNode fragmentNodeWithChildren: @[
+    return [AUIViewFragment fragmentWithChildren: @[
         [self renderChildViewComponent: _left key: @"left"],
         [self renderChildViewComponent: _right key: @"right"]
     ]];
@@ -283,7 +283,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     return self;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
     AUIBoxProps fieldProps = AUI.defaultBoxProps;
     OFMutableArray<id<AUIRenderable>> *children = [OFMutableArray array];
@@ -294,9 +294,9 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     fieldProps.layout.direction = AUILayoutDirectionColumn;
 
     if (_showsBanner)
-        [children addObject: [AUIViewTextNode textNodeWithText: @"Banner" style: AUI.defaultTextStyle]];
+        [children addObject: [AUIViewText textWithText: @"Banner" style: AUI.defaultTextStyle]];
 
-    [children addObject: [AUIViewEditableTextNode editableTextNodeWithKey: @"field"
+    [children addObject: [AUIViewEditableText editableTextWithKey: @"field"
                                                                      text: _latestText
                                                               placeholder: @"Type"
                                                                     style: [AUIComponents inputTextStyleForSize: AUIControlSizeMedium]
@@ -322,7 +322,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
         _submittedText = [text copy];
     }]];
 
-    return [AUIViewBoxNode boxNodeWithKey: @"field-root" boxProps: fieldProps interactionConfiguration: nilptr children: children];
+    return [AUIViewBox boxWithKey: @"field-root" boxProps: fieldProps interactionConfiguration: nilptr children: children];
 }
 
 @end
@@ -342,7 +342,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     uint32_t _cleanupCount;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
     OFNumber *phaseValue = @(_phase);
 
@@ -353,7 +353,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
         };
     }];
 
-    return [AUIViewTextNode textNodeWithText: @"effect" style: AUI.defaultTextStyle];
+    return [AUIViewText textWithText: @"effect" style: AUI.defaultTextStyle];
 }
 
 @end
@@ -369,7 +369,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     bool _didSelect;
 }
 
-- (AUIViewNode *)renderViewNode
+- (AUIView *)renderView
 {
     AUIBoxProps props = AUI.defaultBoxProps;
     AUIContextMenu *menu = [AUIContextMenu items: @[
@@ -383,7 +383,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     props.layout.padding = [AUI insetsAll: 12];
     props.backgroundColor = [AUI colorWithRed: 240 green: 240 blue: 240 alpha: 255];
     props.cornerRadius = 8;
-    return [AUIViewBoxNode boxNodeWithKey: @"menu-box"
+    return [AUIViewBox boxWithKey: @"menu-box"
                                  boxProps: props
                    interactionConfiguration: [AUIViewInteractionConfiguration enabled: true
                                                                            focusable: false
@@ -391,7 +391,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
                                                                           onActivate: nilptr
                                                                          contextMenu: menu]
                                  children: @[
-        [AUIViewTextNode textNodeWithText: @"Context target" style: AUI.defaultTextStyle]
+        [AUIViewText textWithText: @"Context target" style: AUI.defaultTextStyle]
     ]];
 }
 
@@ -482,10 +482,9 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             AUITestApplication *application = [[AUITestApplication alloc] init];
             AUITestStateComponent *component = [[AUITestStateComponent alloc] init];
             AUITestRenderHarness harness = AUITestRenderHarnessMake(application);
-            Clay_RenderCommandArray commands;
 
             AUITestMountComponent(&harness, component, rootScope);
-            commands = AUITestRenderMountedComponent(&harness);
+            Clay_RenderCommandArray commands = AUITestRenderMountedComponent(&harness);
             OTAssert(AUITestCommandsContainText(commands, @"alpha"), @"initial state should render");
 
             [[component stateBinding] setValue: @"alpha"];
@@ -509,7 +508,6 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             AUITestLeafComponent *right = [[AUITestLeafComponent alloc] initWithName: @"right"];
             AUITestReorderComponent *root = [[AUITestReorderComponent alloc] initWithLeft: left right: right];
             AUITestRenderHarness harness = AUITestRenderHarnessMake(application);
-            Clay_RenderCommandArray commands;
 
             AUITestMountComponent(&harness, root, rootScope);
             (void)AUITestRenderMountedComponent(&harness);
@@ -517,7 +515,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             root.isReversed = true;
             [root setNeedsViewUpdate];
 
-            commands = AUITestRenderMountedComponent(&harness);
+            Clay_RenderCommandArray commands = AUITestRenderMountedComponent(&harness);
             OTAssert(AUITestCommandsContainText(commands, @"preserved"), @"stable child keys should preserve child hook state through reorder");
             OTAssert((left.mountCount == 1 and right.mountCount == 1), @"stable child keys should retain mounted child instances");
             AUITestUnmountComponent(&harness);
@@ -531,11 +529,10 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             AUITestApplication *application = [[AUITestApplication alloc] init];
             AUITestEditableFieldComponent *component = [[AUITestEditableFieldComponent alloc] init];
             AUITestRenderHarness harness = AUITestRenderHarnessMake(application);
-            Clay_BoundingBox boundingBox;
 
             AUITestMountComponent(&harness, component, rootScope);
             (void)AUITestRenderMountedComponent(&harness);
-            boundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/node:field-root/node:field");
+            const Clay_BoundingBox boundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/view:field-root/view:field");
             AUITestClickPrimary(&harness,
                                 boundingBox.x + boundingBox.width / 2.0f,
                                 boundingBox.y + boundingBox.height / 2.0f);
@@ -585,12 +582,10 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             AUITestApplication *application = [[AUITestApplication alloc] init];
             AUITestContextMenuComponent *component = [[AUITestContextMenuComponent alloc] init];
             AUITestRenderHarness harness = AUITestRenderHarnessMake(application);
-            Clay_BoundingBox targetBoundingBox;
-            Clay_BoundingBox menuItemBoundingBox;
 
             AUITestMountComponent(&harness, component, rootScope);
             (void)AUITestRenderMountedComponent(&harness);
-            targetBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/node:menu-box");
+            const Clay_BoundingBox targetBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/view:menu-box");
             AUITestClickSecondary(&harness,
                                   targetBoundingBox.x + targetBoundingBox.width / 2.0f,
                                   targetBoundingBox.y + targetBoundingBox.height / 2.0f);
@@ -598,7 +593,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
 
             OTAssert(([application _activeContextMenuForTesting] != nilptr), @"context menu attachments should open a menu on secondary click");
 
-            menuItemBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"__context_menu__/0");
+            const Clay_BoundingBox menuItemBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"__context_menu__/0");
             AUITestClickPrimary(&harness,
                                 menuItemBoundingBox.x + menuItemBoundingBox.width / 2.0f,
                                 menuItemBoundingBox.y + menuItemBoundingBox.height / 2.0f);
@@ -617,19 +612,14 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             AUITestApplication *application = [[AUITestApplication alloc] init];
             CalculatorRootComponent *component = [[CalculatorRootComponent alloc] init];
             AUITestRenderHarness harness = AUITestRenderHarnessMake(application);
-            Clay_BoundingBox digitSevenBoundingBox;
-            Clay_BoundingBox plusBoundingBox;
-            Clay_BoundingBox digitEightBoundingBox;
-            Clay_BoundingBox evaluateBoundingBox;
-            Clay_RenderCommandArray commands;
 
             AUITestMountComponent(&harness, component, rootScope);
             (void)AUITestRenderMountedComponent(&harness);
 
-            digitSevenBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/node:calculator-root/node:content-row/node:main-column/component:keypad/node:digits-row-a/node:digit-7");
-            plusBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/node:calculator-root/node:content-row/node:main-column/component:keypad/node:digits-row-d/node:plus");
-            digitEightBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/node:calculator-root/node:content-row/node:main-column/component:keypad/node:digits-row-a/node:digit-8");
-            evaluateBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/node:calculator-root/node:content-row/node:main-column/component:keypad/node:evaluate");
+            const Clay_BoundingBox digitSevenBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/view:calculator-root/view:content-row/view:main-column/component:keypad/view:digits-row-a/view:digit-7");
+            const Clay_BoundingBox plusBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/view:calculator-root/view:content-row/view:main-column/component:keypad/view:digits-row-d/view:plus");
+            const Clay_BoundingBox digitEightBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/view:calculator-root/view:content-row/view:main-column/component:keypad/view:digits-row-a/view:digit-8");
+            const Clay_BoundingBox evaluateBoundingBox = AUITestBoundingBoxForIdentifier(self, _cmd, @"root/view:calculator-root/view:content-row/view:main-column/component:keypad/view:evaluate");
 
             AUITestClickPrimary(&harness,
                                 digitSevenBoundingBox.x + digitSevenBoundingBox.width / 2.0f,
@@ -644,7 +634,7 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
             AUITestClickPrimary(&harness,
                                 digitEightBoundingBox.x + digitEightBoundingBox.width / 2.0f,
                                 digitEightBoundingBox.y + digitEightBoundingBox.height / 2.0f);
-            commands = AUITestRenderMountedComponent(&harness);
+            Clay_RenderCommandArray commands = AUITestRenderMountedComponent(&harness);
 
             OTAssert(AUITestCommandsContainText(commands, @"7+8"), @"calculator keypad clicks should update the shared expression display");
 
