@@ -20,59 +20,33 @@
 
 @end
 
-#define ASYNC_RUNTIME_SYNC_TEST(Name) \
-    @interface test_##Name : OTTestCase @end \
-    @implementation test_##Name \
-    - (void)test_case \
-    { \
-        Name(); \
-    } \
-    @end
-
-#define ASYNC_RUNTIME_ASYNC_TEST(Name) \
-    @interface test_##Name : AsyncRuntimeTestCase @end \
-    @implementation test_##Name \
-    - (void)test_case \
-    { \
-        [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) { \
-            Name(rootTaskGroup); \
-        }]; \
-    } \
-    @end
-
 @namespace(AsyncRuntimeTestSupport)
 
 + (Task<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
                                               seconds: (OFTimeInterval)seconds
                                                 value: (OFString *)value;
+
 + (Task<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
                                               seconds: (OFTimeInterval)seconds
                                             exception: (OFException *)exception;
+
 + (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (OFHTTPClient *)client
                                          onScheduler: (AsyncScheduler *)scheduler;
+
 + (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (OFHTTPClient *)client
                                            redirects: (unsigned int)redirects
                                          onScheduler: (AsyncScheduler *)scheduler;
+
 + (Task<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (OFHTTPClient *)client
                                            redirects: (unsigned int)redirects
                                          onScheduler: (AsyncScheduler *)scheduler
                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
+                            
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot;
 + (uintptr_t)pointerValueFromBytes: (const void *)bytes;
-+ (void)assertCondition: (bool)condition message: (OFString *)message;
-
-@end
-
-[[subclassing_restricted]]
-@interface TestFailureException : OFException
-
-@property(readonly, nonatomic) OFString *message;
-
-- (instancetype)initWithMessage: (OFString *)message [[designated_initailiser]];
-- (instancetype)init OF_UNAVAILABLE;
 
 @end
 

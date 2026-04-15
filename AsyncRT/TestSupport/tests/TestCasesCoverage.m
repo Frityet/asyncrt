@@ -264,7 +264,12 @@
 
 @end
 
-static void coroutine_guard_and_common_coverage(void)
+[[subclassing_restricted]]
+@interface AsyncRuntimeCoverageTests : OTTestCase @end
+
+@implementation AsyncRuntimeCoverageTests
+
+- (void)test_coroutine_guard_and_common_coverage
 {
     auto rootCoroutine = [[Coroutine alloc] _initAsRootCoroutine];
     auto emptyCoroutine = [Coroutine withBlock: ^id(Coroutine *co) {
@@ -302,18 +307,12 @@ static void coroutine_guard_and_common_coverage(void)
                 operation: @"mco_create"
                 errorCode: ENOMEM];
 
-    [AsyncRuntimeTestSupport assertCondition: ([[Coroutine describeStatus: CoroutineStatus_READY] isEqual: @"READY"])
-                                     message: (@"Coroutine should describe READY status explicitly")];
-    [AsyncRuntimeTestSupport assertCondition: ([[Coroutine describeStatus: CoroutineStatus_RUNNING] isEqual: @"RUNNING"])
-                                     message: (@"Coroutine should describe RUNNING status explicitly")];
-    [AsyncRuntimeTestSupport assertCondition: ([[Coroutine describeStatus: CoroutineStatus_SUSPENDED] isEqual: @"SUSPENDED"])
-                                     message: (@"Coroutine should describe SUSPENDED status explicitly")];
-    [AsyncRuntimeTestSupport assertCondition: ([[Coroutine describeStatus: CoroutineStatus_DEAD] isEqual: @"DEAD"])
-                                     message: (@"Coroutine should describe DEAD status explicitly")];
-    [AsyncRuntimeTestSupport assertCondition: ([rootCoroutine.description isEqual: rootCoroutine.describe])
-                                     message: (@"Coroutine.description should delegate to -describe")];
-    [AsyncRuntimeTestSupport assertCondition: ([rootCoroutine.describe containsString: @"RUNNING"])
-                                     message: (@"Root coroutine descriptions should include the running state")];
+    OTAssert(([[Coroutine describeStatus: CoroutineStatus_READY] isEqual: @"READY"]), @"Coroutine should describe READY status explicitly");
+    OTAssert(([[Coroutine describeStatus: CoroutineStatus_RUNNING] isEqual: @"RUNNING"]), @"Coroutine should describe RUNNING status explicitly");
+    OTAssert(([[Coroutine describeStatus: CoroutineStatus_SUSPENDED] isEqual: @"SUSPENDED"]), @"Coroutine should describe SUSPENDED status explicitly");
+    OTAssert(([[Coroutine describeStatus: CoroutineStatus_DEAD] isEqual: @"DEAD"]), @"Coroutine should describe DEAD status explicitly");
+    OTAssert(([rootCoroutine.description isEqual: rootCoroutine.describe]), @"Coroutine.description should delegate to -describe");
+    OTAssert(([rootCoroutine.describe containsString: @"RUNNING"]), @"Root coroutine descriptions should include the running state");
 
     @try {
         [rootCoroutine yield];
@@ -386,44 +385,27 @@ static void coroutine_guard_and_common_coverage(void)
         caughtZeroStack = true;
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtMissingYieldCaller)
-                                     message: (@"Root coroutine yield should report a missing caller")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtMissingReturnCaller)
-                                     message: (@"Root coroutine return should report a missing caller")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtReadyYield)
-                                     message: (@"Yielding from a ready coroutine should fail the READY->SUSPENDED transition")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtReadyReturn)
-                                     message: (@"Returning from a ready coroutine should fail the READY->DEAD transition")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtRunningResume)
-                                     message: (@"Resuming the running root coroutine should fail the RUNNING->RUNNING transition")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtDeadResume)
-                                     message: (@"Resuming a dead coroutine should fail the DEAD->RUNNING transition")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtNilEnumeration)
-                                     message: (@"Fast enumeration should reject nil yields")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtNilBlock)
-                                     message: (@"Coroutines should reject nil blocks defensively")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtZeroStack)
-                                     message: (@"Coroutines should reject a zero stack size")];
+    OTAssert((caughtMissingYieldCaller), @"Root coroutine yield should report a missing caller");
+    OTAssert((caughtMissingReturnCaller), @"Root coroutine return should report a missing caller");
+    OTAssert((caughtReadyYield), @"Yielding from a ready coroutine should fail the READY->SUSPENDED transition");
+    OTAssert((caughtReadyReturn), @"Returning from a ready coroutine should fail the READY->DEAD transition");
+    OTAssert((caughtRunningResume), @"Resuming the running root coroutine should fail the RUNNING->RUNNING transition");
+    OTAssert((caughtDeadResume), @"Resuming a dead coroutine should fail the DEAD->RUNNING transition");
+    OTAssert((caughtNilEnumeration), @"Fast enumeration should reject nil yields");
+    OTAssert((caughtNilBlock), @"Coroutines should reject nil blocks defensively");
+    OTAssert((caughtZeroStack), @"Coroutines should reject a zero stack size");
 
-    [AsyncRuntimeTestSupport assertCondition: ([exception.description containsString: @"CoroutineException"])
-                                     message: (@"CoroutineException should describe the wrapped coroutine")];
-    [AsyncRuntimeTestSupport assertCondition: ([stateException.description containsString: @"RUNNING"])
-                                     message: (@"CoroutineStateTransitionFailedException should describe both states")];
-    [AsyncRuntimeTestSupport assertCondition: ([missingCallerException.description containsString: @"cannot yield"])
-                                     message: (@"CoroutineMissingCallerException should describe the rejected operation")];
-    [AsyncRuntimeTestSupport assertCondition: ([stackExceptionNegative.description containsString: @"mco_resume"])
-                                     message: (@"Negative stack setup errors should still produce a description")];
-    [AsyncRuntimeTestSupport assertCondition: ([stackExceptionPositive.description containsString: @"mco_create"])
-                                     message: (@"Errno-based stack setup errors should still produce a description")];
+    OTAssert(([exception.description containsString: @"CoroutineException"]), @"CoroutineException should describe the wrapped coroutine");
+    OTAssert(([stateException.description containsString: @"RUNNING"]), @"CoroutineStateTransitionFailedException should describe both states");
+    OTAssert(([missingCallerException.description containsString: @"cannot yield"]), @"CoroutineMissingCallerException should describe the rejected operation");
+    OTAssert(([stackExceptionNegative.description containsString: @"mco_resume"]), @"Negative stack setup errors should still produce a description");
+    OTAssert(([stackExceptionPositive.description containsString: @"mco_create"]), @"Errno-based stack setup errors should still produce a description");
 
-    [AsyncRuntimeTestSupport assertCondition: (NamespaceClass.self == NamespaceClass.class)
-                                     message: (@"NamespaceClass should return its class from +self")];
-    [AsyncRuntimeTestSupport assertCondition: ([NamespaceClass class] == NamespaceClass.class)
-                                     message: (@"NamespaceClass +class should mirror Objective-C class lookup")];
-
+    OTAssert((NamespaceClass.self == NamespaceClass.class), @"NamespaceClass should return its class from +self");
+    OTAssert(([NamespaceClass class] == NamespaceClass.class), @"NamespaceClass +class should mirror Objective-C class lookup");
 }
 
-static void argument_parser_internal_helpers(void)
+- (void)test_argument_parser_internal_helpers
 {
     auto fallbackCommand = [[ParserIvarFallbackCommand alloc] init];
     auto fallbackParser = [[ArgumentParser<ParserIvarFallbackCommand *> alloc] initWithCommand: fallbackCommand];
@@ -447,49 +429,30 @@ static void argument_parser_internal_helpers(void)
 
     (void)[fallbackParser parseArguments: @[@"--mystery", @"shadow"]];
 
-    [AsyncRuntimeTestSupport assertCondition: ([[CLINameTransform kebabCaseForString: @"foo_barBaz2Qux"] isEqual: @"foo-bar-baz2-qux"])
-                                     message: (@"CLINameTransform should convert underscores and camel-case into kebab-case")];
-    [AsyncRuntimeTestSupport assertCondition: ([[CLINameTransform upperValueNameForPropertyName: @"cachePath"] isEqual: @"CACHE-PATH"])
-                                     message: (@"CLINameTransform should derive upper-cased value labels from property names")];
-    [AsyncRuntimeTestSupport assertCondition: ([[CLINameTransform className: Nil] isEqual: @"<unknown>"])
-                                     message: (@"CLINameTransform should report unknown when the value class is missing")];
-    [AsyncRuntimeTestSupport assertCondition: ([[CLINameTransform shortNameString: 'z'] isEqual: @"z"])
-                                     message: (@"CLINameTransform should render single-character short options as strings")];
+    OTAssert(([[CLINameTransform kebabCaseForString: @"foo_barBaz2Qux"] isEqual: @"foo-bar-baz2-qux"]), @"CLINameTransform should convert underscores and camel-case into kebab-case");
+    OTAssert(([[CLINameTransform upperValueNameForPropertyName: @"cachePath"] isEqual: @"CACHE-PATH"]), @"CLINameTransform should derive upper-cased value labels from property names");
+    OTAssert(([[CLINameTransform className: Nil] isEqual: @"<unknown>"]), @"CLINameTransform should report unknown when the value class is missing");
+    OTAssert(([[CLINameTransform shortNameString: 'z'] isEqual: @"z"]), @"CLINameTransform should render single-character short options as strings");
 
-    [AsyncRuntimeTestSupport assertCondition: (optionalPositional.isPositional and not optionalPositional.isRequired)
-                                     message: (@"Resolved optional positionals should report their positional and required state")];
-    [AsyncRuntimeTestSupport assertCondition: ([optionalPositional.usageLabel isEqual: @"[<INPUT-VALUE>]"])
-                                     message: (@"Optional positional usage labels should render with brackets")];
-    [AsyncRuntimeTestSupport assertCondition: ([optionalPositional.helpSyntax isEqual: @"[<INPUT-VALUE>]"])
-                                     message: (@"Optional positional help syntax should mirror the usage label")];
-    [AsyncRuntimeTestSupport assertCondition: (longOnlyFlag.isFlag)
-                                     message: (@"Resolved flags should report flag kind")];
-    [AsyncRuntimeTestSupport assertCondition: ([longOnlyFlag.helpSyntax isEqual: @"--dry-run"])
-                                     message: (@"Long-only flags should omit the short-option prefix in help text")];
-    [AsyncRuntimeTestSupport assertCondition: ([longOnlyOption.helpSyntax isEqual: @"--output <DEST>"])
-                                     message: (@"Long-only named options should include their value label in help text")];
-    [AsyncRuntimeTestSupport assertCondition: ([fallbackParser.helpText containsString: @"--mystery <THING>"])
-                                     message: (@"Schema building should infer CLIOption classes from backing ivars when the property type is plain id")];
+    OTAssert((optionalPositional.isPositional and not optionalPositional.isRequired), @"Resolved optional positionals should report their positional and required state");
+    OTAssert(([optionalPositional.usageLabel isEqual: @"[<INPUT-VALUE>]"]), @"Optional positional usage labels should render with brackets");
+    OTAssert(([optionalPositional.helpSyntax isEqual: @"[<INPUT-VALUE>]"]), @"Optional positional help syntax should mirror the usage label");
+    OTAssert((longOnlyFlag.isFlag), @"Resolved flags should report flag kind");
+    OTAssert(([longOnlyFlag.helpSyntax isEqual: @"--dry-run"]), @"Long-only flags should omit the short-option prefix in help text");
+    OTAssert(([longOnlyOption.helpSyntax isEqual: @"--output <DEST>"]), @"Long-only named options should include their value label in help text");
+    OTAssert(([fallbackParser.helpText containsString: @"--mystery <THING>"]), @"Schema building should infer CLIOption classes from backing ivars when the property type is plain id");
 
-    [AsyncRuntimeTestSupport assertCondition: ([[(CLIOption<OFString *> *)fallbackCommand.mysteryOption value] isEqual: @"shadow"])
-                                     message: (@"Parser fallback properties should still bind parsed values")];
-    [AsyncRuntimeTestSupport assertCondition: ([(CLIOption<OFString *> *)fallbackCommand.mysteryOption hasValue])
-                                     message: (@"Fallback CLIOption properties should report values after parsing")];
+    OTAssert(([[(CLIOption<OFString *> *)fallbackCommand.mysteryOption value] isEqual: @"shadow"]), @"Parser fallback properties should still bind parsed values");
+    OTAssert(([(CLIOption<OFString *> *)fallbackCommand.mysteryOption hasValue]), @"Fallback CLIOption properties should report values after parsing");
 
-    [AsyncRuntimeTestSupport assertCondition: ([(OFString *)[CLIValueCodec parseToken: @"hello" forValueClass: OFString.class] isEqual: @"hello"])
-                                     message: (@"CLIValueCodec should parse OFString values by copying the token")];
-    [AsyncRuntimeTestSupport assertCondition: ([[(OFNumber *)[CLIValueCodec parseToken: @"42" forValueClass: OFNumber.class] stringValue] isEqual: @"42"])
-                                     message: (@"CLIValueCodec should parse unsigned numbers")];
-    [AsyncRuntimeTestSupport assertCondition: (((OFNumber *)[CLIValueCodec parseToken: @"-7" forValueClass: OFNumber.class]).longLongValue == -7)
-                                     message: (@"CLIValueCodec should parse signed numbers")];
-    [AsyncRuntimeTestSupport assertCondition: (((OFNumber *)[CLIValueCodec parseToken: @"6.25e1" forValueClass: OFNumber.class]).doubleValue == 62.5)
-                                     message: (@"CLIValueCodec should parse floating-point numbers with exponents")];
-    [AsyncRuntimeTestSupport assertCondition: ([customParsed isKindOfClass: ParserCustomParsedValue.class]
-        and [((ParserCustomParsedValue *)customParsed).rawValue isEqual: @"DEMO"])
-                                     message: (@"CLIValueCodec should use +cliParseValue: when available")];
-    [AsyncRuntimeTestSupport assertCondition: ([stringConstructed isKindOfClass: ParserStringConstructedValue.class]
-        and [((ParserStringConstructedValue *)stringConstructed).rawValue isEqual: @"hello"])
-                                     message: (@"CLIValueCodec should fall back to -initWithString: when available")];
+    OTAssert(([(OFString *)[CLIValueCodec parseToken: @"hello" forValueClass: OFString.class] isEqual: @"hello"]), @"CLIValueCodec should parse OFString values by copying the token");
+    OTAssert(([[(OFNumber *)[CLIValueCodec parseToken: @"42" forValueClass: OFNumber.class] stringValue] isEqual: @"42"]), @"CLIValueCodec should parse unsigned numbers");
+    OTAssert((((OFNumber *)[CLIValueCodec parseToken: @"-7" forValueClass: OFNumber.class]).longLongValue == -7), @"CLIValueCodec should parse signed numbers");
+    OTAssert((((OFNumber *)[CLIValueCodec parseToken: @"6.25e1" forValueClass: OFNumber.class]).doubleValue == 62.5), @"CLIValueCodec should parse floating-point numbers with exponents");
+    OTAssert(([customParsed isKindOfClass: ParserCustomParsedValue.class]
+        and [((ParserCustomParsedValue *)customParsed).rawValue isEqual: @"DEMO"]), @"CLIValueCodec should use +cliParseValue: when available");
+    OTAssert(([stringConstructed isKindOfClass: ParserStringConstructedValue.class]
+        and [((ParserStringConstructedValue *)stringConstructed).rawValue isEqual: @"hello"]), @"CLIValueCodec should fall back to -initWithString: when available");
 
     @try {
         (void)[CLIValueCodec parseToken: @"opaque" forValueClass: ParserOpaqueValue.class];
@@ -510,13 +473,10 @@ static void argument_parser_internal_helpers(void)
     }
 
     [stringOption cli_setParsedValue: @"value"];
-    [AsyncRuntimeTestSupport assertCondition: (stringOption.boolValue)
-                                     message: (@"CLIOption.boolValue should treat non-number parsed values as truthy")];
-    [AsyncRuntimeTestSupport assertCondition: ([[stringOption valueOr: @"fallback"] isEqual: @"value"])
-                                     message: (@"CLIOption.valueOr: should return the parsed value when present")];
+    OTAssert((stringOption.boolValue), @"CLIOption.boolValue should treat non-number parsed values as truthy");
+    OTAssert(([[stringOption valueOr: @"fallback"] isEqual: @"value"]), @"CLIOption.valueOr: should return the parsed value when present");
     [stringOption cli_reset];
-    [AsyncRuntimeTestSupport assertCondition: ([[stringOption valueOr: @"fallback"] isEqual: @"fallback"])
-                                     message: (@"CLIOption.valueOr: should use the fallback when unset")];
+    OTAssert(([[stringOption valueOr: @"fallback"] isEqual: @"fallback"]), @"CLIOption.valueOr: should use the fallback when unset");
 
     @try {
         (void)stringOption.value;
@@ -530,19 +490,14 @@ static void argument_parser_internal_helpers(void)
         caughtParserInit = true;
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtUnknownValueClass)
-                                     message: (@"CLIValueCodec should reject unknown parsing targets")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtMissingValueClass)
-                                     message: (@"CLIValueCodec should reject missing value classes")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtInvalidNumber)
-                                     message: (@"CLIValueCodec should reject malformed numeric tokens")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtMissingOptionValue)
-                                     message: (@"CLIOption.value should reject unset options without defaults")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtParserInit)
-                                     message: (@"ArgumentParser should reject non-CLICommand roots")];
+    OTAssert((caughtUnknownValueClass), @"CLIValueCodec should reject unknown parsing targets");
+    OTAssert((caughtMissingValueClass), @"CLIValueCodec should reject missing value classes");
+    OTAssert((caughtInvalidNumber), @"CLIValueCodec should reject malformed numeric tokens");
+    OTAssert((caughtMissingOptionValue), @"CLIOption.value should reject unset options without defaults");
+    OTAssert((caughtParserInit), @"ArgumentParser should reject non-CLICommand roots");
 }
 
-static void argument_parser_error_branches(void)
+- (void)test_argument_parser_error_branches
 {
     auto parser = [[ArgumentParser<ParserErrorCoverageCommand *> alloc]
         initWithCommand: [[ParserErrorCoverageCommand alloc] init]];
@@ -563,24 +518,16 @@ static void argument_parser_error_branches(void)
     ParserErrorCoverageCommand *parsed;
 
     parsed = [parser parseArguments: @[@"-fc42", @"source.txt", @"--", @"-literal"]];
-    [AsyncRuntimeTestSupport assertCondition: (parsed.count.value.longLongValue == 42)
-                                     message: (@"Short option clusters should allow attached values for the first non-flag option")];
-    [AsyncRuntimeTestSupport assertCondition: (parsed.force.boolValue)
-                                     message: (@"Short flag clusters should set the flag before consuming the value option")];
-    [AsyncRuntimeTestSupport assertCondition: ([parsed.source.value isEqual: @"source.txt"])
-                                     message: (@"Required positionals should still bind after clustered short options")];
-    [AsyncRuntimeTestSupport assertCondition: ([parsed.literal.value isEqual: @"-literal"])
-                                     message: (@"The '--' token should disable subsequent option parsing")];
+    OTAssert((parsed.count.value.longLongValue == 42), @"Short option clusters should allow attached values for the first non-flag option");
+    OTAssert((parsed.force.boolValue), @"Short flag clusters should set the flag before consuming the value option");
+    OTAssert(([parsed.source.value isEqual: @"source.txt"]), @"Required positionals should still bind after clustered short options");
+    OTAssert(([parsed.literal.value isEqual: @"-literal"]), @"The '--' token should disable subsequent option parsing");
 
     parsed = [parser parseArguments: @[@"--count=9", @"serve", @"tail"]];
-    [AsyncRuntimeTestSupport assertCondition: (parsed.count.value.longLongValue == 9)
-                                     message: (@"Long options should accept an explicit '=value' form")];
-    [AsyncRuntimeTestSupport assertCondition: ([parsed.source.value isEqual: @"serve"])
-                                     message: (@"Subcommand names should remain positionals while required positionals are still missing")];
-    [AsyncRuntimeTestSupport assertCondition: ([parsed.literal.value isEqual: @"tail"])
-                                     message: (@"Optional positionals should bind once required positionals are satisfied")];
-    [AsyncRuntimeTestSupport assertCondition: ([parser.helpText containsString: @"Commands:"])
-                                     message: (@"Help text should still render command sections when entries have no help text")];
+    OTAssert((parsed.count.value.longLongValue == 9), @"Long options should accept an explicit '=value' form");
+    OTAssert(([parsed.source.value isEqual: @"serve"]), @"Subcommand names should remain positionals while required positionals are still missing");
+    OTAssert(([parsed.literal.value isEqual: @"tail"]), @"Optional positionals should bind once required positionals are satisfied");
+    OTAssert(([parser.helpText containsString: @"Commands:"]), @"Help text should still render command sections when entries have no help text");
 
     @try {
         (void)[parser parseArguments: @[@"-h"]];
@@ -643,29 +590,19 @@ static void argument_parser_error_branches(void)
             and [exception.description containsString: @"Usage:"];
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtHelp)
-                                     message: (@"-h should throw a help exception with rendered usage text")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtUnknownOption)
-                                     message: (@"Unknown long options should report a usage error")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtFlagValue)
-                                     message: (@"Flags should reject explicit long-form values")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtLongValueRequired)
-                                     message: (@"Named long options should require a following value when one is missing")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtShortUnknown)
-                                     message: (@"Unknown short options should report a usage error")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtShortValueRequired)
-                                     message: (@"Short named options should require a following value when the cluster ends")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtMissingRequiredOption)
-                                     message: (@"Parsing should fail when a required named option is omitted")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtUnknownCommand)
-                                     message: (@"Unexpected subcommand tokens should report an unknown command")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtUnexpectedArgument)
-                                     message: (@"Commands without subcommands should report stray arguments as unexpected")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtInvalidParsedValue)
-                                     message: (@"Value codec failures should be wrapped as usage errors with help text")];
+    OTAssert((caughtHelp), @"-h should throw a help exception with rendered usage text");
+    OTAssert((caughtUnknownOption), @"Unknown long options should report a usage error");
+    OTAssert((caughtFlagValue), @"Flags should reject explicit long-form values");
+    OTAssert((caughtLongValueRequired), @"Named long options should require a following value when one is missing");
+    OTAssert((caughtShortUnknown), @"Unknown short options should report a usage error");
+    OTAssert((caughtShortValueRequired), @"Short named options should require a following value when the cluster ends");
+    OTAssert((caughtMissingRequiredOption), @"Parsing should fail when a required named option is omitted");
+    OTAssert((caughtUnknownCommand), @"Unexpected subcommand tokens should report an unknown command");
+    OTAssert((caughtUnexpectedArgument), @"Commands without subcommands should report stray arguments as unexpected");
+    OTAssert((caughtInvalidParsedValue), @"Value codec failures should be wrapped as usage errors with help text");
 }
 
-static void argument_parser_schema_validation(void)
+- (void)test_argument_parser_schema_validation
 {
     bool caughtDuplicateLong = false;
     bool caughtDuplicateShort = false;
@@ -691,21 +628,12 @@ static void argument_parser_schema_validation(void)
         caughtDuplicateSubcommand = [exception.description containsString: @"Duplicate subcommand name 'dup-value'"];
     }
 
-    [AsyncRuntimeTestSupport assertCondition: ([plainException.description isEqual: @"plain"])
-                                     message: (@"ArgumentParserException should return its bare message when no usage is attached")];
-    [AsyncRuntimeTestSupport assertCondition: ([helpException.description isEqual: @"Usage: demo"])
-                                     message: (@"ArgumentParserHelpException should prefer usage text in its description")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtDuplicateLong)
-                                     message: (@"Schema introspection should reject duplicate long option names")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtDuplicateShort)
-                                     message: (@"Schema introspection should reject duplicate short option names")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtDuplicateSubcommand)
-                                     message: (@"Schema introspection should reject duplicate subcommand names")];
+    OTAssert(([plainException.description isEqual: @"plain"]), @"ArgumentParserException should return its bare message when no usage is attached");
+    OTAssert(([helpException.description isEqual: @"Usage: demo"]), @"ArgumentParserHelpException should prefer usage text in its description");
+    OTAssert((caughtDuplicateLong), @"Schema introspection should reject duplicate long option names");
+    OTAssert((caughtDuplicateShort), @"Schema introspection should reject duplicate short option names");
+    OTAssert((caughtDuplicateSubcommand), @"Schema introspection should reject duplicate subcommand names");
 }
 
-ASYNC_RUNTIME_SYNC_TEST(coroutine_guard_and_common_coverage)
-ASYNC_RUNTIME_SYNC_TEST(argument_parser_internal_helpers)
-ASYNC_RUNTIME_SYNC_TEST(argument_parser_error_branches)
-ASYNC_RUNTIME_SYNC_TEST(argument_parser_schema_validation)
-
+@end
 #pragma clang assume_nonnull end

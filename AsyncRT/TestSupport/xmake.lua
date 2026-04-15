@@ -1,88 +1,135 @@
 local common = asyncrt_build
 
-local async_runtime_test_cases = {
-    {name = "default_scheduler_lifecycle", group = "sync/scheduler"},
-    {name = "coroutine_roundtrip_states", group = "sync/coroutine"},
-    {name = "coroutine_return_short_circuits", group = "sync/coroutine"},
-    {name = "coroutine_exception_propagation", group = "sync/coroutine"},
-    {name = "coroutine_fast_enumeration", group = "sync/coroutine"},
-    {name = "coroutine_default_stack_size", group = "sync/coroutine"},
-    {name = "coroutine_guard_and_common_coverage", group = "sync/coroutine"},
-    {name = "runtime_internal_description_coverage", group = "sync/runtime"},
-    {name = "scheduler_channel_private_branches", group = "sync/runtime"},
-    {name = "utility_internal_branch_coverage", group = "sync/runtime"},
-    {name = "task_await_outside_task", group = "sync/task"},
-    {name = "task_resolution_guards", group = "sync/task"},
-    {name = "task_state_access_guards", group = "sync/task"},
-    {name = "task_nil_resolution_and_rejection", group = "sync/task"},
-    {name = "task_continuation_scheduler_requirements", group = "sync/task"},
-    {name = "async_unit_singleton", group = "sync/runtime"},
-    {name = "async_scheduler_invalid_initialization", group = "sync/scheduler"},
-    {name = "pointer_basic_data_view", group = "utilities/pointer"},
-    {name = "pointer_nullptr_roundtrip", group = "utilities/pointer"},
-    {name = "pointer_ordering_and_copying", group = "utilities/pointer"},
-    {name = "pointer_compare_against_plain_data", group = "utilities/pointer"},
-    {name = "pointer_string_encoding_and_description", group = "utilities/pointer"},
-    {name = "optional_from_nillable_nil_is_none", group = "utilities/optional"},
-    {name = "optional_roundtrip_equality_and_description", group = "utilities/optional"},
-    {name = "optional_some_retains_payload_across_autorelease_pool", group = "utilities/optional"},
-    {name = "optional_some_accepts_tagged_payloads", group = "utilities/optional"},
-    {name = "application_executable_iri_resolves_to_existing_absolute_file_iri", group = "utilities/ofapplication"},
-    {name = "window_options_expose_content_scaling_configuration", group = "ui"},
-    {name = "headless_window_content_scale_changes_viewport_and_pointer_space", group = "ui"},
-    {name = "headless_window_scale_with_window_size_keeps_reference_viewport", group = "ui"},
-    {name = "hook_state_updates_request_render_only_on_change", group = "ui"},
-    {name = "keyed_child_components_retain_state_across_reorder", group = "ui"},
-    {name = "editable_text_focus_persists_across_conditional_insertion", group = "ui"},
-    {name = "effect_cleanup_runs_on_dependency_change_and_unmount", group = "ui"},
-    {name = "context_menu_attachment_opens_and_activates", group = "ui"},
-    {name = "calculator_keypad_clicks_refresh_shared_display_state", group = "ui"},
-    {name = "argument_parser_binds_nested_command_instances", group = "app/argument-parser"},
-    {name = "argument_parser_renders_help_text", group = "app/argument-parser"},
-    {name = "argument_parser_reports_missing_required_positional", group = "app/argument-parser"},
-    {name = "argument_parser_requires_initialized_cli_nodes", group = "app/argument-parser"},
-    {name = "argument_parser_internal_helpers", group = "app/argument-parser"},
-    {name = "argument_parser_error_branches", group = "app/argument-parser"},
-    {name = "argument_parser_schema_validation", group = "app/argument-parser"},
-    {name = "calculator_evaluator_scientific_ops", group = "app/calculator"},
-    {name = "calculator_model_memory_and_history", group = "app/calculator"},
-    {name = "calculator_model_edge_cases", group = "app/calculator"},
-    {name = "async_completion_source_lifecycle", group = "async/completion-source"},
-    {name = "task_await", group = "async/task"},
-    {name = "task_rejection_paths", group = "async/task"},
-    {name = "task_combinators", group = "async/task"},
-    {name = "task_continuation_scheduler_capture", group = "async/task"},
-    {name = "task_collection_helpers", group = "async/task"},
-    {name = "task_continuation_and_scope_internal_branches", group = "async/task"},
-    {name = "task_metadata_and_resolution", group = "async/task"},
-    {name = "task_returned_nil_exception", group = "async/task"},
-    {name = "cross_thread_task_resolution", group = "async/task"},
-    {name = "self_await_rejected", group = "async/task"},
-    {name = "scope_waits_for_children", group = "async/scope"},
-    {name = "scope_failure_cancels_siblings", group = "async/scope"},
-    {name = "scope_spawn_all", group = "async/scope"},
-    {name = "task_cancellation_checkpoint", group = "async/task"},
-    {name = "timeout_cancels_children", group = "async/scope"},
-    {name = "past_deadline_fails_immediately", group = "async/scope"},
-    {name = "parent_scope_cancellation_propagates", group = "async/scope"},
-    {name = "scheduler_offload_roundtrip", group = "async/scheduler"},
-    {name = "scheduler_snapshot_waiting_task", group = "async/scheduler"},
-    {name = "scheduler_shutdown_rejects_offload", group = "async/scheduler"},
-    {name = "scheduler_cancellation_counter", group = "async/scheduler"},
-    {name = "scheduler_offload_failure_paths", group = "async/scheduler"},
-    {name = "scheduler_sleep_shortcuts", group = "async/scheduler"},
-    {name = "channel_rendezvous", group = "async/channel"},
-    {name = "channel_buffer_backpressure_and_snapshot", group = "async/channel"},
-    {name = "channel_close_semantics", group = "async/channel"},
-    {name = "channel_close_unblocks_waiters", group = "async/channel"},
-    {name = "channel_send_cancellation", group = "async/channel"},
-    {name = "channel_receive_cancellation", group = "async/channel"},
-    {name = "channel_multi_producer_consumer", group = "async/channel"},
-    {name = "http_concurrent_requests", group = "async/http", timeout = 10},
-    {name = "http_timeout_cancellation_and_reuse", group = "async/http", timeout = 10},
-    {name = "stress_timeout_repetitions", group = "stress", timeout = 10},
-    {name = "stress_channel_repetitions", group = "stress", timeout = 10}
+local async_runtime_test_suites = {
+    {
+        name = "utilities",
+        class = "AsyncRuntimeUtilitiesTests",
+        group = "utilities",
+        files = {"tests/AsyncRuntimeTests.m", "../Utilities/tests/TestCasesUtilities.m"}
+    },
+    {
+        name = "argument_parser",
+        class = "AsyncRuntimeArgumentParserTests",
+        group = "utilities/argument-parser",
+        files = {"tests/AsyncRuntimeTests.m", "../Utilities/tests/TestCasesArgumentParser.m"}
+    },
+    {
+        name = "sync",
+        class = "AsyncRuntimeSyncTests",
+        group = "sync",
+        timeout = 20,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesSync.m"}
+    },
+    {
+        name = "async_task",
+        class = "AsyncRuntimeTaskTests",
+        group = "async/task",
+        timeout = 60,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesAsync.m"}
+    },
+    {
+        name = "async_scope",
+        class = "AsyncRuntimeScopeTests",
+        group = "async/scope",
+        timeout = 60,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesAsync.m"}
+    },
+    {
+        name = "async_scheduler",
+        class = "AsyncRuntimeSchedulerTests",
+        group = "async/scheduler",
+        timeout = 60,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesAsync.m"}
+    },
+    {
+        name = "async_channel",
+        class = "AsyncRuntimeChannelTests",
+        group = "async/channel",
+        timeout = 60,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesAsync.m"}
+    },
+    {
+        name = "async_http",
+        class = "AsyncRuntimeHTTPTests",
+        group = "async/http",
+        timeout = 30,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesAsync.m"}
+    },
+    {
+        name = "stress",
+        class = "AsyncRuntimeStressTests",
+        group = "stress",
+        timeout = 30,
+        files = {"tests/AsyncRuntimeTests.m", "../Async/tests/TestCasesAsync.m"}
+    },
+    {
+        name = "ui",
+        class = "AsyncRuntimeUITests",
+        group = "ui",
+        timeout = 30,
+        files = {"tests/AsyncRuntimeTests.m", "../UI/tests/TestCasesUI.m"}
+    },
+    {
+        name = "app_calculator",
+        class = "AsyncRuntimeAppCalculatorTests",
+        group = "app/calculator",
+        files = {"tests/AsyncRuntimeTests.m", "../App/tests/TestCasesAppCalculator.m"}
+    },
+    {
+        name = "coverage",
+        class = "AsyncRuntimeCoverageTests",
+        group = "coverage",
+        timeout = 30,
+        files = {"tests/AsyncRuntimeTests.m", "tests/TestCasesCoverage.m"}
+    },
+    {
+        name = "coverage_extras",
+        class = "AsyncRuntimeCoverageExtrasTests",
+        group = "coverage/extras",
+        timeout = 60,
+        files = {"tests/AsyncRuntimeTests.m", "tests/TestCasesCoverageExtras.m"}
+    }
 }
+
+local async_runtime_test_target_names = {}
+
+local function configure_async_runtime_test_target(name, suite)
+    target(name)
+        set_default(false)
+        set_kind("binary")
+        set_group("tests")
+        add_deps("AsyncRTTestSupport")
+        common.add_internal_test_access_define()
+        before_build(function ()
+            if common.internal_test_access_enabled() then
+                return
+            end
+
+            raise(name .. " requires xmake f -m test, xmake check, or explicit --asyncrt-test-access=y.")
+        end)
+        if is_plat("macosx") then
+            add_ldflags("-ObjC", {force = true})
+        end
+        add_cxflags(
+            "-Wno-nonnull",
+            "-Wno-nullability-completeness",
+            "-Wno-nullable-to-nonnull-conversion",
+            {force = true}
+        )
+        add_mflags(
+            "-Wno-nonnull",
+            "-Wno-nullability-completeness",
+            "-Wno-nullable-to-nonnull-conversion",
+            {force = true}
+        )
+        add_links("objfwtest", "objfwhid")
+        add_files(table.unpack(suite.files))
+        add_tests("default", {
+            group = suite.group,
+            runargs = {suite.class},
+            timeout = suite.timeout or 5
+        })
+end
 
 target("AsyncRTTestSupport")
     set_default(false)
@@ -92,46 +139,14 @@ target("AsyncRTTestSupport")
     common.add_internal_test_access_define()
     add_files("src/*.m")
 
+for _, test_suite in ipairs(async_runtime_test_suites) do
+    local test_target_name = "async-runtime-tests-" .. test_suite.name
+    table.insert(async_runtime_test_target_names, test_target_name)
+    configure_async_runtime_test_target(test_target_name, test_suite)
+end
+
 target("async-runtime-tests")
     set_default(false)
-    set_kind("binary")
+    set_kind("phony")
     set_group("tests")
-    add_deps("AsyncRTTestSupport")
-    common.add_internal_test_access_define()
-    before_build(function ()
-        if common.internal_test_access_enabled() then
-            return
-        end
-
-        raise("async-runtime-tests requires xmake f -m test, xmake check, or explicit --asyncrt_test_access=y.")
-    end)
-    if is_plat("macosx") then
-        add_ldflags("-ObjC", {force = true})
-    end
-    add_cxflags(
-        "-Wno-nonnull",
-        "-Wno-nullability-completeness",
-        "-Wno-nullable-to-nonnull-conversion",
-        {force = true}
-    )
-    add_mflags(
-        "-Wno-nonnull",
-        "-Wno-nullability-completeness",
-        "-Wno-nullable-to-nonnull-conversion",
-        {force = true}
-    )
-    add_links("objfwtest", "objfwhid")
-    add_files(
-        "tests/*.m",
-        "../Utilities/tests/*.m",
-        "../Async/tests/*.m",
-        "../UI/tests/*.m",
-        "../App/tests/*.m"
-    )
-    for _, test_case in ipairs(async_runtime_test_cases) do
-        add_tests(test_case.name, {
-            group = test_case.group,
-            runargs = {"test_" .. test_case.name},
-            timeout = test_case.timeout or 5
-        })
-    end
+    add_deps(table.unpack(async_runtime_test_target_names))

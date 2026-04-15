@@ -22,6 +22,12 @@ option("asyncrt-test-access")
     set_description("Enable white-box test access outside test mode.")
 option_end()
 
+option("asyncrt-direct-enabled")
+    set_default(true)
+    set_showmenu(true)
+    set_description("Enable Clang direct ObjC dispatch in non-test builds. Test-access builds still disable it.")
+option_end()
+
 option("asyncrt-ui-x11")
     set_default(false)
     set_showmenu(true)
@@ -42,6 +48,8 @@ end
 add_packages("objfw")
 
 set_warnings("all", "error")
+
+common.add_direct_dispatch_flags()
 
 if is_mode("asan") then
     set_policy("build.sanitizer.address", true)

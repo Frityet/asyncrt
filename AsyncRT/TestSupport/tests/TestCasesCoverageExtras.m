@@ -258,7 +258,12 @@ static void pump_scheduler_until(AsyncScheduler *scheduler, bool (^condition)(vo
     }
 }
 
-static void runtime_internal_description_coverage(void)
+[[subclassing_restricted]]
+@interface AsyncRuntimeCoverageExtrasTests : AsyncRuntimeTestCase @end
+
+@implementation AsyncRuntimeCoverageExtrasTests
+
+- (void)test_runtime_internal_description_coverage
 {
     auto scheduler = [[AsyncScheduler alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
     auto ownerTask = [[CoverageScopeOwnerTaskHarness alloc] init];
@@ -351,192 +356,157 @@ static void runtime_internal_description_coverage(void)
         caughtTaskSuppressionUnderflow = true;
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtArm and caughtCancel)
-                                     message: (@"Base wait registrations should throw until subclasses override arm/cancel")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtTaskSuppressionUnderflow)
-                                     message: (@"Tasks should reject cancellation suppression underflow")];
-    [AsyncRuntimeTestSupport assertCondition: ([runtimeTask.value isEqual: @"runtime-run"])
-                                     message: (@"AsyncRuntime +run: should schedule work on the default scheduler")];
+    OTAssert((caughtArm and caughtCancel), @"Base wait registrations should throw until subclasses override arm/cancel");
+    OTAssert((caughtTaskSuppressionUnderflow), @"Tasks should reject cancellation suppression underflow");
+    OTAssert(([runtimeTask.value isEqual: @"runtime-run"]), @"AsyncRuntime +run: should schedule work on the default scheduler");
 
-    [AsyncRuntimeTestSupport assertCondition: ([[Task describeStatus: AsyncTaskStatus_REJECTED] isEqual: @"REJECTED"])
-                                     message: (@"Tasks should describe rejected state explicitly")];
-    [AsyncRuntimeTestSupport assertCondition: ([[Task describeExecutionState: AsyncTaskExecutionState_READY] isEqual: @"READY"]
+    OTAssert(([[Task describeStatus: AsyncTaskStatus_REJECTED] isEqual: @"REJECTED"]), @"Tasks should describe rejected state explicitly");
+    OTAssert(([[Task describeExecutionState: AsyncTaskExecutionState_READY] isEqual: @"READY"]
         and [[Task describeExecutionState: AsyncTaskExecutionState_RUNNING] isEqual: @"RUNNING"]
         and [[Task describeExecutionState: AsyncTaskExecutionState_WAITING] isEqual: @"WAITING"]
-        and [[Task describeExecutionState: AsyncTaskExecutionState_RESOLVED] isEqual: @"RESOLVED"])
-                                     message: (@"Tasks should describe every execution state explicitly")];
+        and [[Task describeExecutionState: AsyncTaskExecutionState_RESOLVED] isEqual: @"RESOLVED"]), @"Tasks should describe every execution state explicitly");
 
-    [AsyncRuntimeTestSupport assertCondition: ([task.description containsString: @"FULFILLED"])
-                                     message: (@"Tasks should describe their current status")];
-    [AsyncRuntimeTestSupport assertCondition: ([taskException.description containsString: @"AsyncTaskException"])
-                                     message: (@"AsyncTaskException should describe the wrapped task")];
-    [AsyncRuntimeTestSupport assertCondition: ([alreadyResolvedException.description containsString: @"cannot transition"])
-                                     message: (@"AsyncTaskAlreadyResolvedException should mention the attempted transition")];
-    [AsyncRuntimeTestSupport assertCondition: ([nilResolutionException.description containsString: @"fulfilled with nilptr"])
-                                     message: (@"AsyncTaskNilResolutionValueException should describe nil resolution failures")];
-    [AsyncRuntimeTestSupport assertCondition: ([nilRejectionException.description containsString: @"rejected with nilptr"])
-                                     message: (@"AsyncTaskNilRejectionException should describe nil rejection failures")];
-    [AsyncRuntimeTestSupport assertCondition: ([invalidStateException.description containsString: @"read value"])
-                                     message: (@"AsyncTaskInvalidStateAccessException should describe the invalid operation")];
-    [AsyncRuntimeTestSupport assertCondition: ([awaitOutsideTaskException.description containsString: @"outside a Task"])
-                                     message: (@"AsyncTaskAwaitOutsideTaskException should describe the task requirement")];
-    [AsyncRuntimeTestSupport assertCondition: ([selfAwaitException.description containsString: @"await itself"])
-                                     message: (@"AsyncTaskSelfAwaitException should describe the self-await guard")];
-    [AsyncRuntimeTestSupport assertCondition: ([continuationOutsideTaskException.description containsString: @"explicit scheduler"])
-                                     message: (@"AsyncTaskContinuationOutsideTaskException should describe the scheduler requirement")];
+    OTAssert(([task.description containsString: @"FULFILLED"]), @"Tasks should describe their current status");
+    OTAssert(([taskException.description containsString: @"AsyncTaskException"]), @"AsyncTaskException should describe the wrapped task");
+    OTAssert(([alreadyResolvedException.description containsString: @"cannot transition"]), @"AsyncTaskAlreadyResolvedException should mention the attempted transition");
+    OTAssert(([nilResolutionException.description containsString: @"fulfilled with nilptr"]), @"AsyncTaskNilResolutionValueException should describe nil resolution failures");
+    OTAssert(([nilRejectionException.description containsString: @"rejected with nilptr"]), @"AsyncTaskNilRejectionException should describe nil rejection failures");
+    OTAssert(([invalidStateException.description containsString: @"read value"]), @"AsyncTaskInvalidStateAccessException should describe the invalid operation");
+    OTAssert(([awaitOutsideTaskException.description containsString: @"outside a Task"]), @"AsyncTaskAwaitOutsideTaskException should describe the task requirement");
+    OTAssert(([selfAwaitException.description containsString: @"await itself"]), @"AsyncTaskSelfAwaitException should describe the self-await guard");
+    OTAssert(([continuationOutsideTaskException.description containsString: @"explicit scheduler"]), @"AsyncTaskContinuationOutsideTaskException should describe the scheduler requirement");
 
-    [AsyncRuntimeTestSupport assertCondition: ([schedulerException.description containsString: @"AsyncSchedulerException"])
-                                     message: (@"AsyncSchedulerException should describe the offending scheduler")];
-    [AsyncRuntimeTestSupport assertCondition: ([schedulerInitException.description containsString: @"invalid"])
-                                     message: (@"AsyncSchedulerInvalidInitializationException should include its reason")];
-    [AsyncRuntimeTestSupport assertCondition: ([unsupportedYieldException.description containsString: @"unsupported yield"])
-                                     message: (@"AsyncSchedulerUnsupportedYieldException should describe the yielded object")];
-    [AsyncRuntimeTestSupport assertCondition: ([scheduler.description containsString: scheduler.mode]
-        and [scheduler.describe containsString: scheduler.mode])
-                                     message: (@"Schedulers should describe their current run loop mode")];
+    OTAssert(([schedulerException.description containsString: @"AsyncSchedulerException"]), @"AsyncSchedulerException should describe the offending scheduler");
+    OTAssert(([schedulerInitException.description containsString: @"invalid"]), @"AsyncSchedulerInvalidInitializationException should include its reason");
+    OTAssert(([unsupportedYieldException.description containsString: @"unsupported yield"]), @"AsyncSchedulerUnsupportedYieldException should describe the yielded object");
+    OTAssert(([scheduler.description containsString: scheduler.mode]
+        and [scheduler.describe containsString: scheduler.mode]), @"Schedulers should describe their current run loop mode");
 
-    [AsyncRuntimeTestSupport assertCondition: ([timeoutException.description containsString: @"exceeded deadline"])
-                                     message: (@"AsyncTaskGroupTimeoutException should describe the expired deadline")];
-    [AsyncRuntimeTestSupport assertCondition: ([namedTaskGroup.description containsString: @"named-scope"])
-                                     message: (@"Named task groups should include their debug name in descriptions")];
-    [AsyncRuntimeTestSupport assertCondition: ([unnamedTaskGroup.description containsString: @"AsyncTaskGroup"]
-        and unnamedTaskGroup._taskGroupNameForSnapshots == nilptr)
-                                     message: (@"Unnamed task groups should still render a stable description")];
+    OTAssert(([timeoutException.description containsString: @"exceeded deadline"]), @"AsyncTaskGroupTimeoutException should describe the expired deadline");
+    OTAssert(([namedTaskGroup.description containsString: @"named-scope"]), @"Named task groups should include their debug name in descriptions");
+    OTAssert(([unnamedTaskGroup.description containsString: @"AsyncTaskGroup"]
+        and unnamedTaskGroup._taskGroupNameForSnapshots == nilptr), @"Unnamed task groups should still render a stable description");
 
-    [AsyncRuntimeTestSupport assertCondition: ([taskReturnedNilException.description containsString: @"returned nilptr"])
-                                     message: (@"TaskReturnedNilException should describe nil return failures")];
-    [AsyncRuntimeTestSupport assertCondition: ([taskCancelledException.description containsString: @"cancellation checkpoint"])
-                                     message: (@"TaskCancelledException should describe cancellation checkpoints")];
-    [AsyncRuntimeTestSupport assertCondition: (not [namedTask _isCancellationRequested])
-                                     message: (@"Fresh tasks should report that cancellation was not requested")];
-    [AsyncRuntimeTestSupport assertCondition: ([namedTask.description containsString: @"named-task"]
-        and [unnamedTask.description containsString: @"<Task"])
-                                     message: (@"Task descriptions should render both named and unnamed tasks")];
+    OTAssert(([taskReturnedNilException.description containsString: @"returned nilptr"]), @"TaskReturnedNilException should describe nil return failures");
+    OTAssert(([taskCancelledException.description containsString: @"cancellation checkpoint"]), @"TaskCancelledException should describe cancellation checkpoints");
+    OTAssert((not [namedTask _isCancellationRequested]), @"Fresh tasks should report that cancellation was not requested");
+    OTAssert(([namedTask.description containsString: @"named-task"]
+        and [unnamedTask.description containsString: @"<Task"]), @"Task descriptions should render both named and unnamed tasks");
 
-    [AsyncRuntimeTestSupport assertCondition: ([channelClosedException.description containsString: @"after close"])
-                                     message: (@"AsyncChannelClosedException should describe the rejected operation")];
-    [AsyncRuntimeTestSupport assertCondition: ([channel.description containsString: @"capacity=1"]
-        and not channel.isClosed)
-                                     message: (@"Channels should describe their capacity and closed state")];
-    [AsyncRuntimeTestSupport assertCondition: ([AsyncUnit.unit.description isEqual: @"AsyncUnit"])
-                                     message: (@"AsyncUnit should preserve its singleton description")];
+    OTAssert(([channelClosedException.description containsString: @"after close"]), @"AsyncChannelClosedException should describe the rejected operation");
+    OTAssert(([channel.description containsString: @"capacity=1"]
+        and not channel.isClosed), @"Channels should describe their capacity and closed state");
+    OTAssert(([AsyncUnit.unit.description isEqual: @"AsyncUnit"]), @"AsyncUnit should preserve its singleton description");
 
     [scheduler shutdown];
 }
 
-static void task_continuation_and_scope_internal_branches(AsyncTaskGroup *rootTaskGroup)
+- (void)test_task_continuation_and_scope_internal_branches
 {
-    AsyncScheduler *scheduler = rootTaskGroup.scheduler;
-    OFDate *earlierDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.10];
-    OFDate *laterDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.20];
-    bool caughtMappedReject = false;
-    bool caughtFlatMappedReject = false;
-    bool caughtInvalidAll = false;
-    bool caughtInvalidRace = false;
-    bool caughtThrownTask = false;
-    bool caughtTaskGroupFailure = false;
-    block_reference bool inheritedParentDeadline = false;
-    auto mappedRejected = [[Task rejected: [[TestRejectionException alloc] init]]
-        mapOnScheduler: scheduler
-              transform: ^id(id) {
-                  return @"unreachable";
-              }];
-    auto flatMappedRejected = [[Task rejected: [[TestRejectionException alloc] init]]
-        flatMapOnScheduler: scheduler
-                     transform: ^Task *(id) {
-                         return [Task resolved: @"unreachable"];
-                     }];
-    auto recoveredResolved = [[Task resolved: @"kept"]
-        recoverOnScheduler: scheduler
-                   handler: ^id(OFException *) {
-                       return @"changed";
-                   }];
-    auto flatRecoveredResolved = [[Task resolved: @"still-kept"]
-        flatRecoverOnScheduler: scheduler
-                       handler: ^Task *(OFException *) {
-                           return [Task resolved: @"changed"];
-                       }];
-    auto spawnedWithoutName = [rootTaskGroup spawnTask: ^id {
-        return @"spawned";
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
+            AsyncScheduler *scheduler = rootScope.scheduler;
+            OFDate *earlierDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.10];
+            OFDate *laterDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.20];
+            bool caughtMappedReject = false;
+            bool caughtFlatMappedReject = false;
+            bool caughtInvalidAll = false;
+            bool caughtInvalidRace = false;
+            bool caughtThrownTask = false;
+            bool caughtTaskGroupFailure = false;
+            block_reference bool inheritedParentDeadline = false;
+            auto mappedRejected = [[Task rejected: [[TestRejectionException alloc] init]]
+                mapOnScheduler: scheduler
+                      transform: ^id(id) {
+                          return @"unreachable";
+                      }];
+            auto flatMappedRejected = [[Task rejected: [[TestRejectionException alloc] init]]
+                flatMapOnScheduler: scheduler
+                             transform: ^Task *(id) {
+                                 return [Task resolved: @"unreachable"];
+                             }];
+            auto recoveredResolved = [[Task resolved: @"kept"]
+                recoverOnScheduler: scheduler
+                           handler: ^id(OFException *) {
+                               return @"changed";
+                           }];
+            auto flatRecoveredResolved = [[Task resolved: @"still-kept"]
+                flatRecoverOnScheduler: scheduler
+                               handler: ^Task *(OFException *) {
+                                   return [Task resolved: @"changed"];
+                               }];
+            auto spawnedWithoutName = [rootScope spawnTask: ^id {
+                return @"spawned";
+            }];
+            auto throwingTask = [[Task alloc] initWithScheduler: scheduler
+                                                      taskGroup: nilptr
+                                                           name: @"throws"
+                                                          block: ^id {
+                @throw [[TestRejectionException alloc] init];
+                return AsyncUnit.unit;
+            }];
+
+            @try {
+                (void)mappedRejected.await;
+            } @catch (TestRejectionException *) {
+                caughtMappedReject = true;
+            }
+
+            @try {
+                (void)flatMappedRejected.await;
+            } @catch (TestRejectionException *) {
+                caughtFlatMappedReject = true;
+            }
+
+            @try {
+                (void)[Task all: (OFArray<Task *> *)@[@"bad"]];
+            } @catch (OFInvalidArgumentException *) {
+                caughtInvalidAll = true;
+            }
+
+            @try {
+                (void)[Task race: (OFArray<Task *> *)@[@"bad"]];
+            } @catch (OFInvalidArgumentException *) {
+                caughtInvalidRace = true;
+            }
+
+            @try {
+                (void)throwingTask.await;
+            } @catch (TestRejectionException *) {
+                caughtThrownTask = true;
+            }
+
+            @try {
+                (void)[rootScope performInChildTaskGroupNamed: @"body-failure" block: ^id(AsyncTaskGroup *) {
+                    @throw [[TestRejectionException alloc] init];
+                }];
+            } @catch (TestRejectionException *) {
+                caughtTaskGroupFailure = true;
+            }
+
+            (void)[rootScope performWithDeadline: earlierDeadline block: ^id(AsyncTaskGroup *deadlineTaskGroup) {
+                (void)[deadlineTaskGroup performWithDeadline: laterDeadline block: ^id(AsyncTaskGroup *childTaskGroup) {
+                    inheritedParentDeadline = ([childTaskGroup.deadline compare: $assert_nonnil(deadlineTaskGroup.deadline)] == OFOrderedSame);
+                    return AsyncUnit.unit;
+                }];
+                return AsyncUnit.unit;
+            }];
+
+            OTAssert((caughtMappedReject and caughtFlatMappedReject), @"Task continuations should propagate rejected inputs across map and flatMap");
+            OTAssert(([[recoveredResolved await] isEqual: @"kept"]
+                and [[flatRecoveredResolved await] isEqual: @"still-kept"]), @"Recover continuations should leave fulfilled tasks unchanged");
+            OTAssert((caughtInvalidAll and caughtInvalidRace), @"Task collection helpers should reject non-task inputs");
+            OTAssert(([[spawnedWithoutName await] isEqual: @"spawned"]), @"Task groups should support the spawnTask: convenience overload");
+            OTAssert(([[rootScope performInChildTaskGroup: ^id(AsyncTaskGroup *) {
+                return @"child-result";
+            }] isEqual: @"child-result"]), @"Task groups should support the performInChildTaskGroup: convenience overload");
+            OTAssert((caughtThrownTask), @"Thrown task bodies should reject through task completion handling");
+            OTAssert((caughtTaskGroupFailure), @"Thrown child task-group bodies should surface the primary exception directly");
+            OTAssert((inheritedParentDeadline), @"Nested task groups should inherit an earlier parent deadline");
+            OTAssert(([scheduler sleepUntilDate: [OFDate dateWithTimeIntervalSinceNow: 0.01]].await == AsyncUnit.unit), @"Schedulers should wait until future dates instead of taking the immediate shortcut");
     }];
-    auto throwingTask = [[Task alloc] initWithScheduler: scheduler
-                                              taskGroup: nilptr
-                                                   name: @"throws"
-                                                  block: ^id {
-        @throw [[TestRejectionException alloc] init];
-        return AsyncUnit.unit;
-    }];
-
-    @try {
-        (void)mappedRejected.await;
-    } @catch (TestRejectionException *) {
-        caughtMappedReject = true;
-    }
-
-    @try {
-        (void)flatMappedRejected.await;
-    } @catch (TestRejectionException *) {
-        caughtFlatMappedReject = true;
-    }
-
-    @try {
-        (void)[Task all: (OFArray<Task *> *)@[@"bad"]];
-    } @catch (OFInvalidArgumentException *) {
-        caughtInvalidAll = true;
-    }
-
-    @try {
-        (void)[Task race: (OFArray<Task *> *)@[@"bad"]];
-    } @catch (OFInvalidArgumentException *) {
-        caughtInvalidRace = true;
-    }
-
-    @try {
-        (void)throwingTask.await;
-    } @catch (TestRejectionException *) {
-        caughtThrownTask = true;
-    }
-
-    @try {
-        (void)[rootTaskGroup performInChildTaskGroupNamed: @"body-failure" block: ^id(AsyncTaskGroup *) {
-            @throw [[TestRejectionException alloc] init];
-        }];
-    } @catch (TestRejectionException *) {
-        caughtTaskGroupFailure = true;
-    }
-
-    (void)[rootTaskGroup performWithDeadline: earlierDeadline block: ^id(AsyncTaskGroup *deadlineTaskGroup) {
-        (void)[deadlineTaskGroup performWithDeadline: laterDeadline block: ^id(AsyncTaskGroup *childTaskGroup) {
-            inheritedParentDeadline = ([childTaskGroup.deadline compare: $assert_nonnil(deadlineTaskGroup.deadline)] == OFOrderedSame);
-            return AsyncUnit.unit;
-        }];
-        return AsyncUnit.unit;
-    }];
-
-    [AsyncRuntimeTestSupport assertCondition: (caughtMappedReject and caughtFlatMappedReject)
-                                     message: (@"Task continuations should propagate rejected inputs across map and flatMap")];
-    [AsyncRuntimeTestSupport assertCondition: ([[recoveredResolved await] isEqual: @"kept"]
-        and [[flatRecoveredResolved await] isEqual: @"still-kept"])
-                                     message: (@"Recover continuations should leave fulfilled tasks unchanged")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtInvalidAll and caughtInvalidRace)
-                                     message: (@"Task collection helpers should reject non-task inputs")];
-    [AsyncRuntimeTestSupport assertCondition: ([[spawnedWithoutName await] isEqual: @"spawned"])
-                                     message: (@"Task groups should support the spawnTask: convenience overload")];
-    [AsyncRuntimeTestSupport assertCondition: ([[rootTaskGroup performInChildTaskGroup: ^id(AsyncTaskGroup *) {
-        return @"child-result";
-    }] isEqual: @"child-result"])
-                                     message: (@"Task groups should support the performInChildTaskGroup: convenience overload")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtThrownTask)
-                                     message: (@"Thrown task bodies should reject through task completion handling")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtTaskGroupFailure)
-                                     message: (@"Thrown child task-group bodies should surface the primary exception directly")];
-    [AsyncRuntimeTestSupport assertCondition: (inheritedParentDeadline)
-                                     message: (@"Nested task groups should inherit an earlier parent deadline")];
-    [AsyncRuntimeTestSupport assertCondition: ([scheduler sleepUntilDate: [OFDate dateWithTimeIntervalSinceNow: 0.01]].await == AsyncUnit.unit)
-                                     message: (@"Schedulers should wait until future dates instead of taking the immediate shortcut")];
 }
 
-static void scheduler_channel_private_branches(void)
+- (void)test_scheduler_channel_private_branches
 {
     auto scheduler = [[AsyncScheduler alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
     auto resolvedTask = [[CoverageSchedulerTaskHarness alloc] init];
@@ -712,48 +682,38 @@ static void scheduler_channel_private_branches(void)
     [closedChannel _armSendRegistration: (AsyncChannelSendWaitRegistration *)closedSend];
     [closedChannel _armReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)closedReceive];
 
-    [AsyncRuntimeTestSupport assertCondition: (invalidCompletionTask.rejectCount == 1
-        and [invalidCompletionTask.failureException isKindOfClass: TaskReturnedNilException.class])
-                                     message: (@"Schedulers should reject dead coroutines that return invalid completion objects")];
-    [AsyncRuntimeTestSupport assertCondition: (unsupportedYieldTask.rejectCount == 1
-        and [unsupportedYieldTask.failureException isKindOfClass: AsyncSchedulerUnsupportedYieldException.class])
-                                     message: (@"Schedulers should reject unsupported yielded objects")];
-    [AsyncRuntimeTestSupport assertCondition: (deadlineTaskGroupOwner.interruptCount == 1)
-                                     message: (@"Timeout cancellation should only interrupt the owner task once")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtSendOutsideTask and caughtReceiveOutsideTask)
-                                     message: (@"Channels should reject send and receive outside a task context")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtSpawnOutsideTask
+    OTAssert((invalidCompletionTask.rejectCount == 1
+        and [invalidCompletionTask.failureException isKindOfClass: TaskReturnedNilException.class]), @"Schedulers should reject dead coroutines that return invalid completion objects");
+    OTAssert((unsupportedYieldTask.rejectCount == 1
+        and [unsupportedYieldTask.failureException isKindOfClass: AsyncSchedulerUnsupportedYieldException.class]), @"Schedulers should reject unsupported yielded objects");
+    OTAssert((deadlineTaskGroupOwner.interruptCount == 1), @"Timeout cancellation should only interrupt the owner task once");
+    OTAssert((caughtSendOutsideTask and caughtReceiveOutsideTask), @"Channels should reject send and receive outside a task context");
+    OTAssert((caughtSpawnOutsideTask
         and caughtSpawnSchedulerMismatch
         and caughtChildTaskGroupOutsideTask
         and caughtChildTaskGroupSchedulerMismatch
         and caughtDeadlineOutsideTask
-        and caughtDeadlineSchedulerMismatch)
-                                     message: (@"Task groups should reject spawn, child-task-group, and deadline helpers outside the owning task scheduler")];
-    [AsyncRuntimeTestSupport assertCondition: (caughtRegisterAfterCancel and caughtRegisterAfterBody)
-                                     message: (@"Scopes should reject registering child tasks after cancellation or after the body finishes")];
-    [AsyncRuntimeTestSupport assertCondition: (waitingReceiver.hasReceivedValue
+        and caughtDeadlineSchedulerMismatch), @"Task groups should reject spawn, child-task-group, and deadline helpers outside the owning task scheduler");
+    OTAssert((caughtRegisterAfterCancel and caughtRegisterAfterBody), @"Scopes should reject registering child tasks after cancellation or after the body finishes");
+    OTAssert((waitingReceiver.hasReceivedValue
         and [waitingReceiver.receivedValue isEqual: @"delivered"]
-        and sendToWaitingReceiver.deliveredCount == 1)
-                                     message: (@"Channel send arm logic should hand values directly to waiting receivers")];
-    [AsyncRuntimeTestSupport assertCondition: (bufferedSend.deliveredCount == 1
+        and sendToWaitingReceiver.deliveredCount == 1), @"Channel send arm logic should hand values directly to waiting receivers");
+    OTAssert((bufferedSend.deliveredCount == 1
         and bufferedReceive.hasReceivedValue
-        and [bufferedReceive.receivedValue isEqual: @"buffered"])
-                                     message: (@"Buffered channels should deliver buffered registrations through private arm helpers")];
-    [AsyncRuntimeTestSupport assertCondition: (rendezvousSend.deliveredCount == 1
+        and [bufferedReceive.receivedValue isEqual: @"buffered"]), @"Buffered channels should deliver buffered registrations through private arm helpers");
+    OTAssert((rendezvousSend.deliveredCount == 1
         and rendezvousReceive.hasReceivedValue
-        and [rendezvousReceive.receivedValue isEqual: @"rendezvous"])
-                                     message: (@"Receive arm logic should drain waiting senders in rendezvous channels")];
-    [AsyncRuntimeTestSupport assertCondition: (closedSend.closedCount == 1
+        and [rendezvousReceive.receivedValue isEqual: @"rendezvous"]), @"Receive arm logic should drain waiting senders in rendezvous channels");
+    OTAssert((closedSend.closedCount == 1
         and closedSend.isClosed
         and closedReceive.closedCount == 1
-        and closedReceive.isClosed)
-                                     message: (@"Closed channels should close both send and receive registrations immediately")];
+        and closedReceive.isClosed), @"Closed channels should close both send and receive registrations immediately");
 
     [scheduler shutdown];
     [otherOwnerTask.scheduler shutdown];
 }
 
-static void utility_internal_branch_coverage(void)
+- (void)test_utility_internal_branch_coverage
 {
     auto none = Optional.none;
     auto some = [Optional some: @"payload"];
@@ -791,31 +751,21 @@ static void utility_internal_branch_coverage(void)
         caughtNilSome = true;
     }
 
-    [AsyncRuntimeTestSupport assertCondition: (caughtNilOptionalValue and caughtNilOptionalFallback and caughtNilSome)
-                                     message: (@"Optional should reject nil payloads, nil fallbacks, and reading missing values")];
-    [AsyncRuntimeTestSupport assertCondition: ([[some valueOr: @"fallback"] isEqual: @"payload"]
-        and [[none valueOr: @"fallback"] isEqual: @"fallback"])
-                                     message: (@"Optional should return either its stored value or the provided fallback")];
-    [AsyncRuntimeTestSupport assertCondition: ([some isEqual: some]
+    OTAssert((caughtNilOptionalValue and caughtNilOptionalFallback and caughtNilSome), @"Optional should reject nil payloads, nil fallbacks, and reading missing values");
+    OTAssert(([[some valueOr: @"fallback"] isEqual: @"payload"]
+        and [[none valueOr: @"fallback"] isEqual: @"fallback"]), @"Optional should return either its stored value or the provided fallback");
+    OTAssert(([some isEqual: some]
         and [some isEqual: @"payload"]
         and not [some isEqual: other]
         and not [none isEqual: some]
-        and not [some isEqual: @42])
-                                     message: (@"Optional equality should cover self, raw-value, nil, and type-mismatch comparisons")];
-    [AsyncRuntimeTestSupport assertCondition: ([none.description containsString: @"<none>"])
-                                     message: (@"Optional descriptions should spell out the empty state")];
+        and not [some isEqual: @42]), @"Optional equality should cover self, raw-value, nil, and type-mismatch comparisons");
+    OTAssert(([none.description containsString: @"<none>"]), @"Optional descriptions should spell out the empty state");
 
-    [AsyncRuntimeTestSupport assertCondition: ([highPointer compare: lowPointer] == OFOrderedDescending
-        and [highPointer compare: sameAsHighPointer] == OFOrderedSame)
-                                     message: (@"Pointer comparisons should cover both descending and equal orderings")];
-    [AsyncRuntimeTestSupport assertCondition: ([highPointer isEqual: highPointer]
-        and not [highPointer isEqual: @"not-data"])
-                                     message: (@"Pointer equality should handle self-comparisons and non-data values")];
+    OTAssert(([highPointer compare: lowPointer] == OFOrderedDescending
+        and [highPointer compare: sameAsHighPointer] == OFOrderedSame), @"Pointer comparisons should cover both descending and equal orderings");
+    OTAssert(([highPointer isEqual: highPointer]
+        and not [highPointer isEqual: @"not-data"]), @"Pointer equality should handle self-comparisons and non-data values");
 }
 
-ASYNC_RUNTIME_SYNC_TEST(runtime_internal_description_coverage)
-ASYNC_RUNTIME_ASYNC_TEST(task_continuation_and_scope_internal_branches)
-ASYNC_RUNTIME_SYNC_TEST(scheduler_channel_private_branches)
-ASYNC_RUNTIME_SYNC_TEST(utility_internal_branch_coverage)
-
+@end
 #pragma clang assume_nonnull end

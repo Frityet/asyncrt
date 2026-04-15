@@ -4,7 +4,6 @@ local function configure_app_support_target()
     add_deps("AsyncRTUI", { public = true })
     add_includedirs("src", { public = true })
     add_files(
-        "src/ArgumentParser.m",
         "src/CalculatorComponents.m",
         "src/CalculatorEvaluator.m",
         "src/CalculatorModel.m",

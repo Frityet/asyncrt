@@ -44,14 +44,27 @@ function asyncrt_build.internal_test_access_enabled()
     return is_mode("test") or has_config("asyncrt-test-access")
 end
 
+function asyncrt_build.direct_dispatch_enabled()
+    return has_config("asyncrt-direct-enabled")
+end
+
+function asyncrt_build.direct_dispatch_disabled()
+    return (not asyncrt_build.direct_dispatch_enabled()) or asyncrt_build.internal_test_access_enabled()
+end
+
 function asyncrt_build.ui_uses_cairo_x11_backend()
     return (not is_plat("macosx")) or has_config("asyncrt-ui-x11")
+end
+
+function asyncrt_build.add_direct_dispatch_flags()
+    if asyncrt_build.direct_dispatch_disabled() then
+        add_mflags("-fobjc-disable-direct-methods-for-testing", {force = true})
+    end
 end
 
 function asyncrt_build.add_internal_test_access_define()
     if asyncrt_build.internal_test_access_enabled() then
         add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
-        add_mflags("-fobjc-disable-direct-methods-for-testing", {force = true})
     end
 end
 

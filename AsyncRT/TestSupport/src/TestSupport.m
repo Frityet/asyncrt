@@ -147,28 +147,6 @@ static void AsyncRuntimeEnsureObjFWTLSBindingsLoadedForTests(void)
     return value;
 }
 
-+ (void)assertCondition: (bool)condition message: (OFString *)message
-{
-    if (not condition)
-        @throw [[TestFailureException alloc] initWithMessage: message];
-}
-
-@end
-
-@implementation TestFailureException
-
-- (instancetype)initWithMessage: (OFString *)message
-{
-    self = [super init];
-    _message = [message copy];
-    return self;
-}
-
-- (OFString *)description
-{
-    return [OFString stringWithFormat: @"TestFailureException: %@", self.message];
-}
-
 @end
 
 @implementation TestRejectionException @end
