@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+
+      - name: Install clang (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Install clang (macOS)
+        if: runner.os == 'macOS'
+        run: brew install llvm
+
+      - name: Configure
+        run: xmake config --mode=debug --toolchain=clang
+
+      - name: Build
+        run: xmake -v
