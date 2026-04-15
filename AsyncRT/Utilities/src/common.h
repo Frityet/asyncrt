@@ -39,7 +39,7 @@
 #else
 #   define $assert_nonnil(...) ({ \
         __auto_type _assert_nonnil_value = (__VA_ARGS__); \
-        if (OF_UNLIKELY(_assert_nonnil_value == nilptr)) { \
+        if (OF_UNLIKELY(not _assert_nonnil_value)) { \
             @throw [OFInvalidArgumentException exception]; \
         } \
         (typeof(typeof(*_assert_nonnil_value) *nonnil))_assert_nonnil_value; \

@@ -24,8 +24,7 @@ option_end()
 add_requires("objfw", {
     configs = {
         shared = false,
-        debug = is_mode("debug"),
-        --tls = "openssl"
+        debug = is_mode("debug")
     }
 })
 
@@ -47,7 +46,7 @@ if is_mode("tsan") then
 end
 
 if mode_uses_lto then
-    set_policy("build.optimization.lto", true)
+--    set_policy("build.optimization.lto", true)
 end
 
 if is_mode("coverage") then
@@ -55,9 +54,6 @@ if is_mode("coverage") then
     -- coroutine path still needs conservative stack metadata.
     set_optimize("none")
     add_c_and_objc_flags("-O0", "-fno-omit-frame-pointer", "-fno-optimize-sibling-calls")
-end
-
-if is_mode("coverage") then
     set_symbols("debug")
     add_c_and_objc_flags("-fprofile-instr-generate", "-fcoverage-mapping")
     add_ldflags("-fprofile-instr-generate", "-fcoverage-mapping", {force = true})

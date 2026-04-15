@@ -51,7 +51,7 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
         tagged_pointer_data_class = objc_registerTaggedPointerClass(self);
 }
 
-+ (instancetype)pointer: (const void *nillable)pointer
++ (instancetype)from: (const void *nillable)pointer
 {
     if (tagged_pointer_data_class < 0)
         @throw [OFInitializationFailedException exceptionWithClass: Pointer.class];
@@ -103,6 +103,7 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
 {
     char output[12];
     {
+        auto _pointerValue = self.pointer;
         const unsigned char *inputBytes = (const unsigned char *)&_pointerValue;
         size_t inputLength = sizeof(_pointerValue);
 
@@ -180,7 +181,7 @@ static thread_local uintptr_t tagged_pointer_item_buffer;
     if ([object isKindOfClass: Pointer.class])
         return self.pointer == ((Pointer *)object).pointer;
 
-    return self->_pointerValue == (uintptr_t)object;
+    return (uintptr_t)self.pointer == (uintptr_t)object;
 }
 
 - (OFString *)description

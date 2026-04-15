@@ -1,4 +1,3 @@
-#include <objc/runtime.h>
 #import "AUIApplication.h"
 #import "AUIInternal.h"
 #import "AUIRenderHost.h"
