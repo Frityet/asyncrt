@@ -32,10 +32,6 @@
     id _yieldedObject;
 }
 
-@synthesize status = _status;
-@synthesize returnedObject = _returnedObject;
-@synthesize yieldedObject = _yieldedObject;
-
 - (id nillable)resume
 {
     return _yieldedObject;
@@ -70,11 +66,11 @@
 @end
 
 @implementation CoverageSchedulerTaskHarness {
-    bool _resolved;
+    bool _isCompleted;
     id _coroutine;
     AsyncTaskGroup *_resumedTaskGroup;
     enum AsyncTaskStatus _status;
-    OFException *_rejectionException;
+    OFException *_failureException;
     enum AsyncTaskExecutionState _executionState;
     OFString *_waitReason;
     size_t _captureCount;
@@ -82,17 +78,6 @@
     size_t _resolveCount;
     bool _readyQueued;
 }
-
-@synthesize isCompleted = _resolved;
-@synthesize coroutine = _coroutine;
-@synthesize resumedTaskGroup = _resumedTaskGroup;
-@synthesize status = _status;
-@synthesize failureException = _rejectionException;
-@synthesize executionState = _executionState;
-@synthesize waitReason = _waitReason;
-@synthesize captureCount = _captureCount;
-@synthesize rejectCount = _rejectCount;
-@synthesize resolveCount = _resolveCount;
 
 - (id)_coroutineObject
 {
@@ -119,18 +104,18 @@
 - (void)_rejectTaskWithException: (OFException *)exception
 {
     _rejectCount++;
-    _resolved = true;
+    _isCompleted = true;
     _status = AsyncTaskStatus_REJECTED;
-    _rejectionException = exception;
+    _failureException = exception;
 }
 
 - (void)_resolveFromCompletion: (AsyncTaskExecutionCompletion *)completion
 {
     _resolveCount++;
-    _resolved = true;
+    _isCompleted = true;
     if (completion.exception != nilptr) {
         _status = AsyncTaskStatus_REJECTED;
-        _rejectionException = completion.exception;
+        _failureException = completion.exception;
     } else {
         _status = AsyncTaskStatus_FULFILLED;
     }
@@ -176,12 +161,6 @@
     size_t _captureCount;
 }
 
-@synthesize scheduler = _scheduler;
-@synthesize interruptCount = _interruptCount;
-@synthesize pushCount = _pushCount;
-@synthesize popCount = _popCount;
-@synthesize captureCount = _captureCount;
-
 - (void)_interruptForScopeCancellation
 {
     _interruptCount++;
@@ -219,15 +198,10 @@
 
 @implementation CoverageChannelSendRegistrationHarness {
     id _value;
-    bool _closed;
+    bool _isClosed;
     size_t _deliveredCount;
     size_t _closedCount;
 }
-
-@synthesize value = _value;
-@synthesize isClosed = _closed;
-@synthesize deliveredCount = _deliveredCount;
-@synthesize closedCount = _closedCount;
 
 - (void)signalDelivered
 {
@@ -236,7 +210,7 @@
 
 - (void)signalClosed
 {
-    _closed = true;
+    _isClosed = true;
     _closedCount++;
 }
 
@@ -258,14 +232,9 @@
 @implementation CoverageChannelReceiveRegistrationHarness {
     id _receivedValue;
     bool _hasReceivedValue;
-    bool _closed;
+    bool _isClosed;
     size_t _closedCount;
 }
-
-@synthesize receivedValue = _receivedValue;
-@synthesize hasReceivedValue = _hasReceivedValue;
-@synthesize isClosed = _closed;
-@synthesize closedCount = _closedCount;
 
 - (void)signalReceivedValue: (id)value
 {
@@ -275,7 +244,7 @@
 
 - (void)signalClosed
 {
-    _closed = true;
+    _isClosed = true;
     _closedCount++;
 }
 

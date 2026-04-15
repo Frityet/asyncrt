@@ -18,13 +18,11 @@
 #define retained_cast __bridge_retained
 #define designated_initailiser clang::objc_designated_initializer
 
+#define direct clang::objc_direct
+#define direct_members clang::objc_direct_members
 #if defined(ASYNC_RUNTIME_TEST_BUILD)
-#   define direct clang::annotate("async_runtime_test_attribute")
-#   define direct_members clang::annotate("async_runtime_test_attribute")
 #   define subclassing_restricted clang::annotate("async_runtime_test_attribute")
 #else
-#   define direct clang::objc_direct
-#   define direct_members clang::objc_direct_members
 #   define subclassing_restricted clang::objc_subclassing_restricted
 #endif
 #if !defined(__cplusplus)

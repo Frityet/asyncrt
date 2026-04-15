@@ -4,22 +4,11 @@
 
 static OFOnceControl async_unit_once = OFOnceControlInitValue;
 static AsyncUnit *nillable async_unit_singleton;
-
-[[direct_members]]
-@interface AsyncUnit ()
-
-+ (void)_createSingleton;
-
-@end
-
-static void create_async_unit_singleton(void)
-{
-    [AsyncUnit _createSingleton];
-}
+static void create_async_unit_singleton(void);
 
 @implementation AsyncUnit
 
-+ (void)_createSingleton
++ (void)_createSingleton [[direct]]
 {
     async_unit_singleton = [[AsyncUnit alloc] _initPrivate];
 }
@@ -42,5 +31,10 @@ static void create_async_unit_singleton(void)
 }
 
 @end
+
+static void create_async_unit_singleton(void)
+{
+    [AsyncUnit _createSingleton];
+}
 
 #pragma clang assume_nonnull end

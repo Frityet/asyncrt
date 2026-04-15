@@ -44,10 +44,8 @@
 @implementation AUIKeyEvent {
     AUIKey _key;
     AUIModifierFlags _modifiers;
-    bool _repeat;
+    bool _isRepeat;
 }
-
-@synthesize isRepeat = _repeat;
 
 + (instancetype)key: (AUIKey)key modifiers: (AUIModifierFlags)modifiers repeat: (bool)repeat
 {
@@ -61,7 +59,7 @@
     self = [super init];
     _key = key;
     _modifiers = modifiers;
-    _repeat = repeat;
+    _isRepeat = repeat;
     return self;
 }
 
@@ -71,10 +69,10 @@
 @implementation AUIInputState {
     float _pointerX;
     float _pointerY;
-    bool _primaryButtonDown;
+    bool _isPrimaryButtonDown;
     bool _primaryButtonPressedThisFrame;
     bool _primaryButtonReleasedThisFrame;
-    bool _secondaryButtonDown;
+    bool _isSecondaryButtonDown;
     bool _secondaryButtonPressedThisFrame;
     bool _secondaryButtonReleasedThisFrame;
     float _scrollDeltaX;
@@ -82,9 +80,6 @@
     OFString *_typedText;
     OFMutableArray<AUIKeyEvent *> *_keyEvents;
 }
-
-@synthesize isPrimaryButtonDown = _primaryButtonDown;
-@synthesize isSecondaryButtonDown = _secondaryButtonDown;
 
 - (instancetype)init
 {
@@ -104,17 +99,17 @@
 {
     switch (button) {
         case AUIMouseButtonSecondary:
-            if (not _secondaryButtonDown)
+            if (not _isSecondaryButtonDown)
                 _secondaryButtonPressedThisFrame = true;
-            _secondaryButtonDown = true;
+            _isSecondaryButtonDown = true;
             break;
         case AUIMouseButtonMiddle:
             break;
         case AUIMouseButtonPrimary:
         default:
-            if (not _primaryButtonDown)
+            if (not _isPrimaryButtonDown)
                 _primaryButtonPressedThisFrame = true;
-            _primaryButtonDown = true;
+            _isPrimaryButtonDown = true;
             break;
     }
 }
@@ -123,17 +118,17 @@
 {
     switch (button) {
         case AUIMouseButtonSecondary:
-            if (_secondaryButtonDown)
+            if (_isSecondaryButtonDown)
                 _secondaryButtonReleasedThisFrame = true;
-            _secondaryButtonDown = false;
+            _isSecondaryButtonDown = false;
             break;
         case AUIMouseButtonMiddle:
             break;
         case AUIMouseButtonPrimary:
         default:
-            if (_primaryButtonDown)
+            if (_isPrimaryButtonDown)
                 _primaryButtonReleasedThisFrame = true;
-            _primaryButtonDown = false;
+            _isPrimaryButtonDown = false;
             break;
     }
 }
@@ -222,9 +217,9 @@
 @implementation AUIInteractionRegistration {
     OFString *_identifier;
     Clay_ElementId _elementID;
-    bool _enabled;
-    bool _focusable;
-    bool _multiline;
+    bool _isEnabled;
+    bool _isFocusable;
+    bool _isMultiline;
     OFString *nillable _text;
     AUICursorStyle _cursorStyle;
     AUIContextMenu *nillable _contextMenu;
@@ -232,10 +227,6 @@
     void (^nillable _textChangeHandler)(OFString *text);
     void (^nillable _submitHandler)(OFString *text);
 }
-
-@synthesize isEnabled = _enabled;
-@synthesize isFocusable = _focusable;
-@synthesize isMultiline = _multiline;
 
 + (instancetype)identifier: (OFString *nillable)identifier
                   elementID: (Clay_ElementId)elementID
@@ -252,9 +243,9 @@
     self = [super init];
     _identifier = [identifier copy];
     _elementID = elementID;
-    _enabled = true;
-    _focusable = false;
-    _multiline = false;
+    _isEnabled = true;
+    _isFocusable = false;
+    _isMultiline = false;
     _text = nilptr;
     _cursorStyle = AUICursorStyleDefault;
     _contextMenu = nilptr;

@@ -34,26 +34,7 @@ static atomic_t(size_t) coroutine_default_stack_size = 256 * 1024;
 #endif
 static thread_local unretained Coroutine *nillable current_coroutine;
 static OFConstantString *coroutine_root_key = @"asyncrt.Coroutine.root";
-
-[[direct_members]]
-@interface Coroutine ()
-
-- (instancetype)_initAsRootCoroutine;
-+ (void)_replaceOwnedObjectAtSlot: (id nillable *)slot withObject: (id nillable)object;
-+ (int)_errorCodeForMCOResult: (mco_result)result;
-+ (void)_throwForMCOResult: (mco_result)result coroutine: (Coroutine *)co operation: (OFString *)operation;
-+ (void)_enterNativeCoroutine: (mco_coro *)nativeCoroutine;
-+ (Coroutine *)_currentCoroutine;
-- (void)_clearYieldedState;
-- (void)_clearReturnedState;
-- (void)_finishWithResult: (id nillable)result;
-
-@end
-
-static void coroutine_entry(mco_coro *nativeCoroutine)
-{
-    [Coroutine _enterNativeCoroutine: nativeCoroutine];
-}
+static void coroutine_entry(mco_coro *nativeCoroutine);
 
 @implementation CoroutineException
 
@@ -152,7 +133,7 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
 
 @implementation Coroutine
 
-+ (void)_replaceOwnedObjectAtSlot: (id nillable *)slot withObject: (id nillable)object
++ (void)_replaceOwnedObjectAtSlot: (id nillable *)slot withObject: (id nillable)object [[direct]]
 {
     if (*slot == object)
         return;
@@ -162,7 +143,7 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
     *slot = object;
 }
 
-+ (int)_errorCodeForMCOResult: (mco_result)result
++ (int)_errorCodeForMCOResult: (mco_result)result [[direct]]
 {
     if (result == MCO_OUT_OF_MEMORY)
         return ENOMEM;
@@ -170,7 +151,7 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
     return -(int)result;
 }
 
-+ (void)_throwForMCOResult: (mco_result)result coroutine: (Coroutine *)co operation: (OFString *)operation
++ (void)_throwForMCOResult: (mco_result)result coroutine: (Coroutine *)co operation: (OFString *)operation [[direct]]
 {
     if (result == MCO_SUCCESS)
         return;
@@ -181,7 +162,7 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
                  errorCode: [Coroutine _errorCodeForMCOResult: result]] autorelease];
 }
 
-+ (void)_enterNativeCoroutine: (mco_coro *)nativeCoroutine
++ (void)_enterNativeCoroutine: (mco_coro *)nativeCoroutine [[direct]]
 {
     Coroutine *co = (Coroutine *)mco_get_user_data(nativeCoroutine);
 
@@ -199,7 +180,7 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
     }
 }
 
-+ (Coroutine *)_currentCoroutine
++ (Coroutine *)_currentCoroutine [[direct]]
 {
     if (current_coroutine == nilptr) {
         OFMutableDictionary<OFString *, Coroutine *> *threadDictionary = OFThread.threadDictionary;
@@ -220,21 +201,21 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
     return $assert_nonnil(current_coroutine);
 }
 
-- (void)_clearYieldedState
+- (void)_clearYieldedState [[direct]]
 {
     _didYieldObject = false;
     [_yieldedObject release];
     _yieldedObject = nilptr;
 }
 
-- (void)_clearReturnedState
+- (void)_clearReturnedState [[direct]]
 {
     _didReturnObject = false;
     [_returnedObject release];
     _returnedObject = nilptr;
 }
 
-- (void)_finishWithResult: (id nillable)result
+- (void)_finishWithResult: (id nillable)result [[direct]]
 {
     Coroutine *target = _caller;
     mco_coro *nativeCoroutine = (mco_coro *)_nativeCoroutine;
@@ -294,7 +275,7 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
     return _stackSize;
 }
 
-- (instancetype)_initAsRootCoroutine
+- (instancetype)_initAsRootCoroutine [[direct]]
 {
     self = [super init];
     _status = CoroutineStatus_RUNNING;
@@ -476,5 +457,10 @@ static void coroutine_entry(mco_coro *nativeCoroutine)
 }
 
 @end
+
+static void coroutine_entry(mco_coro *nativeCoroutine)
+{
+    [Coroutine _enterNativeCoroutine: nativeCoroutine];
+}
 
 #pragma clang assume_nonnull end

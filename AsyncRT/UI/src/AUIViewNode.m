@@ -3,84 +3,15 @@
 #pragma clang assume_nonnull begin
 
 [[direct_members]]
-@interface AUIViewInteractionConfiguration ()
-
-- (instancetype)initWithEnabled: (bool)isEnabled
-                      focusable: (bool)isFocusable
-                    cursorStyle: (AUICursorStyle)cursorStyle
-         interactiveBackgrounds: (AUIControlColors)interactiveBackgroundColors
-                 usesBackground: (bool)usesInteractiveBackgroundColors
-                     onActivate: (void (^nillable)(void))activationHandler
-                    contextMenu: (AUIContextMenu *nillable)contextMenu [[designated_initailiser]];
-
-@end
-
-@interface AUIViewNode ()
-
-- (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
-                         stableKey: (OFString *nillable)stableKey;
-
-@end
-
-[[direct_members]]
-@interface AUIViewFragmentNode ()
-
-- (instancetype)initWithChildren: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
-
-@end
-
-[[direct_members]]
-@interface AUIViewBoxNode ()
-
-- (instancetype)initWithStableKey: (OFString *nillable)stableKey
-                         boxProps: (AUIBoxProps)boxProps
-         interactionConfiguration: (AUIViewInteractionConfiguration *nillable)interactionConfiguration
-                         children: (OFArray<id<AUIRenderable>> *nillable)children [[designated_initailiser]];
-
-@end
-
-[[direct_members]]
-@interface AUIViewTextNode ()
-
-- (instancetype)initWithText: (OFString *nillable)text style: (AUITextStyle)textStyle [[designated_initailiser]];
-
-@end
-
-[[direct_members]]
-@interface AUIViewEditableTextNode ()
-
-- (instancetype)initWithStableKey: (OFString *nillable)stableKey
-                               text: (OFString *nillable)text
-                        placeholder: (OFString *nillable)placeholder
-                              style: (AUITextStyle)textStyle
-                             colors: (AUITextInputColors)colors
-                             layout: (AUILayout)layout
-                       cornerRadius: (float)cornerRadius
-                            enabled: (bool)isEnabled
-                             secure: (bool)isSecure
-                          multiline: (bool)isMultiline
-                        contextMenu: (AUIContextMenu *nillable)contextMenu
-                           onChange: (void (^nillable)(OFString *text))textChangeHandler
-                           onSubmit: (void (^nillable)(OFString *text))submitHandler [[designated_initailiser]];
-
-@end
-
-[[direct_members]]
 @implementation AUIViewInteractionConfiguration {
-    bool _enabled;
-    bool _focusable;
+    bool _isEnabled;
+    bool _isFocusable;
     AUICursorStyle _cursorStyle;
     bool _usesInteractiveBackgroundColors;
     AUIControlColors _interactiveBackgroundColors;
     AUIContextMenu *nillable _contextMenu;
     void (^nillable _activationHandler)(void);
 }
-
-@synthesize isEnabled = _enabled;
-@synthesize isFocusable = _focusable;
-@synthesize cursorStyle = _cursorStyle;
-@synthesize usesInteractiveBackgroundColors = _usesInteractiveBackgroundColors;
-@synthesize interactiveBackgroundColors = _interactiveBackgroundColors;
 
 + (instancetype)enabled: (bool)isEnabled
               focusable: (bool)isFocusable
@@ -122,8 +53,8 @@
                     contextMenu: (AUIContextMenu *nillable)contextMenu
 {
     self = [super init];
-    _enabled = isEnabled;
-    _focusable = isFocusable;
+    _isEnabled = isEnabled;
+    _isFocusable = isFocusable;
     _cursorStyle = cursorStyle;
     _usesInteractiveBackgroundColors = usesInteractiveBackgroundColors;
     _interactiveBackgroundColors = interactiveBackgroundColors;
@@ -138,8 +69,6 @@
     AUIViewNodeFamily _nodeFamily;
     OFString *nillable _stableKey;
 }
-
-@synthesize nodeFamily = _nodeFamily;
 
 - (instancetype)initWithNodeFamily: (AUIViewNodeFamily)nodeFamily
                          stableKey: (OFString *nillable)stableKey
@@ -242,17 +171,13 @@
     AUITextInputColors _colors;
     AUILayout _layout;
     float _cornerRadius;
-    bool _enabled;
-    bool _secure;
-    bool _multiline;
+    bool _isEnabled;
+    bool _isSecure;
+    bool _isMultiline;
     AUIContextMenu *nillable _contextMenu;
     void (^nillable _textChangeHandler)(OFString *text);
     void (^nillable _submitHandler)(OFString *text);
 }
-
-@synthesize isEnabled = _enabled;
-@synthesize isSecure = _secure;
-@synthesize isMultiline = _multiline;
 
 + (instancetype)editableTextNodeWithKey: (OFString *nillable)stableKey
                                    text: (OFString *nillable)text
@@ -307,9 +232,9 @@
     _colors = colors;
     _layout = layout;
     _cornerRadius = cornerRadius;
-    _enabled = isEnabled;
-    _secure = isSecure;
-    _multiline = isMultiline;
+    _isEnabled = isEnabled;
+    _isSecure = isSecure;
+    _isMultiline = isMultiline;
     _contextMenu = contextMenu;
     _textChangeHandler = [textChangeHandler copy];
     _submitHandler = [submitHandler copy];

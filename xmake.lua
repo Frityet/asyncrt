@@ -19,7 +19,7 @@ add_repositories("asyncrt-xrepo xrepo", {rootdir = os.scriptdir()})
 option("asyncrt-test-access")
     set_default(false)
     set_showmenu(true)
-    set_description("Relax objc_direct restrictions so white-box tests can call internal methods.")
+    set_description("Enable white-box test access outside test mode.")
 option_end()
 
 option("asyncrt-ui-x11")
@@ -35,7 +35,7 @@ add_requires("objfw", {
     }
 })
 
-if common.ui_uses_cairo_x11_backend() or has_config("asyncrt-test-access") then
+if common.ui_uses_cairo_x11_backend() or common.internal_test_access_enabled() then
     add_requires("cairo")
 end
 

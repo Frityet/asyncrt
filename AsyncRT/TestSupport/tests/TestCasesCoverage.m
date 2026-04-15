@@ -55,8 +55,6 @@
 
 @implementation ParserCustomParsedValue
 
-@synthesize rawValue = _rawValue;
-
 - (instancetype)initWithRawValue: (OFString *)rawValue
 {
     self = [super init];
@@ -83,8 +81,6 @@
 
 @implementation ParserStringConstructedValue
 
-@synthesize rawValue = _rawValue;
-
 - (instancetype)initWithString: (OFString *)string
 {
     self = [super init];
@@ -109,8 +105,6 @@
 
 @implementation ParserIvarFallbackCommand
 
-@synthesize mysteryOption = _mysteryOption;
-
 - (instancetype)init
 {
     self = [super init];
@@ -131,8 +125,6 @@
 @end
 
 @implementation ParserLeafCoverageCommand
-
-@synthesize leafValue = _leafValue;
 
 - (instancetype)init
 {
@@ -156,13 +148,6 @@
 @end
 
 @implementation ParserErrorCoverageCommand
-
-@synthesize count = _count;
-@synthesize force = _force;
-@synthesize mode = _mode;
-@synthesize source = _source;
-@synthesize literal = _literal;
-@synthesize serve = _serve;
 
 - (instancetype)init
 {
@@ -192,8 +177,6 @@
 
 @implementation ParserSubcommandOnlyCommand
 
-@synthesize serve = _serve;
-
 - (instancetype)init
 {
     self = [super init];
@@ -211,8 +194,6 @@
 @end
 
 @implementation ParserUnexpectedArgumentCommand
-
-@synthesize verbose = _verbose;
 
 - (instancetype)init
 {
@@ -232,9 +213,6 @@
 @end
 
 @implementation ParserDuplicateLongCommand
-
-@synthesize first = _first;
-@synthesize second = _second;
 
 - (instancetype)init
 {
@@ -256,9 +234,6 @@
 
 @implementation ParserDuplicateShortCommand
 
-@synthesize first = _first;
-@synthesize second = _second;
-
 - (instancetype)init
 {
     self = [super init];
@@ -278,9 +253,6 @@
 @end
 
 @implementation ParserDuplicateSubcommandCommand
-
-@synthesize dupValue = _dupValue;
-@synthesize dup_value = _dup_value;
 
 - (instancetype)init
 {

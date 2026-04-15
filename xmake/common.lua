@@ -41,7 +41,7 @@ function asyncrt_build.coroutine_mflags()
 end
 
 function asyncrt_build.internal_test_access_enabled()
-    return has_config("asyncrt-test-access")
+    return is_mode("test") or has_config("asyncrt-test-access")
 end
 
 function asyncrt_build.ui_uses_cairo_x11_backend()
@@ -51,6 +51,7 @@ end
 function asyncrt_build.add_internal_test_access_define()
     if asyncrt_build.internal_test_access_enabled() then
         add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+        add_mflags("-fobjc-disable-direct-methods-for-testing", {force = true})
     end
 end
 

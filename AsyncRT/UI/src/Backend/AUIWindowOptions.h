@@ -11,14 +11,16 @@
 @property(readonly, nonatomic) AUISize initialSize;
 @property(readonly, nonatomic) bool isResizable;
 @property(readonly, nonatomic) bool automaticallyResizesToRootComponent;
+@property(readonly, nonatomic) bool scalesWithWindowSize;
+@property(readonly, nonatomic) double contentScale;
 
-+ (instancetype)title: (OFString *nillable)title
-                 size: (AUISize)initialSize
-            resizable: (bool)resizable;
-+ (instancetype)title: (OFString *nillable)title
-                 size: (AUISize)initialSize
-            resizable: (bool)resizable
-          autoResizeToRootComponent: (bool)automaticallyResizesToRootComponent;
++ (instancetype)    title: (OFString *)title
+                     size: (AUISize)initialSize
+                resizable: (bool)resizable
+autoResizeToRootComponent: (bool)automaticallyResizesToRootComponent
+      scaleWithWindowSize: (bool)scaleWithWindowSize
+             contentScale: (double)contentScale;
+
 + (instancetype)defaultOptions;
 
 @end

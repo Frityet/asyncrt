@@ -14,10 +14,6 @@
 
 @implementation ParserServeCommand
 
-@synthesize root = _root;
-@synthesize port = _port;
-@synthesize host = _host;
-
 - (instancetype)init
 {
     self = [super init];
@@ -51,10 +47,6 @@
 
 @implementation ParserRootCommand
 
-@synthesize verbose = _verbose;
-@synthesize config = _config;
-@synthesize serve = _serve;
-
 - (instancetype)init
 {
     self = [super init];
@@ -84,8 +76,6 @@
 @end
 
 @implementation ParserPositionalCommand
-
-@synthesize input = _input;
 
 - (instancetype)init
 {

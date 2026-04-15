@@ -251,7 +251,6 @@ typedef enum AUICairoBorderSide {
         return;
 
     cairo_save(context);
-    cairo_identity_matrix(context);
     cairo_select_font_face(context, fontFamily, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(context, config->fontSize);
 

@@ -1,16 +1,9 @@
+#include <math.h>
+
 #import "Backend/AUIWindowOptions.h"
 
 #pragma clang assume_nonnull begin
 
-[[direct_members]]
-@interface AUIWindowOptions ()
-
-- (instancetype)initWithTitle: (OFString *nillable)title
-                         size: (AUISize)initialSize
-                    resizable: (bool)resizable
-  autoResizeToRootComponent: (bool)automaticallyResizesToRootComponent [[designated_initailiser]];
-
-@end
 
 [[direct_members]]
 @implementation AUIWindowOptions {
@@ -18,30 +11,23 @@
     AUISize _initialSize;
     bool _resizable;
     bool _automaticallyResizesToRootComponent;
+    bool _scalesWithWindowSize;
+    double _contentScale;
 }
 
-@synthesize isResizable = _resizable;
-@synthesize automaticallyResizesToRootComponent = _automaticallyResizesToRootComponent;
-
-+ (instancetype)title: (OFString *nillable)title
++ (instancetype)title: (OFString *)title
                  size: (AUISize)initialSize
             resizable: (bool)resizable
+          autoResizeToRootComponent: (bool)autoResiz
+               scaleWithWindowSize: (bool)scaleWithWindowSize
+                      contentScale: (double)contentScale
 {
     return [[self alloc] initWithTitle: title
                                   size: initialSize
                              resizable: resizable
-               autoResizeToRootComponent: false];
-}
-
-+ (instancetype)title: (OFString *nillable)title
-                 size: (AUISize)initialSize
-            resizable: (bool)resizable
-          autoResizeToRootComponent: (bool)automaticallyResizesToRootComponent
-{
-    return [[self alloc] initWithTitle: title
-                                  size: initialSize
-                             resizable: resizable
-               autoResizeToRootComponent: automaticallyResizesToRootComponent];
+               autoResizeToRootComponent: autoResiz
+                    scaleWithWindowSize: scaleWithWindowSize
+                           contentScale: contentScale];
 }
 
 + (instancetype)defaultOptions
@@ -49,22 +35,28 @@
     return [self        title: @"AsyncRT UI"
                          size: (AUISize){ 960, 640 }
                     resizable: true
-    autoResizeToRootComponent: true];
+    autoResizeToRootComponent: true
+          scaleWithWindowSize: false
+                 contentScale: 1.0];
 }
 
-- (instancetype)initWithTitle: (OFString *nillable)title
+- (instancetype)initWithTitle: (OFString *)title
                          size: (AUISize)initialSize
                     resizable: (bool)resizable
-  autoResizeToRootComponent: (bool)automaticallyResizesToRootComponent
+    autoResizeToRootComponent: (bool)autoResiz
+          scaleWithWindowSize: (bool)scaleWithWindowSize
+                 contentScale: (double)contentScale
 {
-    if (title == nilptr)
+    if (not isfinite(contentScale) or contentScale <= 0.0)
         @throw [OFInvalidArgumentException exception];
 
     self = [super init];
-    _title = [$assert_nonnil(title) copy];
+    _title = [title copy];
     _initialSize = initialSize;
     _resizable = resizable;
-    _automaticallyResizesToRootComponent = automaticallyResizesToRootComponent;
+    _automaticallyResizesToRootComponent = autoResiz;
+    _scalesWithWindowSize = scaleWithWindowSize;
+    _contentScale = contentScale;
     return self;
 }
 

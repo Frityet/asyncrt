@@ -5,14 +5,6 @@
 
 @class AUIRenderHost;
 
-[[direct_members]]
-@interface AUIStateBinding ()
-
-- (instancetype)initWithOwner: (AUIViewComponent *nillable)owner initialValue: (id nillable)initialValue [[designated_initailiser]];
-- (void)_setOwner: (AUIViewComponent *nillable)owner;
-
-@end
-
 @interface AUIViewHookSlot : OFObject @end
 
 [[subclassing_restricted, direct_members]]
@@ -40,18 +32,6 @@
 
 @property(copy, nonatomic) OFArray<id> *nillable dependencies;
 @property(retain, nonatomic) Task<id> *nillable task;
-
-@end
-
-[[direct_members]]
-@interface AUIViewComponent ()
-
-- (AUIViewHookSlot *nillable)_hookSlotAtIndex: (size_t)index;
-- (void)_replaceHookSlot: (AUIViewHookSlot *nillable)slot atIndex: (size_t)index;
-- (void)_cleanupHookSlot: (AUIViewHookSlot *nillable)slot;
-- (void)_trimHookSlotsToCount: (size_t)count;
-- (void)_pruneUnusedChildViewComponents;
-- (void)_enqueuePendingEffectCommits;
 
 @end
 
@@ -163,11 +143,6 @@
     OFMutableArray<AUIViewHookSlot *> *_hookSlots;
     size_t _currentHookIndex;
 }
-
-@synthesize application = _application;
-@synthesize parentViewComponent = _parentViewComponent;
-@synthesize mountedTaskGroup = _mountedTaskGroup;
-@synthesize isMounted = _isMounted;
 
 - (instancetype)init
 {

@@ -8,6 +8,7 @@
 @interface AUIHeadlessWindow : AUIWindow
 
 - (void)setViewportSize: (AUISize)viewportSize;
+- (void)setNativeSize: (AUISize)nativeSize;
 - (void)sendPointerMoveToX: (float)x y: (float)y;
 - (void)sendMouseDown: (AUIMouseButton)button;
 - (void)sendMouseUp: (AUIMouseButton)button;

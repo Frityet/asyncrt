@@ -518,7 +518,7 @@
 + (bool)evaluateExpression: (OFString *nillable)expression
                  angleMode: (CalculatorAngleMode)angleMode
                 lastAnswer: (double)lastAnswer
-                    result: (double *)result
+                    result: (double *nillable)result
                      error: (OFString *nillable *)error
 {
     CalculatorParser *parser;
@@ -528,13 +528,13 @@
             *error = @"Enter an expression.";
         return false;
     }
-    if ((double *nillable)result == nullptr)
+    if (result == nullptr)
         @throw [OFInvalidArgumentException exception];
 
     parser = [[CalculatorParser alloc] initWithExpression: $assert_nonnil(expression)
                                                        angleMode: angleMode
                                                       lastAnswer: lastAnswer];
-    return [parser parseResult: result error: error];
+    return [parser parseResult: $assert_nonnil(result) error: error];
 }
 
 @end

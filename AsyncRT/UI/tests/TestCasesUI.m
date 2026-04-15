@@ -52,7 +52,9 @@ static AUITestRenderHarness AUITestRenderHarnessMake(AUITestApplication *applica
     AUIWindowOptions *options = [AUIWindowOptions title: @"UI Test"
                                                    size: [AUI sizeWithWidth: 360 height: 240]
                                               resizable: false
-                                autoResizeToRootComponent: false];
+                              autoResizeToRootComponent: false
+                                    scaleWithWindowSize: false
+                                           contentScale: 1];
 
     harness.application = application;
     harness.window = [[AUIHeadlessWindow alloc] initWithApplication: application options: options];
@@ -133,6 +135,11 @@ static bool AUITestCommandsContainText(Clay_RenderCommandArray commands, OFStrin
     return false;
 }
 
+static bool AUITestSizeEquals(AUISize left, AUISize right)
+{
+    return (left.width == right.width and left.height == right.height);
+}
+
 static Clay_BoundingBox AUITestBoundingBoxForIdentifier(OFString *identifier)
 {
     Clay_ElementData data = [AUIClay elementDataForID: [AUIClay elementIDFromString: identifier]];
@@ -155,6 +162,91 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     [harness->window sendPointerMoveToX: x y: y];
     [harness->window sendMouseDown: AUIMouseButtonSecondary];
     [harness->window sendMouseUp: AUIMouseButtonSecondary];
+}
+
+static void window_options_expose_content_scaling_configuration(void)
+{
+    AUIWindowOptions *options = [AUIWindowOptions title: @"Scaled"
+                                                   size: [AUI sizeWithWidth: 360 height: 240]
+                                              resizable: true
+                                autoResizeToRootComponent: false
+                                     scaleWithWindowSize: true
+                                            contentScale: 2.5];
+
+    [AsyncRuntimeTestSupport assertCondition: options.scalesWithWindowSize
+                                     message: @"AUIWindowOptions should retain whether content scales with window size"];
+    [AsyncRuntimeTestSupport assertCondition: (options.contentScale == 2.5)
+                                     message: @"AUIWindowOptions should retain the requested content scale"];
+}
+
+static void headless_window_content_scale_changes_viewport_and_pointer_space(void)
+{
+    AUITestApplication *application = [[AUITestApplication alloc] init];
+    AUIWindowOptions *options = [AUIWindowOptions title: @"Scaled"
+                                                   size: [AUI sizeWithWidth: 360 height: 240]
+                                              resizable: false
+                                autoResizeToRootComponent: false
+                                     scaleWithWindowSize: false
+                                            contentScale: 2.0];
+    AUIHeadlessWindow *window = [[AUIHeadlessWindow alloc] initWithApplication: application options: options];
+
+    [window openWindow];
+    [application _setWindowForTesting: window];
+
+    [AsyncRuntimeTestSupport assertCondition: AUITestSizeEquals(window.viewportSize, [AUI sizeWithWidth: 180 height: 120])
+                                     message: @"contentScale should shrink the logical viewport while keeping the native window size"];
+
+    [window sendPointerMoveToX: 180 y: 120];
+    [AsyncRuntimeTestSupport assertCondition: (application._inputState.pointerX == 90.0f and application._inputState.pointerY == 60.0f)
+                                     message: @"headless pointer events should be mapped back into logical viewport coordinates"];
+
+    [window setNativeSize: [AUI sizeWithWidth: 720 height: 480]];
+    [AsyncRuntimeTestSupport assertCondition: AUITestSizeEquals(window.viewportSize, [AUI sizeWithWidth: 360 height: 240])
+                                     message: @"logical viewport should continue to track native size when scaleWithWindowSize is disabled"];
+
+    [window sendPointerMoveToX: 360 y: 240];
+    [AsyncRuntimeTestSupport assertCondition: (application._inputState.pointerX == 180.0f and application._inputState.pointerY == 120.0f)
+                                     message: @"pointer mapping should keep respecting contentScale after native resizes"];
+
+    [application _setWindowForTesting: nilptr];
+    [window closeWindow];
+}
+
+static void headless_window_scale_with_window_size_keeps_reference_viewport(void)
+{
+    AUITestApplication *application = [[AUITestApplication alloc] init];
+    AUIWindowOptions *options = [AUIWindowOptions title: @"Scaled"
+                                                   size: [AUI sizeWithWidth: 360 height: 240]
+                                              resizable: false
+                                autoResizeToRootComponent: false
+                                     scaleWithWindowSize: true
+                                            contentScale: 2.0];
+    AUIHeadlessWindow *window = [[AUIHeadlessWindow alloc] initWithApplication: application options: options];
+
+    [window openWindow];
+    [application _setWindowForTesting: window];
+
+    [AsyncRuntimeTestSupport assertCondition: AUITestSizeEquals(window.viewportSize, [AUI sizeWithWidth: 180 height: 120])
+                                     message: @"scaleWithWindowSize should establish a reference logical viewport at open time"];
+
+    [window setNativeSize: [AUI sizeWithWidth: 720 height: 480]];
+    [AsyncRuntimeTestSupport assertCondition: AUITestSizeEquals(window.viewportSize, [AUI sizeWithWidth: 180 height: 120])
+                                     message: @"scaleWithWindowSize should keep the logical viewport fixed across native resizes"];
+
+    [window sendPointerMoveToX: 360 y: 240];
+    [AsyncRuntimeTestSupport assertCondition: (application._inputState.pointerX == 90.0f and application._inputState.pointerY == 60.0f)
+                                     message: @"pointer mapping should use the fixed reference viewport when scaling with window size"];
+
+    [window setViewportSize: [AUI sizeWithWidth: 200 height: 100]];
+    [AsyncRuntimeTestSupport assertCondition: AUITestSizeEquals(window.viewportSize, [AUI sizeWithWidth: 200 height: 100])
+                                     message: @"setting the viewport explicitly should replace the reference viewport"];
+
+    [window sendPointerMoveToX: 200 y: 100];
+    [AsyncRuntimeTestSupport assertCondition: (application._inputState.pointerX == 100.0f and application._inputState.pointerY == 50.0f)
+                                     message: @"pointer mapping should follow the updated reference viewport after explicit viewport changes"];
+
+    [application _setWindowForTesting: nilptr];
+    [window closeWindow];
 }
 
 [[subclassing_restricted]]
@@ -194,8 +286,6 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     AUIStateBinding<OFString *> *nillable _stateBinding;
 }
 
-@synthesize mountCount = _mountCount;
-
 - (instancetype)initWithName: (OFString *)name
 {
     self = [super init];
@@ -231,8 +321,6 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     AUITestLeafComponent *_right;
     bool _isReversed;
 }
-
-@synthesize isReversed = _isReversed;
 
 - (instancetype)initWithLeft: (AUITestLeafComponent *)left right: (AUITestLeafComponent *)right
 {
@@ -341,10 +429,6 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
     uint32_t _cleanupCount;
 }
 
-@synthesize phase = _phase;
-@synthesize runCount = _runCount;
-@synthesize cleanupCount = _cleanupCount;
-
 - (AUIViewNode *)renderViewNode
 {
     OFNumber *phaseValue = @(_phase);
@@ -371,8 +455,6 @@ static void AUITestClickSecondary(AUITestRenderHarness *harness, float x, float 
 @implementation AUITestContextMenuComponent {
     bool _didSelect;
 }
-
-@synthesize didSelect = _didSelect;
 
 - (AUIViewNode *)renderViewNode
 {
@@ -589,6 +671,9 @@ static void calculator_keypad_clicks_refresh_shared_display_state(AsyncTaskGroup
     AUITestRenderHarnessDestroy(&harness);
 }
 
+ASYNC_RUNTIME_SYNC_TEST(window_options_expose_content_scaling_configuration)
+ASYNC_RUNTIME_SYNC_TEST(headless_window_content_scale_changes_viewport_and_pointer_space)
+ASYNC_RUNTIME_SYNC_TEST(headless_window_scale_with_window_size_keeps_reference_viewport)
 ASYNC_RUNTIME_ASYNC_TEST(hook_state_updates_request_render_only_on_change)
 ASYNC_RUNTIME_ASYNC_TEST(keyed_child_components_retain_state_across_reorder)
 ASYNC_RUNTIME_ASYNC_TEST(editable_text_focus_persists_across_conditional_insertion)

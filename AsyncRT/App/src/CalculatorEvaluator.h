@@ -14,7 +14,7 @@ typedef enum CalculatorAngleMode {
 + (bool)evaluateExpression: (OFString *nillable)expression
                   angleMode: (CalculatorAngleMode)angleMode
                  lastAnswer: (double)lastAnswer
-                     result: (double *)result
+                     result: (double *nillable)result
                       error: (OFString *nillable *_Nullable)error;
 
 @end

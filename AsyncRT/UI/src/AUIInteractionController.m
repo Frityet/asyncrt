@@ -100,10 +100,6 @@
     float _activeContextMenuY;
 }
 
-@synthesize activeContextMenu = _activeContextMenu;
-@synthesize activeContextMenuX = _activeContextMenuX;
-@synthesize activeContextMenuY = _activeContextMenuY;
-
 - (instancetype)init
 {
     self = [super init];

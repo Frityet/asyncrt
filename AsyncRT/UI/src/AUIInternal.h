@@ -173,6 +173,10 @@ typedef Clay_Dimensions (*AUITextMeasureFunction)(Clay_StringSlice text,
 - (Clay_RenderCommandArray)_buildRenderCommandsForViewportSize: (AUISize)viewportSize
                                            textMeasureFunction: (AUITextMeasureFunction)textMeasureFunction
                                                       userData: (void *nillable)userData [[direct]];
+- (double)_contentScale [[direct]];
+- (bool)_scalesWithWindowSize [[direct]];
+- (AUISize)_viewportSizeForNativeSize: (AUISize)nativeSize [[direct]];
+- (AUISize)_nativeSizeForViewportSize: (AUISize)viewportSize [[direct]];
 - (void)_setViewportSize: (AUISize)viewportSize;
 - (void)_setDarkMode: (bool)darkMode explicitly: (bool)explicitly;
 - (bool)_hasExplicitDarkMode [[direct]];

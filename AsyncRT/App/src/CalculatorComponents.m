@@ -37,13 +37,6 @@
 
 @end
 
-[[direct_members]]
-@interface CalculatorRootComponent ()
-
-- (void)_setNeedsViewUpdateForAllCalculatorPanels;
-
-@end
-
 @interface AUIViewComponent (CalculatorSharedModelRefresh)
 
 - (void)_refreshCalculatorInterfaceAfterSharedModelMutation;
@@ -195,20 +188,6 @@ typedef struct CalculatorButtonSpec {
 
 @end
 
-@implementation AUIViewComponent (CalculatorSharedModelRefresh)
-
-- (void)_refreshCalculatorInterfaceAfterSharedModelMutation
-{
-    if ([self.parentViewComponent isKindOfClass: CalculatorRootComponent.class]) {
-        [((CalculatorRootComponent *)self.parentViewComponent) _setNeedsViewUpdateForAllCalculatorPanels];
-        return;
-    }
-
-    [self setNeedsViewUpdate];
-}
-
-@end
-
 @implementation CalculatorRootComponent {
     CalculatorModel *_model;
     CalculatorHeaderViewComponent *_headerViewComponent;
@@ -271,12 +250,26 @@ typedef struct CalculatorButtonSpec {
     ]];
 }
 
-- (void)_setNeedsViewUpdateForAllCalculatorPanels
+- (void)_setNeedsViewUpdateForAllCalculatorPanels [[direct]]
 {
     [_headerViewComponent setNeedsViewUpdate];
     [_displayViewComponent setNeedsViewUpdate];
     [_keypadViewComponent setNeedsViewUpdate];
     [_sidebarViewComponent setNeedsViewUpdate];
+    [self setNeedsViewUpdate];
+}
+
+@end
+
+@implementation AUIViewComponent (CalculatorSharedModelRefresh)
+
+- (void)_refreshCalculatorInterfaceAfterSharedModelMutation
+{
+    if ([self.parentViewComponent isKindOfClass: CalculatorRootComponent.class]) {
+        [((CalculatorRootComponent *)self.parentViewComponent) _setNeedsViewUpdateForAllCalculatorPanels];
+        return;
+    }
+
     [self setNeedsViewUpdate];
 }
 

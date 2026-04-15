@@ -3,22 +3,11 @@
 #pragma clang assume_nonnull begin
 
 [[direct_members]]
-@interface AUIContextMenuItem ()
-
-- (instancetype)initWithTitle: (OFString *nillable)title
-                      enabled: (bool)enabled
-                     onSelect: (void (^nillable)(void))selectHandler [[designated_initailiser]];
-
-@end
-
-[[direct_members]]
 @implementation AUIContextMenuItem {
     OFString *_title;
-    bool _enabled;
+    bool _isEnabled;
     void (^nillable _selectHandler)(void);
 }
-
-@synthesize isEnabled = _enabled;
 
 + (instancetype)title: (OFString *nillable)title
               enabled: (bool)enabled
@@ -36,7 +25,7 @@
 
     self = [super init];
     _title = [$assert_nonnil(title) copy];
-    _enabled = enabled;
+    _isEnabled = enabled;
     _selectHandler = [selectHandler copy];
     return self;
 }

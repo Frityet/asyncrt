@@ -24,25 +24,6 @@
 @end
 
 [[direct_members]]
-@interface CalculatorModel ()
-
-- (OFString *)formattedValue: (double)value;
-- (void)setStatusText: (OFString *)statusText hasError: (bool)hasError;
-- (void)refreshPreview;
-- (bool)evaluateCurrentExpressionInto: (double *)value error: (OFString *nillable *)error;
-- (void)recordHistoryExpression: (OFString *)expression resultText: (OFString *)resultText;
-- (OFString *)normalizedExpressionFromText: (OFString *)text;
-- (bool)expressionEndsWithOperator;
-- (bool)expressionEndsWithUnaryBoundary;
-- (bool)expressionNeedsImplicitMultiplication;
-- (bool)tokenStartsFreshExpression: (OFString *)token;
-- (void)startFreshExpressionIfNeededForToken: (OFString *)token;
-- (void)appendAtomToken: (OFString *)token;
-- (bool)resolveValueForMemoryOperation: (double *)value;
-
-@end
-
-[[direct_members]]
 @implementation CalculatorModel {
     OFString *_expression;
     OFString *_resultText;
@@ -56,14 +37,6 @@
     bool _hasError;
     bool _replaceExpressionOnNextInsert;
 }
-
-@synthesize history = _history;
-@synthesize angleMode = _angleMode;
-@synthesize memoryValue = _memoryValue;
-@synthesize lastAnswer = _lastAnswer;
-@synthesize hasMemoryValue = _hasMemoryValue;
-@synthesize hasLastAnswer = _hasLastAnswer;
-@synthesize hasError = _hasError;
 
 + (instancetype)model
 {

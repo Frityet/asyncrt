@@ -68,21 +68,6 @@ static size_t const async_default_drain_batch_size = 64;
 
 @end
 
-[[direct_members]]
-@interface AsyncScheduler ()
-
-+ (size_t)_defaultWorkerCount;
-- (void)_initializeWakePipe;
-- (void)_armWakeReadHandler;
-- (void)_signalWakePipeIfNeeded;
-- (void)_drainWakePipe;
-- (void)_compactReadyQueueIfNeeded;
-- (OFArray<id<AsyncSchedulerRunnable>> *)_dequeueReadyBatch;
-- (void)_drainReadyQueue;
-- (void)_resumeTask: (Task *)task;
-
-@end
-
 @namespace_implementation(AsyncSchedulerValidation)
 
 + (void)validateRunLoop: (OFRunLoop *nillable)runLoop
@@ -105,8 +90,6 @@ static size_t const async_default_drain_batch_size = 64;
 [[direct_members]]
 @implementation AsyncTaskSnapshot
 
-@synthesize isCancellationRequested = _cancellationRequested;
-
 - (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested taskGroupName: (OFString *nillable)taskGroupName
 {
     self = [super init];
@@ -114,7 +97,7 @@ static size_t const async_default_drain_batch_size = 64;
     _name = [name copy];
     _executionState = executionState;
     _waitReason = [waitReason copy];
-    _cancellationRequested = cancellationRequested;
+    _isCancellationRequested = cancellationRequested;
     _taskGroupName = [taskGroupName copy];
     return self;
 }

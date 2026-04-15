@@ -14,7 +14,7 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 [[direct_members]]
 @implementation AUIHeadlessWindow {
     bool _open;
-    AUISize _viewportSize;
+    AUISize _nativeSize;
     double _scaleFactor;
     cairo_surface_t *nillable _surface;
     cairo_t *nillable _cairo;
@@ -29,7 +29,7 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 {
     self = [super initWithApplication: application options: options];
     _open = false;
-    _viewportSize = $assert_nonnil(options).initialSize;
+    _nativeSize = $assert_nonnil(options).initialSize;
     _scaleFactor = 1.0;
     _surface = nullptr;
     _cairo = nullptr;
@@ -52,7 +52,7 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 
 - (AUISize)viewportSize
 {
-    return _viewportSize;
+    return [self _viewportSizeForNativeSize: _nativeSize];
 }
 
 - (double)scaleFactor
@@ -97,9 +97,16 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
     [self.application setNeedsRender];
 }
 
+- (void)setNativeSize: (AUISize)nativeSize
+{
+    _nativeSize = nativeSize;
+    [self.application setNeedsRender];
+}
+
 - (void)_setViewportSize: (AUISize)viewportSize
 {
-    _viewportSize = viewportSize;
+    [super _setViewportSize: viewportSize];
+    _nativeSize = [self _nativeSizeForViewportSize: viewportSize];
 }
 
 - (void)setCursorStyle: (AUICursorStyle)cursorStyle
@@ -119,8 +126,8 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 
 - (bool)_ensureSurface
 {
-    int width = (int)_viewportSize.width;
-    int height = (int)_viewportSize.height;
+    int width = (int)_nativeSize.width;
+    int height = (int)_nativeSize.height;
     int stride;
 
     if (width <= 0 or height <= 0)
@@ -173,10 +180,14 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 {
     AUICairoTextMeasureContext measureContext;
     Clay_RenderCommandArray commands;
+    AUISize nativeSize;
+    AUISize viewportSize;
 
     if (not _open or not [self _ensureSurface])
         return;
 
+    nativeSize = _nativeSize;
+    viewportSize = self.viewportSize;
     cairo_save($assert_nonnil(_cairo));
     @try {
         cairo_set_operator($assert_nonnil(_cairo), CAIRO_OPERATOR_SOURCE);
@@ -186,9 +197,13 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
             .context = $assert_nonnil(_cairo),
             .fonts = AUIHeadlessWindowFonts
         };
-        commands = [self _buildRenderCommandsForViewportSize: _viewportSize
+        commands = [self _buildRenderCommandsForViewportSize: viewportSize
                                          textMeasureFunction: AUICairoMeasureText
                                                     userData: &measureContext];
+        if (viewportSize.width > 0.0f and viewportSize.height > 0.0f)
+            cairo_scale($assert_nonnil(_cairo),
+                        (double)nativeSize.width / (double)viewportSize.width,
+                        (double)nativeSize.height / (double)viewportSize.height);
         [AUICairoRenderSupport renderCommands: commands
                                     onContext: $assert_nonnil(_cairo)
                                         fonts: AUIHeadlessWindowFonts];
@@ -200,7 +215,16 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 
 - (void)sendPointerMoveToX: (float)x y: (float)y
 {
-    [self.application._inputState movePointerToX: x y: y];
+    AUISize viewportSize = self.viewportSize;
+    float viewportX = x;
+    float viewportY = y;
+
+    if (_nativeSize.width > 0.0f and viewportSize.width > 0.0f)
+        viewportX = x * viewportSize.width / _nativeSize.width;
+    if (_nativeSize.height > 0.0f and viewportSize.height > 0.0f)
+        viewportY = y * viewportSize.height / _nativeSize.height;
+
+    [self.application._inputState movePointerToX: viewportX y: viewportY];
     [self.application setNeedsRender];
 }
 
@@ -218,7 +242,16 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 
 - (void)sendScrollByX: (float)deltaX y: (float)deltaY
 {
-    [self.application._inputState scrollByX: deltaX y: deltaY];
+    AUISize viewportSize = self.viewportSize;
+    float viewportDeltaX = deltaX;
+    float viewportDeltaY = deltaY;
+
+    if (_nativeSize.width > 0.0f and viewportSize.width > 0.0f)
+        viewportDeltaX = deltaX * viewportSize.width / _nativeSize.width;
+    if (_nativeSize.height > 0.0f and viewportSize.height > 0.0f)
+        viewportDeltaY = deltaY * viewportSize.height / _nativeSize.height;
+
+    [self.application._inputState scrollByX: viewportDeltaX y: viewportDeltaY];
     [self.application setNeedsRender];
 }
 

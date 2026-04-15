@@ -3,13 +3,6 @@
 #pragma clang assume_nonnull begin
 
 [[direct_members]]
-@interface AUIContextMenu ()
-
-- (instancetype)initWithItems: (OFArray<AUIContextMenuItem *> *nillable)items [[designated_initailiser]];
-
-@end
-
-[[direct_members]]
 @implementation AUIContextMenu {
     OFArray<AUIContextMenuItem *> *_items;
 }

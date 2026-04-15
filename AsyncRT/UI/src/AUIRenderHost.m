@@ -69,35 +69,6 @@
 @end
 
 [[direct_members]]
-@interface AUIRenderHost ()
-
-- (void)_renderRenderable: (id nillable)renderable
-                identifier: (OFString *nillable)identifier
-               contextMenu: (AUIContextMenu *nillable)contextMenu
-              application: (AUIApplication *nillable)application
-     interactionController: (AUIInteractionController *)interactionController
-     textEditingController: (AUITextEditingController *)textEditingController;
-- (void)_renderChildren: (OFArray<id<AUIRenderable>> *nillable)children
-         parentIdentifier: (OFString *nillable)parentIdentifier
-              contextMenu: (AUIContextMenu *nillable)contextMenu
-              application: (AUIApplication *nillable)application
-     interactionController: (AUIInteractionController *)interactionController
-     textEditingController: (AUITextEditingController *)textEditingController;
-- (void)_renderBoxProps: (AUIBoxProps)boxProps
-               children: (OFArray<id<AUIRenderable>> *nillable)children
-             identifier: (OFString *nillable)identifier
-    backgroundOverride: (AUIColor)backgroundOverride
-            contextMenu: (AUIContextMenu *nillable)contextMenu
- interactionRegistration: (AUIInteractionRegistration *nillable)interactionRegistration
-            application: (AUIApplication *nillable)application
-   interactionController: (AUIInteractionController *)interactionController
-   textEditingController: (AUITextEditingController *)textEditingController;
-- (void)_renderActiveContextMenuWithInteractionController: (AUIInteractionController *)interactionController;
-- (void)_runPostRenderEffects;
-
-@end
-
-[[direct_members]]
 @implementation AUIRenderHost {
     AUIApplication *nillable _application;
     AUIViewComponent *nillable _rootViewComponent;

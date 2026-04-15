@@ -21,6 +21,9 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 
 + (AUIModifierFlags)modifierFlagsFromState: (unsigned int)state;
 + (AUIKey)keyFromKeySym: (KeySym)keySym;
++ (float)viewportCoordinateForNativeCoordinate: (float)nativeCoordinate
+                               nativeDimension: (float)nativeDimension
+                             viewportDimension: (float)viewportDimension;
 
 @end
 
@@ -90,6 +93,16 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     }
 }
 
++ (float)viewportCoordinateForNativeCoordinate: (float)nativeCoordinate
+                               nativeDimension: (float)nativeDimension
+                             viewportDimension: (float)viewportDimension
+{
+    if (nativeDimension <= 0.0f or viewportDimension <= 0.0f)
+        return nativeCoordinate;
+
+    return nativeCoordinate * viewportDimension / nativeDimension;
+}
+
 @end
 
 @implementation AUICairoX11Window {
@@ -101,7 +114,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     Atom _deleteWindowAtom;
     XIM nillable _inputMethod;
     XIC nillable _inputContext;
-    AUISize _viewportSize;
+    AUISize _nativeSize;
     OFString *nillable _clipboardText;
 }
 
@@ -117,7 +130,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     _deleteWindowAtom = None;
     _inputMethod = nullptr;
     _inputContext = nullptr;
-    _viewportSize = $assert_nonnil(options).initialSize;
+    _nativeSize = $assert_nonnil(options).initialSize;
     _clipboardText = nilptr;
     return self;
 }
@@ -134,7 +147,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 
 - (AUISize)viewportSize
 {
-    return _viewportSize;
+    return [self _viewportSizeForNativeSize: _nativeSize];
 }
 
 - (void)openWindow
@@ -191,7 +204,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     if (cairo_surface_status($assert_nonnil(_surface)) != CAIRO_STATUS_SUCCESS)
         @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the X11 Cairo surface"];
 
-    _viewportSize = [AUI sizeWithWidth: (float)windowAttributes.width height: (float)windowAttributes.height];
+    _nativeSize = [AUI sizeWithWidth: (float)windowAttributes.width height: (float)windowAttributes.height];
     _open = true;
 }
 
@@ -206,15 +219,30 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
             continue;
 
         switch (event.type) {
-            case MotionNotify:
-                [[self.application _inputState] movePointerToX: (float)event.xmotion.x
-                                                            y: (float)event.xmotion.y];
+            case MotionNotify: {
+                AUISize viewportSize = self.viewportSize;
+
+                [[self.application _inputState]
+                    movePointerToX: [AUIX11EventSupport viewportCoordinateForNativeCoordinate: (float)event.xmotion.x
+                                                                               nativeDimension: _nativeSize.width
+                                                                             viewportDimension: viewportSize.width]
+                               y: [AUIX11EventSupport viewportCoordinateForNativeCoordinate: (float)event.xmotion.y
+                                                                               nativeDimension: _nativeSize.height
+                                                                             viewportDimension: viewportSize.height]];
                 if ([self.application _updateHoverStateFromCurrentLayout])
                     [self.application setNeedsRender];
                 break;
-            case ButtonPress:
-                [[self.application _inputState] movePointerToX: (float)event.xbutton.x
-                                                            y: (float)event.xbutton.y];
+            }
+            case ButtonPress: {
+                AUISize viewportSize = self.viewportSize;
+
+                [[self.application _inputState]
+                    movePointerToX: [AUIX11EventSupport viewportCoordinateForNativeCoordinate: (float)event.xbutton.x
+                                                                               nativeDimension: _nativeSize.width
+                                                                             viewportDimension: viewportSize.width]
+                               y: [AUIX11EventSupport viewportCoordinateForNativeCoordinate: (float)event.xbutton.y
+                                                                               nativeDimension: _nativeSize.height
+                                                                             viewportDimension: viewportSize.height]];
                 if (event.xbutton.button == Button1)
                     [[self.application _inputState] pressMouseButton: AUIMouseButtonPrimary];
                 else if (event.xbutton.button == Button3)
@@ -225,15 +253,24 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
                     [[self.application _inputState] scrollByX: 0 y: 1];
                 [self.application setNeedsRender];
                 break;
-            case ButtonRelease:
-                [[self.application _inputState] movePointerToX: (float)event.xbutton.x
-                                                            y: (float)event.xbutton.y];
+            }
+            case ButtonRelease: {
+                AUISize viewportSize = self.viewportSize;
+
+                [[self.application _inputState]
+                    movePointerToX: [AUIX11EventSupport viewportCoordinateForNativeCoordinate: (float)event.xbutton.x
+                                                                               nativeDimension: _nativeSize.width
+                                                                             viewportDimension: viewportSize.width]
+                               y: [AUIX11EventSupport viewportCoordinateForNativeCoordinate: (float)event.xbutton.y
+                                                                               nativeDimension: _nativeSize.height
+                                                                             viewportDimension: viewportSize.height]];
                 if (event.xbutton.button == Button1)
                     [[self.application _inputState] releaseMouseButton: AUIMouseButtonPrimary];
                 else if (event.xbutton.button == Button3)
                     [[self.application _inputState] releaseMouseButton: AUIMouseButtonSecondary];
                 [self.application setNeedsRender];
                 break;
+            }
             case KeyPress: {
                 KeySym keySym = NoSymbol;
                 Status status = 0;
@@ -267,8 +304,8 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
                 break;
             }
             case ConfigureNotify:
-                _viewportSize = [AUI sizeWithWidth: (float)event.xconfigure.width
-                                            height: (float)event.xconfigure.height];
+                _nativeSize = [AUI sizeWithWidth: (float)event.xconfigure.width
+                                          height: (float)event.xconfigure.height];
                 if (_surface != nullptr)
                     cairo_xlib_surface_set_size($assert_nonnil(_surface),
                                                 event.xconfigure.width,
@@ -320,10 +357,15 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 
 - (void)_setViewportSize: (AUISize)viewportSize
 {
-    int width = (int)viewportSize.width;
-    int height = (int)viewportSize.height;
+    AUISize nativeSize;
+    int width;
+    int height;
 
-    _viewportSize = viewportSize;
+    [super _setViewportSize: viewportSize];
+    nativeSize = [self _nativeSizeForViewportSize: viewportSize];
+    _nativeSize = nativeSize;
+    width = (int)nativeSize.width;
+    height = (int)nativeSize.height;
 
     if (_display != nullptr and _window != 0) {
         XResizeWindow($assert_nonnil(_display), _window, (unsigned int)width, (unsigned int)height);
@@ -349,10 +391,14 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     cairo_t *cairo;
     AUICairoTextMeasureContext measureContext;
     Clay_RenderCommandArray commands;
+    AUISize nativeSize;
+    AUISize viewportSize;
 
     if (not _open or _surface == nullptr)
         return;
 
+    nativeSize = _nativeSize;
+    viewportSize = self.viewportSize;
     cairo = cairo_create($assert_nonnil(_surface));
     if (cairo_status(cairo) != CAIRO_STATUS_SUCCESS) {
         cairo_destroy(cairo);
@@ -364,9 +410,13 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
             .context = cairo,
             .fonts = AUICairoX11WindowFonts
         };
-        commands = [self _buildRenderCommandsForViewportSize: _viewportSize
+        commands = [self _buildRenderCommandsForViewportSize: viewportSize
                                          textMeasureFunction: AUICairoMeasureText
                                                     userData: &measureContext];
+        if (viewportSize.width > 0.0f and viewportSize.height > 0.0f)
+            cairo_scale(cairo,
+                        (double)nativeSize.width / (double)viewportSize.width,
+                        (double)nativeSize.height / (double)viewportSize.height);
         [AUICairoRenderSupport renderCommands: commands
                                     onContext: cairo
                                         fonts: AUICairoX11WindowFonts];

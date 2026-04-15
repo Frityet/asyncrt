@@ -28,6 +28,9 @@ local async_runtime_test_cases = {
     {name = "optional_some_retains_payload_across_autorelease_pool", group = "utilities/optional"},
     {name = "optional_some_accepts_tagged_payloads", group = "utilities/optional"},
     {name = "application_executable_iri_resolves_to_existing_absolute_file_iri", group = "utilities/ofapplication"},
+    {name = "window_options_expose_content_scaling_configuration", group = "ui"},
+    {name = "headless_window_content_scale_changes_viewport_and_pointer_space", group = "ui"},
+    {name = "headless_window_scale_with_window_size_keeps_reference_viewport", group = "ui"},
     {name = "hook_state_updates_request_render_only_on_change", group = "ui"},
     {name = "keyed_child_components_retain_state_across_reorder", group = "ui"},
     {name = "editable_text_focus_persists_across_conditional_insertion", group = "ui"},
@@ -100,7 +103,7 @@ target("async-runtime-tests")
             return
         end
 
-        raise("async-runtime-tests requires xmake f -m test --asyncrt_test_access=y, or just run xmake check.")
+        raise("async-runtime-tests requires xmake f -m test, xmake check, or explicit --asyncrt_test_access=y.")
     end)
     if is_plat("macosx") then
         add_ldflags("-ObjC", {force = true})

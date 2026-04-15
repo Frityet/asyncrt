@@ -18,7 +18,9 @@
     return [AUIWindowOptions title: @"Scientific Calculator"
                               size: [AUI sizeWithWidth: 1360 height: 820]
                          resizable: true
-         autoResizeToRootComponent: false];
+         autoResizeToRootComponent: false
+               scaleWithWindowSize: true
+                      contentScale: 1];
 }
 
 @end

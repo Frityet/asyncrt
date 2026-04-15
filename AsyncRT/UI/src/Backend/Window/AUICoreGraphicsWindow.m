@@ -183,8 +183,11 @@
 
 - (instancetype)initWithBackend: (AUICoreGraphicsWindow *)backend frame: (NSRect)frameRect;
 - (void)disconnectBackend;
+- (AUISize)viewportSize;
 - (AUISize)pixelSize;
-- (NSPoint)ui_backingPointForViewPoint: (NSPoint)point;
+- (NSPoint)ui_renderPointForViewPoint: (NSPoint)point;
+- (NSPoint)ui_renderPointForEvent: (NSEvent *)event;
+- (CGFloat)ui_contentsScale;
 - (void)ui_updateLayerConfiguration;
 - (void)ui_takeInputFocus;
 - (void)renderFrameWithBlock: (void (^)(CGContextRef context, AUISize viewportSize))renderBlock;
@@ -294,27 +297,58 @@
         [application setNeedsRender];
 }
 
+- (AUISize)viewportSize
+{
+    AUISize nativeSize;
+
+    if (_backend == nilptr)
+        return [AUI sizeWithWidth: (float)self.bounds.size.width
+                           height: (float)self.bounds.size.height];
+
+    nativeSize = [AUI sizeWithWidth: (float)self.bounds.size.width
+                             height: (float)self.bounds.size.height];
+    return [$assert_nonnil(_backend) _viewportSizeForNativeSize: nativeSize];
+}
+
 - (AUISize)pixelSize
 {
     NSRect backingBounds = [self convertRectToBacking: self.bounds];
     return [AUI sizeWithWidth: (float)backingBounds.size.width height: (float)backingBounds.size.height];
 }
 
-- (NSPoint)ui_backingPointForViewPoint: (NSPoint)point
+- (NSPoint)ui_renderPointForViewPoint: (NSPoint)point
 {
-    NSPoint backingPoint = [self convertPointToBacking: point];
+    AUISize nativeSize = [AUI sizeWithWidth: (float)self.bounds.size.width
+                                     height: (float)self.bounds.size.height];
+    AUISize viewportSize = self.viewportSize;
+    CGFloat viewportX = point.x;
+    CGFloat viewportY = point.y;
 
-    // Flipped NSViews preserve the x scale in backing coordinates but report y
-    // as a negated value relative to the top-left render space used by AUI.
-    backingPoint.y = -backingPoint.y;
-    return backingPoint;
+    if (nativeSize.width > 0.0f and viewportSize.width > 0.0f)
+        viewportX = point.x * (CGFloat)viewportSize.width / (CGFloat)nativeSize.width;
+    if (nativeSize.height > 0.0f and viewportSize.height > 0.0f)
+        viewportY = point.y * (CGFloat)viewportSize.height / (CGFloat)nativeSize.height;
+
+    return NSMakePoint(viewportX, viewportY);
 }
 
-- (NSPoint)ui_backingPointForEvent: (NSEvent *)event
+- (NSPoint)ui_renderPointForEvent: (NSEvent *)event
 {
     NSPoint point = [self convertPoint: event.locationInWindow fromView: nilptr];
 
-    return [self ui_backingPointForViewPoint: point];
+    return [self ui_renderPointForViewPoint: point];
+}
+
+- (CGFloat)ui_contentsScale
+{
+    CGFloat contentsScale = (self.window != nilptr
+        ? self.window.backingScaleFactor
+        : [NSScreen mainScreen].backingScaleFactor);
+
+    if (contentsScale <= 0.0)
+        return 1.0;
+
+    return contentsScale;
 }
 
 - (void)ui_takeInputFocus
@@ -328,25 +362,20 @@
 - (void)ui_updateLayerConfiguration
 {
     CALayer *layer = self.layer;
-    CGFloat contentsScale;
 
     if (layer == nilptr)
         return;
 
-    contentsScale = (self.window != nilptr ? self.window.backingScaleFactor : [NSScreen mainScreen].backingScaleFactor);
-    if (contentsScale <= 0.0)
-        contentsScale = 1.0;
-
     layer.opaque = YES;
     layer.contentsGravity = kCAGravityResize;
-    layer.contentsScale = contentsScale;
+    layer.contentsScale = self.ui_contentsScale;
     layer.backgroundColor = NSColor.windowBackgroundColor.CGColor;
 }
 
 - (void)ui_updatePointerForEvent: (NSEvent *)event
 {
     AUIApplication *application;
-    NSPoint point = [self ui_backingPointForEvent: event];
+    NSPoint point = [self ui_renderPointForEvent: event];
 
     application = self.ui_application;
     if (application == nilptr)
@@ -465,21 +494,27 @@
 
 - (void)renderFrameWithBlock: (void (^)(CGContextRef context, AUISize viewportSize))renderBlock
 {
+    AUISize pixelSize;
     AUISize viewportSize;
+    CGFloat scaleX;
+    CGFloat scaleY;
 
     if (renderBlock == nilptr or not [self ui_ensureBackingStore] or _bitmapContext == nullptr)
         return;
 
-    viewportSize = self.pixelSize;
+    pixelSize = self.pixelSize;
+    viewportSize = self.viewportSize;
+    scaleX = (viewportSize.width > 0.0f ? (CGFloat)pixelSize.width / (CGFloat)viewportSize.width : self.ui_contentsScale);
+    scaleY = (viewportSize.height > 0.0f ? (CGFloat)pixelSize.height / (CGFloat)viewportSize.height : self.ui_contentsScale);
     CGContextSaveGState($assert_nonnil(_bitmapContext));
     @try {
         CGContextResetClip($assert_nonnil(_bitmapContext));
         CGContextSetBlendMode($assert_nonnil(_bitmapContext), kCGBlendModeCopy);
         CGContextClearRect($assert_nonnil(_bitmapContext),
-                           CGRectMake(0.0, 0.0, viewportSize.width, viewportSize.height));
+                           CGRectMake(0.0, 0.0, pixelSize.width, pixelSize.height));
         CGContextSetBlendMode($assert_nonnil(_bitmapContext), kCGBlendModeNormal);
-        CGContextTranslateCTM($assert_nonnil(_bitmapContext), 0.0, viewportSize.height);
-        CGContextScaleCTM($assert_nonnil(_bitmapContext), 1.0, -1.0);
+        CGContextTranslateCTM($assert_nonnil(_bitmapContext), 0.0, pixelSize.height);
+        CGContextScaleCTM($assert_nonnil(_bitmapContext), scaleX, -scaleY);
         renderBlock($assert_nonnil(_bitmapContext), viewportSize);
     } @finally {
         CGContextRestoreGState($assert_nonnil(_bitmapContext));
@@ -571,13 +606,23 @@
 - (void)scrollWheel: (NSEvent *)event
 {
     AUIApplication *application = self.ui_application;
+    AUISize nativeSize = [AUI sizeWithWidth: (float)self.bounds.size.width
+                                     height: (float)self.bounds.size.height];
+    AUISize viewportSize = self.viewportSize;
+    float viewportDeltaX = (float)event.scrollingDeltaX;
+    float viewportDeltaY = (float)event.scrollingDeltaY;
 
     [self ui_updatePointerForEvent: event];
     if (application == nilptr)
         return;
 
-    [application._inputState scrollByX: (float)event.scrollingDeltaX
-                                     y: (float)event.scrollingDeltaY];
+    if (nativeSize.width > 0.0f and viewportSize.width > 0.0f)
+        viewportDeltaX *= viewportSize.width / nativeSize.width;
+    if (nativeSize.height > 0.0f and viewportSize.height > 0.0f)
+        viewportDeltaY *= viewportSize.height / nativeSize.height;
+
+    [application._inputState scrollByX: viewportDeltaX
+                                     y: viewportDeltaY];
     [application setNeedsRender];
 }
 
@@ -788,9 +833,9 @@
 - (AUISize)viewportSize
 {
     if (_renderView == nilptr)
-        return self.options.initialSize;
+        return [self _viewportSizeForNativeSize: self.options.initialSize];
 
-    return $assert_nonnil(_renderView).pixelSize;
+    return $assert_nonnil(_renderView).viewportSize;
 }
 
 + (bool)_prepareSharedApplicationForTesting
@@ -960,7 +1005,7 @@
     if (_renderView == nilptr)
         return;
 
-    NSPoint point = [$assert_nonnil(_renderView) ui_backingPointForViewPoint: NSMakePoint((CGFloat)x, (CGFloat)y)];
+    NSPoint point = [$assert_nonnil(_renderView) ui_renderPointForViewPoint: NSMakePoint((CGFloat)x, (CGFloat)y)];
 
     [self.application._inputState movePointerToX: (float)point.x y: (float)point.y];
 }
@@ -1140,19 +1185,14 @@
 
 - (void)_setViewportSize: (AUISize)viewportSize
 {
-    CGFloat scaleFactor;
-    NSSize contentSize;
+    AUISize nativeSize;
 
+    [super _setViewportSize: viewportSize];
     if (_window == nilptr)
         return;
 
-    scaleFactor = (CGFloat)self.scaleFactor;
-    if (scaleFactor <= 0.0)
-        scaleFactor = 1.0;
-
-    contentSize = NSMakeSize((CGFloat)viewportSize.width / scaleFactor,
-                             (CGFloat)viewportSize.height / scaleFactor);
-    _window.contentSize = contentSize;
+    nativeSize = [self _nativeSizeForViewportSize: viewportSize];
+    _window.contentSize = NSMakeSize((CGFloat)nativeSize.width, (CGFloat)nativeSize.height);
     if (_renderView != nilptr)
         _renderView.frame = _window.contentView.bounds;
 }

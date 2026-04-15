@@ -10,6 +10,8 @@
 @namespace(AUIWindowSupport)
 
 + (bool)viewportSize: (AUISize)left equals: (AUISize)right;
++ (float)scaledDimensionForNativeDimension: (float)nativeDimension contentScale: (double)contentScale;
++ (AUISize)viewportSizeForNativeSize: (AUISize)nativeSize contentScale: (double)contentScale;
 + (AUISize)viewportSizeForBoundingBox: (Clay_BoundingBox)boundingBox;
 + (AUISize)viewportSizeForCommands: (Clay_RenderCommandArray)commands
                             fallback: (AUISize)fallback;
@@ -21,6 +23,26 @@
 + (bool)viewportSize: (AUISize)left equals: (AUISize)right
 {
     return (left.width == right.width and left.height == right.height);
+}
+
++ (float)scaledDimensionForNativeDimension: (float)nativeDimension contentScale: (double)contentScale
+{
+    float scaledDimension;
+
+    if (nativeDimension <= 0.0f)
+        return 0.0f;
+
+    scaledDimension = nativeDimension / (float)contentScale;
+    if (scaledDimension < 1.0f)
+        return 1.0f;
+
+    return scaledDimension;
+}
+
++ (AUISize)viewportSizeForNativeSize: (AUISize)nativeSize contentScale: (double)contentScale
+{
+    return [AUI sizeWithWidth: [self scaledDimensionForNativeDimension: nativeSize.width contentScale: contentScale]
+                       height: [self scaledDimensionForNativeDimension: nativeSize.height contentScale: contentScale]];
 }
 
 + (AUISize)viewportSizeForBoundingBox: (Clay_BoundingBox)boundingBox
@@ -111,6 +133,7 @@
     Clay_Context *nillable _clayContext;
     bool _darkMode;
     bool _hasExplicitDarkMode;
+    AUISize _referenceViewportSize;
 }
 
 
@@ -128,6 +151,8 @@
     _clayContext = nullptr;
     _darkMode = false;
     _hasExplicitDarkMode = false;
+    _referenceViewportSize = [AUIWindowSupport viewportSizeForNativeSize: $assert_nonnil(options).initialSize
+                                                            contentScale: $assert_nonnil(options).contentScale];
     return self;
 }
 
@@ -150,6 +175,30 @@
 - (double)scaleFactor
 {
     return 1.0;
+}
+
+- (double)_contentScale
+{
+    return self.options.contentScale;
+}
+
+- (bool)_scalesWithWindowSize
+{
+    return self.options.scalesWithWindowSize;
+}
+
+- (AUISize)_viewportSizeForNativeSize: (AUISize)nativeSize
+{
+    if ([self _scalesWithWindowSize])
+        return _referenceViewportSize;
+
+    return [AUIWindowSupport viewportSizeForNativeSize: nativeSize contentScale: [self _contentScale]];
+}
+
+- (AUISize)_nativeSizeForViewportSize: (AUISize)viewportSize
+{
+    return [AUI sizeWithWidth: viewportSize.width * (float)[self _contentScale]
+                       height: viewportSize.height * (float)[self _contentScale]];
 }
 
 - (bool)isDarkMode
@@ -219,7 +268,8 @@
 
 - (void)_setViewportSize: (AUISize)viewportSize
 {
-    (void)viewportSize;
+    if ([self _scalesWithWindowSize])
+        _referenceViewportSize = viewportSize;
 }
 
 - (void)_prepareClayContextForViewportSize: (AUISize)viewportSize

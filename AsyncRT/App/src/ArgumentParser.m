@@ -869,7 +869,7 @@
 @implementation CLIOption {
     CLIOptionKind _kind;
     Class _valueClass;
-    bool _required;
+    bool _isRequired;
     OFString *nillable _longName;
     char _shortName;
     OFString *nillable _help;
@@ -880,8 +880,6 @@
     bool _hasParsedValue;
 }
 
-@synthesize isRequired = _required;
-
 + (instancetype)_optionWithKind: (CLIOptionKind)kind
                       valueClass: (Class)valueClass
                         required: (bool)required
@@ -890,7 +888,7 @@
 
     option->_kind = kind;
     option->_valueClass = valueClass;
-    option->_required = required;
+    option->_isRequired = required;
     option->_shortName = '\0';
 
     if (kind == CLIOptionKindFlag) {

@@ -157,8 +157,6 @@ static void AsyncRuntimeEnsureObjFWTLSBindingsLoadedForTests(void)
 
 @implementation TestFailureException
 
-@synthesize message = _message;
-
 - (instancetype)initWithMessage: (OFString *)message
 {
     self = [super init];
@@ -183,8 +181,6 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
 
 @implementation AsyncRuntimeTestHTTPRequestCancelledException
 
-@synthesize request = _request;
-
 - (instancetype)initWithRequest: (OFHTTPRequest *)request
 {
     self = [super init];
@@ -203,13 +199,6 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
     OFMutex *_lock;
     bool _didComplete;
 }
-
-@synthesize requestClient = _requestClient;
-@synthesize forwardDelegate = _forwardDelegate;
-@synthesize request = _request;
-@synthesize redirects = _redirects;
-@synthesize scheduler = _scheduler;
-@synthesize completionSource = _completionSource;
 
 + (void)retainInflightBridge: (AsyncRuntimeTestHTTPClientTaskBridge *)bridge
 {
@@ -443,8 +432,6 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
     OFMutableArray<OFThread *> *_handlerThreads;
     bool _stopping;
 }
-
-@synthesize port = _port;
 
 - (instancetype)init
 {

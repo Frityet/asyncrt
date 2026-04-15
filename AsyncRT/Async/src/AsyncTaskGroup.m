@@ -2,18 +2,6 @@
 
 #pragma clang assume_nonnull begin
 
-[[direct_members]]
-@interface AsyncTaskGroup ()
-
-- (void)_resolveCompletionIfNeeded;
-- (void)_recordFailureIfNeeded: (OFException *)exception;
-- (void)_cancelOwnedTasks;
-- (void)_installDeadlineTimerIfNeeded;
-- (void)_invalidateDeadlineTimerIfNeeded;
-- (void)_waitForChildrenToFinish;
-
-@end
-
 @implementation AsyncTaskGroupTimeoutException
 
 - (instancetype)initWithTaskGroup: (AsyncTaskGroup *)taskGroup deadline: (OFDate *)deadline

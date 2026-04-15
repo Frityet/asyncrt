@@ -14,15 +14,6 @@
 #pragma clang assume_nonnull begin
 
 [[direct_members]]
-@interface AUIApplication ()
-
-- (Task<AsyncUnit *> *)_renderWakeTask;
-- (void)_signalRenderWake;
-- (void)_resetRuntimeState;
-
-@end
-
-[[direct_members]]
 @implementation AUIApplication {
     AUIWindow *nillable _window;
     AUIRenderHost *_renderHost;

@@ -5,13 +5,6 @@
 
 static atomic_t(uint64_t) async_next_task_id = 1;
 
-[[direct_members]]
-@interface Task ()
-
-- (AsyncTaskExecutionCompletion *)_completionForBlockExecution;
-
-@end
-
 @implementation TaskReturnedNilException
 
 - (instancetype)initWithTask: (Task *)task
