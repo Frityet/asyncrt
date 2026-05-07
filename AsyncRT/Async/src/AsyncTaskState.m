@@ -299,14 +299,14 @@
     return self;
 }
 
-+ (AsyncTaskState *)resolved: (id)value
++ (AsyncTaskState *)resolved: (id nillable)value
 {
     auto completionSource = [[AsyncCompletionSource alloc] init];
     [completionSource fulfill: value];
     return [completionSource _internalTaskState];
 }
 
-+ (AsyncTaskState *)rejected: (OFException *)exception
++ (AsyncTaskState *)rejected: (OFException *nillable)exception
 {
     auto completionSource = [[AsyncCompletionSource alloc] init];
     [completionSource reject: exception];
@@ -760,9 +760,12 @@
     return self;
 }
 
-- (void)fulfill: (id)value
+- (void)fulfill: (id nillable)value
 {
-    [_promise _resolveWithValue: value];
+    if (value == nilptr)
+        @throw [[AsyncTaskNilResolutionValueException alloc] initWithTask: self.task];
+
+    [_promise _resolveWithValue: $assert_nonnil(value)];
 }
 
 - (AsyncTaskState *)_internalTaskState
@@ -775,9 +778,12 @@
     return $assert_nonnil(_task);
 }
 
-- (void)reject: (OFException *)exception
+- (void)reject: (OFException *nillable)exception
 {
-    [_promise _rejectWithException: exception];
+    if (exception == nilptr)
+        @throw [[AsyncTaskNilRejectionException alloc] initWithTask: self.task];
+
+    [_promise _rejectWithException: $assert_nonnil(exception)];
 }
 
 - (void)setPendingTaskCancellationHandler: (void (^nillable)(void))cancellationHandler

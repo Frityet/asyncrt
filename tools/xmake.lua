@@ -1,15 +1,11 @@
-local common = asyncrt_build
-
-target("async-runtime-benchmarks")
+target("async-runtime-benchmarks", function ()
     set_default(false)
     set_kind("binary")
     set_group("tools")
     add_deps("AsyncRT")
     set_symbols("debug")
     add_files("AsyncRuntimeBenchmarks.m")
-    after_config(function (target)
-        common.strip_default_macos_frameworks(target)
-    end)
+end)
 
 task("check")
     set_menu {
@@ -29,7 +25,7 @@ task("check")
             clean = true,
             mode = "test",
             builddir = builddir,
-            asyncrt_test_access = true
+            ["asyncrt-test-access"] = true
         })
         task.run("build", {group = "tests"})
         task.run("test")

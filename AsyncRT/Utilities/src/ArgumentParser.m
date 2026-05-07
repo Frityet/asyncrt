@@ -40,18 +40,18 @@
 @interface CLIResolvedSubcommand : OFObject {
 @public
     OFString *_propertyName;
-    CLICommand *_command;
+    id<CLICommand> _command;
     OFString *_commandName;
     OFString *nillable _help;
 }
 + (instancetype)subcommandWithPropertyName: (OFString *)propertyName
-                                   command: (CLICommand *)command;
+                                   command: (id<CLICommand>)command;
 @end
 
 [[subclassing_restricted, direct_members]]
 @interface CLICommandSchema : OFObject {
 @public
-    CLICommand *_command;
+    id<CLICommand> _command;
     OFString *_commandName;
     OFString *nillable _commandDescription;
     OFArray<CLIResolvedOption *> *_namedOptions;
@@ -62,7 +62,7 @@
     OFDictionary<OFString *, CLIResolvedOption *> *_optionsByShortName;
     OFDictionary<OFString *, CLIResolvedSubcommand *> *_subcommandsByName;
 }
-+ (instancetype)schemaForCommand: (CLICommand *)command;
++ (instancetype)schemaForCommand: (id<CLICommand>)command;
 - (size_t)parseArguments: (OFArray<OFString *> *)arguments
               startIndex: (size_t)startIndex
              commandPath: (OFString *)commandPath;
@@ -86,6 +86,11 @@
 @namespace(CLIValueCodec)
 
 + (id)parseToken: (OFString *)token forValueClass: (Class nillable)valueClass;
+@end
+
+@namespace(CLICommandMetadata)
+
++ (OFString *nillable)descriptionForCommand: (id<CLICommand>)command;
 @end
 
 @implementation OFString (ArgumentParserAdditions)
@@ -121,6 +126,20 @@
     }
 
     return builder;
+}
+
+@end
+
+@namespace_implementation(CLICommandMetadata)
+
++ (OFString *nillable)descriptionForCommand: (id<CLICommand>)command
+{
+    Class commandClass = command.class;
+
+    if (![commandClass respondsToSelector: @selector(cliCommandDescription)])
+        return nilptr;
+
+    return [commandClass cliCommandDescription];
 }
 
 @end
@@ -200,14 +219,14 @@
 @implementation CLIResolvedSubcommand
 
 + (instancetype)subcommandWithPropertyName: (OFString *)propertyName
-                                   command: (CLICommand *)command
+                                   command: (id<CLICommand>)command
 {
     auto resolvedSubcommand = [[self alloc] init];
 
     resolvedSubcommand->_propertyName = [propertyName copy];
     resolvedSubcommand->_command = command;
     resolvedSubcommand->_commandName = [[propertyName kebabCaseString] copy];
-    resolvedSubcommand->_help = [[command.class cliCommandDescription] copy];
+    resolvedSubcommand->_help = [[CLICommandMetadata descriptionForCommand: command] copy];
 
     return resolvedSubcommand;
 }
@@ -373,7 +392,7 @@
     return [[ArgumentParserException alloc] initWithMessage: message usage: nilptr];
 }
 
-+ (instancetype)schemaForCommand: (CLICommand *)command
++ (instancetype)schemaForCommand: (id<CLICommand>)command
 {
     auto schema = [[self alloc] init];
     auto namedOptions = [OFMutableArray<CLIResolvedOption *> array],
@@ -388,11 +407,11 @@
 
     schema->_command = command;
     schema->_commandName = [[command.class cliCommandName] copy];
-    schema->_commandDescription = [[command.class cliCommandDescription] copy];
+    schema->_commandDescription = [[CLICommandMetadata descriptionForCommand: command] copy];
 
     for (Class currentClass = command.class;
-         currentClass != nullptr and [currentClass isSubclassOfClass: CLICommand.class];
-         currentClass = [currentClass superclass]) {
+         currentClass != nullptr and [currentClass conformsToProtocol: @protocol(CLICommand)];
+         currentClass = currentClass.superclass) {
         unsigned int propertyCount = 0;
         objc_property_t *properties = class_copyPropertyList(currentClass, &propertyCount);
 
@@ -405,14 +424,14 @@
                     continue;
                 [seenPropertyNames addObject: propertyName];
 
-                id currentValue = [command valueForKey: propertyName];
+                id currentValue = [(OFObject *)command valueForKey: propertyName];
                 Class propertyClass = [CLITypeInspector propertyClassForProperty: property
                                                                          onClass: currentClass
                                                                     propertyName: propertyName];
 
                 if (currentValue == nilptr) {
                     if ((propertyClass != nullptr and [propertyClass isSubclassOfClass: CLIOption.class])
-                        or (propertyClass != nullptr and [propertyClass isSubclassOfClass: CLICommand.class]))
+                        or (propertyClass != nullptr and [propertyClass conformsToProtocol: @protocol(CLICommand)]))
                         @throw [self _schemaExceptionWithMessage: [OFString stringWithFormat: @"Property '%@' on %@ must be initialized in -init",
                                                                                                 propertyName,
                                                                                                 [command.class className]]];
@@ -451,7 +470,7 @@
                     continue;
                 }
 
-                if ([currentValue isKindOfClass: CLICommand.class]) {
+                if ([currentValue conformsToProtocol: @protocol(CLICommand)]) {
                     auto resolvedSubcommand = [CLIResolvedSubcommand subcommandWithPropertyName: propertyName command: currentValue];
 
                     if (subcommandsByName[resolvedSubcommand->_commandName] != nilptr)
@@ -467,8 +486,8 @@
             free(properties);
         }
 
-        if (currentClass == CLICommand.class)
-            break;
+        // if (currentClass == CLICommand.class)
+        //     break;
     }
 
     schema->_namedOptions = [namedOptions copy];
@@ -929,20 +948,6 @@
 
 @end
 
-@implementation CLICommand
-
-+ (OFString *)cliCommandName
-{
-    return [[self className] kebabCaseString];
-}
-
-+ (OFString *nillable)cliCommandDescription
-{
-    return nilptr;
-}
-
-@end
-
 @implementation ArgumentParserException
 
 
@@ -976,14 +981,13 @@
 
 @implementation ArgumentParser
 
-
-- (instancetype)initWithCommand: (CLICommand *)command
+- (instancetype)initWithCommand: (id<CLICommand> nillable)command
 {
-    if (not [command.class isSubclassOfClass: CLICommand.class])
+    if (command == nilptr or ![command.class conformsToProtocol: @protocol(CLICommand)])
         @throw [OFInvalidArgumentException exception];
 
     self = [super init];
-    _command = command;
+    _command = $assert_nonnil(command);
     return self;
 }
 

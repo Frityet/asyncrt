@@ -1,7 +1,9 @@
 #import "AUIApplication.h"
-#import "AUIInternal.h"
-#import "AUIRenderHost.h"
+
+#import "AUIExceptions.h"
+#import "Backend/AUIBackend.h"
 #import "Backend/Window/AUIHeadlessWindow.h"
+#import "Internal/AUIApplication+Private.h"
 
 #if AUI_HAS_CORE_GRAPHICS_WINDOW
 #   import "Backend/Window/AUICoreGraphicsWindow.h"
@@ -13,252 +15,114 @@
 
 #pragma clang assume_nonnull begin
 
-[[direct_members]]
 @implementation AUIApplication {
-    AUIWindow *nillable _window;
-    AUIRenderHost *_renderHost;
-    AUIInteractionController *_interactionController;
-    AUITextEditingController *_textEditingController;
-    AUIInputState *_inputState;
-    OFMutex *_renderWakeLock;
-    AsyncCompletionSource<AsyncUnit *> *nillable _renderWakeCompletionSource;
-    atomic_t(bool) _needsRender;
+    AUIRuntime *_runtime;
 }
 
 - (instancetype)init
 {
     self = [super init];
-    _renderHost = [[AUIRenderHost alloc] initWithApplication: self];
-    _interactionController = [[AUIInteractionController alloc] init];
-    _textEditingController = [[AUITextEditingController alloc] init];
-    _inputState = [[AUIInputState alloc] init];
-    _renderWakeLock = [OFMutex mutex];
-    atomic_init(&_needsRender, false);
+    _runtime = [[AUIRuntime alloc] initWithApplication: self];
     return self;
 }
 
-- (AUIViewComponent *nillable)rootViewComponent
+- (AUIRuntime *)runtime
 {
-    return _renderHost.rootViewComponent;
+    return _runtime;
 }
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
                                taskGroup: (AsyncTaskGroup *)taskGroup
 {
-    AUIViewComponent *rootViewComponent;
-
     (void)notification;
 
-    _window = [self makeWindow];
-    rootViewComponent = [self makeRootViewComponent];
+    id<AUIContent> nillable rootContent = [self rootContent];
+    if (rootContent == nilptr)
+        @throw [[AUIInitializationException alloc] initWithReason: @"Applications must return nonnil root content"];
 
-    if (rootViewComponent == nilptr)
-        @throw [[AUIInitializationException alloc] initWithReason: @"-makeRootViewComponent must return a nonnil root view component"];
+    AUIWindowConfiguration *nillable configuration = [self windowConfiguration];
+    if (configuration == nilptr)
+        configuration = AUIWindowConfiguration.defaults;
 
-    [_renderHost attachRootViewComponent: rootViewComponent taskGroup: taskGroup];
+    AUIWindow *window = [self _makeWindowWithConfiguration: $assert_nonnil(configuration)];
+    if (window == nilptr)
+        @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create a window for the application"];
 
-    @try {
-        [_window openWindow];
-        [self setNeedsRender];
+    [self applicationDidStartWithTaskGroup: taskGroup];
 
-        while (_window.isOpen) {
-            bool didRender = false;
-            Task<AsyncUnit *> *renderWakeTask = [self _renderWakeTask];
-
-            [_window pollEvents];
-            if (not _window.isOpen)
-                break;
-
-            if ([self _consumePendingRenderRequest]) {
-                [_window renderFrame];
-                didRender = true;
-            }
-
-            const OFTimeInterval pollInterval = ((_inputState.isPrimaryButtonDown or _inputState.isSecondaryButtonDown or didRender)
-                ? (1.0 / 120.0)
-                : (1.0 / 60.0));
-
-            if ([self _hasPendingRenderRequest])
-                continue;
-
-            (void)[Task<AsyncUnit *> race: @[
-                [taskGroup.scheduler sleepForTimeInterval: pollInterval],
-                renderWakeTask
-            ]].await;
-        }
-    } @finally {
-        [self _resetRuntimeState];
-        [_renderHost detachRootViewComponent];
-        [_window closeWindow];
-        _window = nilptr;
-    }
-
-    return @(0);
+    return [_runtime runWithWindow: window rootContent: $assert_nonnil(rootContent) taskGroup: taskGroup];
 }
 
-- (AUIViewComponent *)makeRootViewComponent
+- (id<AUIContent>)rootContent
 {
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 }
 
-- (AUIWindowOptions *)windowOptions
+- (AUIWindowConfiguration *nillable)windowConfiguration
 {
-    return AUIWindowOptions.defaultOptions;
+    return AUIWindowConfiguration.defaults;
 }
 
-- (AUIWindow *)makeWindow
+- (void)applicationDidStartWithTaskGroup: (AsyncTaskGroup *)taskGroup
 {
-#if AUI_HAS_CORE_GRAPHICS_WINDOW
-    return [[AUICoreGraphicsWindow alloc] initWithApplication: self options: self.windowOptions];
-#elif AUI_HAS_CAIRO_X11_WINDOW
-    return [[AUICairoX11Window alloc] initWithApplication: self options: self.windowOptions];
-#else
-    return [[AUIHeadlessWindow alloc] initWithApplication: self options: self.windowOptions];
-#endif
+    (void)taskGroup;
 }
 
 - (void)setNeedsRender
 {
-    atomic_store_explicit(&_needsRender, true, memory_order_release);
-    [self _signalRenderWake];
+    [_runtime setNeedsRender];
 }
 
 - (AUIInputState *)_inputState
 {
-    return _inputState;
-}
-
-- (AUIInteractionController *)_interactionController
-{
-    return _interactionController;
-}
-
-- (AUITextEditingController *)_textEditingController
-{
-    return _textEditingController;
-}
-
-- (AUIRenderHost *)_renderHost
-{
-    return _renderHost;
+    return _runtime.inputState;
 }
 
 - (Clay_RenderCommandArray)_buildRenderCommandsWithViewportSize: (AUISize)viewportSize
                                                        deltaTime: (float)deltaTime
 {
-    return [_renderHost buildRenderCommandsWithViewportSize: viewportSize
-                                                  deltaTime: deltaTime
-                                                 inputState: _inputState
-                                                     window: $assert_nonnil(_window)
-                                      interactionController: _interactionController
-                                      textEditingController: _textEditingController
-                                              clipboardText: ^OFString *nillable {
-        return [self _clipboardText];
-    }
-                                        setClipboardText: ^(OFString *nillable text) {
-        [self _setClipboardText: text];
-    }
-                                             cursorSetter: ^(AUICursorStyle cursorStyle) {
-        [self _setCursorStyle: cursorStyle];
-    }
-                                        renderRequester: ^{
-        [self setNeedsRender];
-    }];
-}
-
-- (OFString *nillable)_clipboardText
-{
-    return (_window != nilptr ? _window.clipboardText : nilptr);
-}
-
-- (void)_setClipboardText: (OFString *nillable)text
-{
-    if (_window != nilptr)
-        _window.clipboardText = text;
-}
-
-- (void)_setCursorStyle: (AUICursorStyle)cursorStyle
-{
-    if (_window != nilptr)
-        _window.cursorStyle = cursorStyle;
-}
-
-- (AUIContextMenu *nillable)_activeContextMenuForTesting
-{
-    return _interactionController.activeContextMenu;
-}
-
-- (void)_setWindowForTesting: (AUIWindow *nillable)window
-{
-    _window = window;
-}
-
-- (void)_setRootViewComponentForTesting: (AUIViewComponent *nillable)rootViewComponent
-{
-    [self _resetRuntimeState];
-    _renderHost.rootViewComponentForTesting = rootViewComponent;
+    return [_runtime buildRenderCommandsWithViewportSize: viewportSize deltaTime: deltaTime];
 }
 
 - (bool)_updateHoverStateFromCurrentLayout
 {
-    return [_interactionController updateHoverStateFromCurrentLayoutWithInputState: _inputState
-                                                                      cursorSetter: ^(AUICursorStyle cursorStyle) {
-        [self _setCursorStyle: cursorStyle];
-    }];
+    return [_runtime updateHoverStateFromCurrentLayout];
 }
 
 - (bool)_consumePendingRenderRequest
 {
-    return atomic_exchange_explicit(&_needsRender, false, memory_order_acq_rel);
+    return [_runtime consumePendingRenderRequest];
 }
 
 - (bool)_hasPendingRenderRequest
 {
-    return atomic_load_explicit(&_needsRender, memory_order_acquire);
+    return [_runtime hasPendingRenderRequest];
 }
 
-- (Task<AsyncUnit *> *)_renderWakeTask
+- (AUIContextMenu *nillable)_activeContextMenuForTesting
 {
-    AsyncCompletionSource<AsyncUnit *> *completionSource;
-
-    [_renderWakeLock lock];
-    @try {
-        if (_renderWakeCompletionSource == nilptr)
-            _renderWakeCompletionSource = [[AsyncCompletionSource<AsyncUnit *> alloc] init];
-
-        completionSource = _renderWakeCompletionSource;
-    } @finally {
-        [_renderWakeLock unlock];
-    }
-
-    return completionSource.task;
+    return _runtime.interactionEngine.activeContextMenu;
 }
 
-- (void)_signalRenderWake
+- (void)_setWindowForTesting: (AUIWindow *nillable)window
 {
-    AsyncCompletionSource<AsyncUnit *> *nillable completionSource = nilptr;
-
-    [_renderWakeLock lock];
-    @try {
-        completionSource = _renderWakeCompletionSource;
-        _renderWakeCompletionSource = nilptr;
-    } @finally {
-        [_renderWakeLock unlock];
-    }
-
-    if (completionSource != nilptr) {
-        @try {
-            [completionSource fulfill: AsyncUnit.unit];
-        } @catch (AsyncTaskAlreadyResolvedException *) {
-        }
-    }
+    [_runtime useWindowForTesting: window];
 }
 
-- (void)_resetRuntimeState
+- (void)_setRootContentForTesting: (id<AUIContent> nillable)rootContent
 {
-    [_interactionController resetState];
-    [_textEditingController resetState];
-    [_inputState resetTransientState];
+    [_runtime useRootContentForTesting: rootContent];
+}
+
+- (AUIWindow *)_makeWindowWithConfiguration: (AUIWindowConfiguration *)configuration
+{
+#if AUI_HAS_CORE_GRAPHICS_WINDOW
+    return [[AUICoreGraphicsWindow alloc] initWithApplication: self configuration: configuration];
+#elif AUI_HAS_CAIRO_X11_WINDOW
+    return [[AUICairoX11Window alloc] initWithApplication: self configuration: configuration];
+#else
+    return [[AUIHeadlessWindow alloc] initWithApplication: self configuration: configuration];
+#endif
 }
 
 @end

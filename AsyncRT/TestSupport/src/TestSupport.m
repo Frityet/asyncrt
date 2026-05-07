@@ -176,6 +176,7 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
 @implementation AsyncRuntimeTestHTTPClientTaskBridge {
     OFMutex *_lock;
     bool _didComplete;
+    bool _didCleanup;
 }
 
 + (void)retainInflightBridge: (AsyncRuntimeTestHTTPClientTaskBridge *)bridge
@@ -218,6 +219,7 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
     _completionSource = completionSource;
     _lock = [OFMutex mutex];
     _didComplete = false;
+    _didCleanup = false;
     return self;
 }
 
@@ -237,8 +239,27 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
     return shouldComplete;
 }
 
+- (bool)_markCleanupOnce
+{
+    block_reference bool shouldCleanup;
+
+    [_lock lock];
+    @try {
+        shouldCleanup = (not _didCleanup);
+        if (shouldCleanup)
+            _didCleanup = true;
+    } @finally {
+        [_lock unlock];
+    }
+
+    return shouldCleanup;
+}
+
 - (void)_cleanup
 {
+    if (not [self _markCleanupOnce])
+        return;
+
     _requestClient.delegate = nilptr;
 
     @try {
@@ -251,19 +272,20 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
 
 - (void)_finishWithResponse: (OFHTTPResponse *nillable)response exception: (OFException *nillable)exception
 {
-    if (not [self _markCompletedOnce])
-        return;
+    bool shouldComplete = [self _markCompletedOnce];
 
     @try {
-        if (response != nilptr)
-            [_completionSource fulfill: $assert_nonnil(response)];
-        else if (exception != nilptr)
-            [_completionSource reject: $assert_nonnil(exception)];
-        else
-            [_completionSource reject: [OFInvalidArgumentException exception]];
+        if (shouldComplete) {
+            if (response != nilptr)
+                [_completionSource fulfill: $assert_nonnil(response)];
+            else if (exception != nilptr)
+                [_completionSource reject: $assert_nonnil(exception)];
+            else
+                [_completionSource reject: [OFInvalidArgumentException exception]];
 
-        if (_forwardDelegate != nilptr)
-            [_forwardDelegate client: _requestClient didPerformRequest: _request response: response exception: exception];
+            if (_forwardDelegate != nilptr)
+                [_forwardDelegate client: _requestClient didPerformRequest: _request response: response exception: exception];
+        }
     } @finally {
         [self _cleanup];
     }
@@ -287,7 +309,10 @@ static void AsyncRuntimeInitialiseHTTPBridgeState(void)
     @try {
         [_completionSource reject: [[AsyncRuntimeTestHTTPRequestCancelledException alloc] initWithRequest: _request]];
     } @finally {
-        [self _cleanup];
+        @try {
+            [_requestClient close];
+        } @catch (OFException *) {
+        }
     }
 }
 

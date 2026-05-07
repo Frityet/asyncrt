@@ -2,7 +2,8 @@
 
 #import <CoreGraphics/CoreGraphics.h>
 
-#import "AUIInternal.h"
+#import "AUIRenderContext.h"
+#import "clay.h"
 
 #pragma clang assume_nonnull begin
 

@@ -65,8 +65,8 @@ typedef enum AUICoreGraphicsBorderSide {
                                               fontFamilies: (CFStringRef const *nillable)fontFamilies;
 + (CGMutablePathRef)createRoundedRectPathForBoundingBox: (Clay_BoundingBox)boundingBox
                                                  radius: (Clay_CornerRadius)radius CF_RETURNS_RETAINED;
-+ (void)setFillColor: (Clay_Color)color inContext: (CGContextRef)context;
-+ (void)setStrokeColor: (Clay_Color)color inContext: (CGContextRef)context;
++ (void)applyFillColor: (Clay_Color)color inContext: (CGContextRef)context;
++ (void)applyStrokeColor: (Clay_Color)color inContext: (CGContextRef)context;
 + (void)renderRectangleWithContext: (CGContextRef)context
                             config: (Clay_RectangleRenderData *)config
                        boundingBox: (Clay_BoundingBox)boundingBox;
@@ -287,7 +287,7 @@ typedef enum AUICoreGraphicsBorderSide {
     return path;
 }
 
-+ (void)setFillColor: (Clay_Color)color inContext: (CGContextRef)context
++ (void)applyFillColor: (Clay_Color)color inContext: (CGContextRef)context
 {
     CGContextSetRGBFillColor(context,
                              [self channelForValue: color.r],
@@ -296,7 +296,7 @@ typedef enum AUICoreGraphicsBorderSide {
                              [self channelForValue: color.a]);
 }
 
-+ (void)setStrokeColor: (Clay_Color)color inContext: (CGContextRef)context
++ (void)applyStrokeColor: (Clay_Color)color inContext: (CGContextRef)context
 {
     CGContextSetRGBStrokeColor(context,
                                [self channelForValue: color.r],
@@ -311,7 +311,7 @@ typedef enum AUICoreGraphicsBorderSide {
 {
     CGMutablePathRef path = [self createRoundedRectPathForBoundingBox: boundingBox radius: config->cornerRadius];
 
-    [self setFillColor: config->backgroundColor inContext: context];
+    [self applyFillColor: config->backgroundColor inContext: context];
     CGContextAddPath(context, path);
     CGContextFillPath(context);
     CGPathRelease(path);
@@ -385,7 +385,7 @@ typedef enum AUICoreGraphicsBorderSide {
     double bottomRight = [self clampedRadius: config->cornerRadius.bottomRight forBoundingBox: boundingBox] / 2.0;
     double bottomLeft = [self clampedRadius: config->cornerRadius.bottomLeft forBoundingBox: boundingBox] / 2.0;
 
-    [self setStrokeColor: config->color inContext: context];
+    [self applyStrokeColor: config->color inContext: context];
     CGContextSetLineJoin(context, kCGLineJoinRound);
 
     if (config->width.top > 0.0) {
@@ -435,7 +435,7 @@ typedef enum AUICoreGraphicsBorderSide {
     CGContextTranslateCTM(context, 0.0, viewportSize.height);
     CGContextScaleCTM(context, 1.0, -1.0);
     CGContextSetTextMatrix(context, CGAffineTransformIdentity);
-    [self setFillColor: config->textColor inContext: context];
+    [self applyFillColor: config->textColor inContext: context];
     CGContextSetTextPosition(context,
                              boundingBox.x,
                              viewportSize.height - baselineY);
@@ -496,7 +496,7 @@ typedef enum AUICoreGraphicsBorderSide {
     CGContextClip(context);
 
     if (config->backgroundColor.a > 0) {
-        [self setFillColor: config->backgroundColor inContext: context];
+        [self applyFillColor: config->backgroundColor inContext: context];
         CGContextFillRect(context, CGRectMake(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height));
     }
 

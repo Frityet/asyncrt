@@ -358,7 +358,12 @@ static void pump_scheduler_until(AsyncScheduler *scheduler, bool (^condition)(vo
 
     OTAssert((caughtArm and caughtCancel), @"Base wait registrations should throw until subclasses override arm/cancel");
     OTAssert((caughtTaskSuppressionUnderflow), @"Tasks should reject cancellation suppression underflow");
-    OTAssert(([runtimeTask.value isEqual: @"runtime-run"]), @"AsyncRuntime +run: should schedule work on the default scheduler");
+    block_reference OFString *runtimeTaskResult = nilptr;
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
+        (void)rootScope;
+        runtimeTaskResult = [runtimeTask await];
+    }];
+    OTAssert(([runtimeTaskResult isEqual: @"runtime-run"]), @"AsyncRuntime +run: should schedule work on the default scheduler");
 
     OTAssert(([[Task describeStatus: AsyncTaskStatus_REJECTED] isEqual: @"REJECTED"]), @"Tasks should describe rejected state explicitly");
     OTAssert(([[Task describeExecutionState: AsyncTaskExecutionState_READY] isEqual: @"READY"]

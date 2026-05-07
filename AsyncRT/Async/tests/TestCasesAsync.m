@@ -179,6 +179,34 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
     }];
 }
 
+- (void)test_task_ensure_on_scheduler
+{
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
+            AsyncScheduler *scheduler = rootScope.scheduler;
+            block_reference bool fulfilledEnsureCalled = false;
+            block_reference bool rejectedEnsureCalled = false;
+            block_reference bool caughtRejected = false;
+            block_reference OFString *fulfilledResult = nilptr;
+
+            fulfilledResult = [[Task resolved: @"kept"] ensureOnScheduler: scheduler block: ^{
+                fulfilledEnsureCalled = true;
+            }].await;
+
+            @try {
+                (void)[[Task rejected: [[TestRejectionException alloc] init]] ensureOnScheduler: scheduler block: ^{
+                    rejectedEnsureCalled = true;
+                }].await;
+            } @catch (TestRejectionException *) {
+                caughtRejected = true;
+            }
+
+            OTAssert(([fulfilledResult isEqual: @"kept"]), @"ensureOnScheduler should preserve fulfilled values");
+            OTAssert((fulfilledEnsureCalled), @"ensureOnScheduler should run its block for fulfilled tasks");
+            OTAssert((rejectedEnsureCalled), @"ensureOnScheduler should run its block for rejected tasks");
+            OTAssert((caughtRejected), @"ensureOnScheduler should preserve the original rejection");
+    }];
+}
+
 - (void)test_task_collection_helpers
 {
     [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
@@ -196,7 +224,7 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
             OFString *resolvedRaceWinner;
 
             OTAssert((emptyAll.isCompleted), @"Task.all should resolve immediately for empty input");
-            OTAssert((emptyAll.value.count == 0), @"Task.all should fulfill empty input with an empty array");
+            OTAssert((emptyAll.await.count == 0), @"Task.all should fulfill empty input with an empty array");
 
             singleAllResult = [Task all: @[[Task resolved: @"only"]]].await;
             OTAssert((singleAllResult.count == 1), @"Task.all should preserve single-element input");
@@ -481,6 +509,56 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
             OTAssert((failureEvents.count == 2), @"structured failure should still give siblings a chance to clean up");
             OTAssert(([failureEvents[0] isEqual: @"failing-child"]), @"the failing child should run before sibling cancellation cleanup");
             OTAssert(([failureEvents[1] isEqual: @"cleanup-child"]), @"sibling cleanup should happen before the scope reports failure");
+    }];
+}
+
+- (void)test_scope_deadline_clamps_to_parent
+{
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
+            block_reference bool sawClampedDeadline = false;
+            OFDate *requestedDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.05];
+
+            (void)[rootScope performWithTimeout: 0.02 block: ^id(AsyncTaskGroup *scope) {
+                (void)[scope performWithDeadline: requestedDeadline block: ^id(AsyncTaskGroup *childScope) {
+                    sawClampedDeadline = (childScope.deadline != nilptr and [childScope.deadline compare: requestedDeadline] != OFOrderedDescending);
+                    return AsyncUnit.unit;
+                }];
+
+                return AsyncUnit.unit;
+            }];
+
+            OTAssert((sawClampedDeadline), @"nested deadlines should clamp to the parent deadline");
+    }];
+}
+
+- (void)test_scope_spawn_child_task_group
+{
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
+            AsyncScheduler *scheduler = rootScope.scheduler;
+            block_reference bool sawChildGroup = false;
+            block_reference bool sawParentRestored = false;
+
+            OFString *childValue = (id)[rootScope spawnTaskInChildTaskGroup: ^id(AsyncTaskGroup *childScope) {
+                sawChildGroup = (AsyncTaskGroup.currentTaskGroup == childScope);
+
+                Task<OFString *> *innerTask = [childScope spawnTask: ^{
+                    OTAssert((AsyncTaskGroup.currentTaskGroup == childScope), @"nested tasks should inherit the child task group");
+                    return @"nested-value";
+                } name: @"nested-child-task"];
+
+                OFString *value = innerTask.await;
+                [innerTask cancel];
+
+                OTAssert(([value isEqual: @"nested-value"]), @"child task groups should be able to spawn and await nested tasks");
+                OTAssert((innerTask.status == AsyncTaskStatus_FULFILLED), @"cancelling a completed task should be a no-op");
+                return value;
+            } name: @"child-group"];
+
+            sawParentRestored = (AsyncTaskGroup.currentTaskGroup == rootScope and Task.currentTask.scheduler == scheduler);
+
+            OTAssert(([childValue isEqual: @"nested-value"]), @"spawnTaskInChildTaskGroup should resolve with the child block result");
+            OTAssert((sawChildGroup), @"spawnTaskInChildTaskGroup should install the child task group while running");
+            OTAssert((sawParentRestored), @"spawnTaskInChildTaskGroup should restore the parent task group after completion");
     }];
 }
 
@@ -909,6 +987,22 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
             OTAssert((caughtClosedSend), @"sending on a closed channel should throw AsyncChannelClosedException");
             OTAssert((caughtClosedReceive), @"receiving from an exhausted closed channel should throw AsyncChannelClosedException");
     }];
+}
+
+- (void)test_channel_description_and_open_close_state
+{
+    auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 3];
+    OFString *openDescription = channel.description;
+
+    OTAssert((channel.capacity == 3), @"AsyncChannel.capacity should preserve the configured capacity");
+    OTAssert((not channel.isClosed), @"a new channel should start open");
+    OTAssert(([openDescription containsString: @"capacity=3"]), @"AsyncChannel.description should include the configured capacity");
+    OTAssert(([openDescription containsString: @"closed=false"]), @"AsyncChannel.description should report an open channel");
+
+    [channel close];
+
+    OTAssert((channel.isClosed), @"close should transition the channel to a closed state");
+    OTAssert(([channel.description containsString: @"closed=true"]), @"AsyncChannel.description should report a closed channel");
 }
 
 - (void)test_channel_close_unblocks_waiters

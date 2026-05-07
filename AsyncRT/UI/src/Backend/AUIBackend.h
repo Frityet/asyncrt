@@ -2,7 +2,7 @@
 
 #import "Backend/AUIInput.h"
 #import "Backend/AUIWindow.h"
-#import "Backend/AUIWindowOptions.h"
+#import "AUIWindowConfiguration.h"
 #import "Backend/Window/AUIHeadlessWindow.h"
 
 #if !defined(AUI_HAS_CORE_GRAPHICS_WINDOW)

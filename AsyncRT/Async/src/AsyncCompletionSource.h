@@ -86,14 +86,14 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 @end
 
 [[subclassing_restricted]]
-@interface AsyncCompletionSource<__covariant T> : OFObject
+@interface AsyncCompletionSource<covariant T> : OFObject
 
 @property(readonly, nonatomic) Task<T> *task;
 
 - (instancetype)init [[designated_initailiser]];
 - (Task<T> *)task [[direct]];
-- (void)fulfill: (T)value [[direct]];
-- (void)reject: (OFException *)exception [[direct]];
+- (void)fulfill: (T nillable)value [[direct]];
+- (void)reject: (OFException *nillable)exception [[direct]];
 - (void)setPendingTaskCancellationHandler: (void (^nillable)(void))cancellationHandler [[direct]];
 
 @end

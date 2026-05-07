@@ -36,11 +36,10 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface Task<__covariant T> : OFObject
+@interface Task<covariant T> : OFObject
 
 @property(readonly, nonatomic) enum AsyncTaskStatus status;
 @property(readonly, nonatomic) bool isCompleted;
-@property(readonly, nonatomic) T value;
 @property(readonly, nonatomic) OFException *failureException;
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) AsyncTaskGroup *nillable taskGroup;

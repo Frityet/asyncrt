@@ -13,7 +13,6 @@
 
 #pragma clang assume_nonnull begin
 
-[[subclassing_restricted]]
 @interface AsyncRuntimeTestCase : OTTestCase
 
 - (void)runAsyncBlock: (void (^)(AsyncTaskGroup *rootTaskGroup))block;

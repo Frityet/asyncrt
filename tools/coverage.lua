@@ -78,11 +78,27 @@ local function _source_files(projectdir)
     return files
 end
 
-local function _find_test_binary(builddir)
-    local matches = os.files(path.join(builddir, "**", "async-runtime-tests"))
-    assert(#matches > 0, ("Unable to locate async-runtime-tests under %s."):format(builddir))
+local function _find_test_binaries(builddir)
+    local matches = {}
+    for _, candidate in ipairs(os.files(path.join(builddir, "**", "async-runtime-tests-*"))) do
+        if not candidate:find(path.join(builddir, ".deps"), 1, true) and path.extension(candidate) == "" then
+            table.insert(matches, candidate)
+        end
+    end
+
     table.sort(matches)
-    return matches[1]
+    assert(#matches > 0, ("Unable to locate async-runtime test binaries under %s."):format(builddir))
+    return matches
+end
+
+local function _coverage_args(command, targetfiles, profdata)
+    local args = {command, targetfiles[1], "-instr-profile=" .. profdata}
+
+    for index = 2, #targetfiles do
+        table.insert(args, "-object=" .. targetfiles[index])
+    end
+
+    return args
 end
 
 local function _extract_total_line_coverage(report_output)
@@ -108,6 +124,9 @@ function main(options)
     local profilesdir = path.join(builddir, "profiles")
     local profdata = path.join(builddir, "coverage.profdata")
     local reportpath = path.join(builddir, "coverage-report.txt")
+    local function_reportpath = path.join(builddir, "coverage-functions.txt")
+    local lcovpath = path.join(builddir, "coverage.lcov")
+    local htmldir = path.join(builddir, "html")
     local minimum = tonumber(_coalesce(options.minimum, os.getenv("MIN_LINE_COVERAGE"), "90"))
     local llvm_cov = _resolve_tool("llvm-cov", "LLVM_COV", options.llvm_cov, {
         "/usr/local/opt/llvm/bin/llvm-cov",
@@ -118,11 +137,16 @@ function main(options)
         "/opt/homebrew/opt/llvm/bin/llvm-profdata"
     })
     local source_files = _source_files(projectdir)
-    local targetfile
+    local targetfiles
     local profraw_files
     local merge_args
     local report_args
     local report_output
+    local function_report_args
+    local function_report_output
+    local lcov_args
+    local lcov_output
+    local html_args
     local line_coverage
 
     assert(minimum ~= nil, "Minimum line coverage must be numeric.")
@@ -135,11 +159,11 @@ function main(options)
         clean = true,
         mode = "coverage",
         builddir = builddir,
-        asyncrt_test_access = true
+        ["asyncrt-test-access"] = true
     })
     task.run("build", {group = "tests"})
 
-    targetfile = _find_test_binary(builddir)
+    targetfiles = _find_test_binaries(builddir)
 
     print("Running coverage-mode tests through xmake test")
     os.setenv("LLVM_PROFILE_FILE", path.join(profilesdir, "%p.profraw"))
@@ -156,11 +180,30 @@ function main(options)
     table.insert(merge_args, profdata)
     os.execv(llvm_profdata, merge_args, {curdir = projectdir})
 
-    report_args = {"report", targetfile, "-instr-profile=" .. profdata}
+    report_args = _coverage_args("report", targetfiles, profdata)
     _append_all(report_args, source_files)
     report_output = os.iorunv(llvm_cov, report_args, {curdir = projectdir})
     io.writefile(reportpath, report_output)
     print(report_output)
+
+    function_report_args = _coverage_args("report", targetfiles, profdata)
+    table.insert(function_report_args, "--show-functions")
+    _append_all(function_report_args, source_files)
+    function_report_output = os.iorunv(llvm_cov, function_report_args, {curdir = projectdir})
+    io.writefile(function_reportpath, function_report_output)
+
+    lcov_args = _coverage_args("export", targetfiles, profdata)
+    table.insert(lcov_args, "-format=lcov")
+    _append_all(lcov_args, source_files)
+    lcov_output = os.iorunv(llvm_cov, lcov_args, {curdir = projectdir})
+    io.writefile(lcovpath, lcov_output)
+
+    os.rm(htmldir)
+    html_args = _coverage_args("show", targetfiles, profdata)
+    table.insert(html_args, "-format=html")
+    table.insert(html_args, "-output-dir=" .. htmldir)
+    _append_all(html_args, source_files)
+    os.execv(llvm_cov, html_args, {curdir = projectdir})
 
     line_coverage = _extract_total_line_coverage(report_output)
     assert(line_coverage ~= nil, "Unable to parse total line coverage from llvm-cov output.")
@@ -169,5 +212,6 @@ function main(options)
         raise("Line coverage %.2f%% is below required minimum %.2f%%.", line_coverage, minimum)
     end
 
-    print(("Line coverage %.2f%% meets minimum %.2f%%. Report saved to %s"):format(line_coverage, minimum, reportpath))
+    print(("Line coverage %.2f%% meets minimum %.2f%%. Reports saved to %s, %s, %s, and %s."):format(
+        line_coverage, minimum, reportpath, function_reportpath, lcovpath, htmldir))
 end

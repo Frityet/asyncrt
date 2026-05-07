@@ -1,12 +1,68 @@
 #import "TestSupport.h"
+#import "OFApplication+ExecutableIRI.h"
+#import "Plugin.h"
 
 #if !defined(__APPLE__)
 #import <ObjFWRT/ObjFWRT.h>
 #else
 #import <objc/objc.h>
+#import <objc/runtime.h>
 #endif
 
 #pragma clang assume_nonnull begin
+
+@protocol PluginSampleService<OFObject>
+
+- (OFString *)pluginSampleName;
+
+@end
+
+[[subclassing_restricted]]
+@interface PluginSampleImplementation : OFObject<PluginSampleService>
+@end
+
+@implementation PluginSampleImplementation
+
+- (OFString *)pluginSampleName
+{
+    return @"sample";
+}
+
+@end
+
+[[subclassing_restricted]]
+@interface PluginUnrelatedImplementation : OFObject
+@end
+
+@implementation PluginUnrelatedImplementation
+@end
+
+@interface OFApplication (ExecutableIRITests)
+
++ (OFIRI *nillable)_executableIRIFromPath: (OFString *nillable)path;
++ (OFIRI *nillable)_standardizedExecutableIRIFromPath: (OFString *nillable)path;
+
+@end
+
+#if defined(__APPLE__)
+static OFString *nillable s_programNameFallbackExecutablePath = nilptr;
+
+static id
+TestExecutablePathFromOperatingSystem(id self, SEL _cmd)
+{
+    (void)self;
+    (void)_cmd;
+    return nilptr;
+}
+
+static id
+TestExecutablePathFromProgramNameFallback(id self, SEL _cmd)
+{
+    (void)self;
+    (void)_cmd;
+    return s_programNameFallbackExecutablePath;
+}
+#endif
 
 [[subclassing_restricted]]
 @interface AsyncRuntimeUtilitiesTests : OTTestCase @end
@@ -75,6 +131,7 @@
             expectedOrdering = OFOrderedSame;
 
         OTAssert(([firstPointer compare: secondPointer] == expectedOrdering), @"Pointer.compare should order values by their wrapped pointer");
+        OTAssert(([firstPointer isEqual: firstPointer]), @"Pointer.isEqual should return true when comparing the same instance");
         OTAssert(([firstPointer isEqual: sameFirstPointer]), @"Pointers wrapping the same address should compare equal");
         OTAssert((not [firstPointer isEqual: secondPointer]), @"Pointers wrapping different addresses should not compare equal");
         OTAssert((firstPointer.copy == firstPointer), @"Pointer.copy should return the same tagged pointer instance");
@@ -163,6 +220,38 @@
     OTAssert(([description containsString: @"alpha"]), @"Optional.description should include the wrapped value description");
 }
 
+- (void)test_optional_equality_branches_and_invalid_fallback
+{
+    auto value = [[OFMutableString alloc] initWithString: @"alpha"];
+    auto equal_value = [[OFMutableString alloc] initWithString: @"alpha"];
+    Optional<OFMutableString *> *some = [Optional some: value];
+    Optional<OFMutableString *> *equal_some = [Optional some: equal_value];
+    Optional<OFMutableString *> *none_a = [Optional none];
+    Optional<OFMutableString *> *none_b = [Optional none];
+    auto fallback = [[OFMutableString alloc] initWithString: @"fallback"];
+    bool caughtNilFallback = false;
+
+    OTAssert(([some isEqual: some]), @"Optional.isEqual should return true when comparing the same instance");
+    OTAssert(([some isEqual: value]), @"Optional.isEqual should treat the wrapped payload as equal to the optional");
+    OTAssert(([some isEqual: equal_some]), @"Optional.isEqual should compare wrapped values when the payloads are equal");
+    OTAssert(([none_a isEqual: none_b]), @"Optional.none values should compare equal");
+    OTAssert((not [some isEqual: none_a]), @"Optional.some should not compare equal to Optional.none");
+    OTAssert((not [some isEqual: [OFNumber numberWithInt: 7]]), @"Optional.isEqual should reject unrelated object types");
+
+    @try {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wnonnull"
+        (void)[some valueOr: nilptr];
+#pragma clang diagnostic pop
+    } @catch (OFInvalidArgumentException *) {
+        caughtNilFallback = true;
+    }
+
+    OTAssert((caughtNilFallback), @"Optional.valueOr should reject a nil fallback value");
+    OTAssert(([some valueOr: fallback] == value), @"Optional.valueOr should return the stored value when present");
+    OTAssert(([none_a valueOr: fallback] == fallback), @"Optional.valueOr should return the fallback when no value is stored");
+}
+
 - (void)test_optional_some_retains_payload_across_autorelease_pool
 {
     void *pool = objc_autoreleasePoolPush();
@@ -224,6 +313,119 @@
     OTAssert(($assert_nonnil(executablePath).absolutePath), @"OFApplication.executableIRI should resolve to an absolute file-system path");
     OTAssert([defaultFileManager fileExistsAtPath: $assert_nonnil(executablePath)], @"OFApplication.executableIRI should point to an existing file");
     OTAssert(($assert_nonnil(executableIRI).lastPathComponent.length > 0), @"OFApplication.executableIRI should include a final path component");
+}
+
+- (void)test_application_executable_iri_helpers_cover_nil_and_fallback_paths
+{
+    auto executableIRI = $assert_nonnil(OFApplication.executableIRI);
+    OFString *executablePath = $assert_nonnil(executableIRI.fileSystemRepresentation);
+    OFString *nonexistentPath = @"./__asyncrt_missing__/../__asyncrt_missing__";
+    OFIRI *resolvedIRI = [OFApplication _standardizedExecutableIRIFromPath: executablePath];
+    OFIRI *fallbackIRI = [OFApplication _standardizedExecutableIRIFromPath: nonexistentPath];
+
+    OTAssert(([OFApplication _executableIRIFromPath: nilptr] == nilptr), @"_executableIRIFromPath should return nil for nil input");
+    OTAssert(([OFApplication _standardizedExecutableIRIFromPath: nilptr] == nilptr), @"_standardizedExecutableIRIFromPath should return nil for nil input");
+    OTAssert(([OFApplication _standardizedExecutableIRIFromPath: @""] == nilptr), @"_standardizedExecutableIRIFromPath should return nil for an empty path");
+    OTAssert((resolvedIRI != nilptr), @"_standardizedExecutableIRIFromPath should resolve an existing executable path");
+    OTAssert([resolvedIRI.fileSystemRepresentation isEqual: executablePath], @"_standardizedExecutableIRIFromPath should preserve an already-resolved executable path");
+    OTAssert((fallbackIRI != nilptr), @"_standardizedExecutableIRIFromPath should still return an IRI for a missing path");
+    OTAssert([fallbackIRI.lastPathComponent isEqual: @"__asyncrt_missing__"], @"_standardizedExecutableIRIFromPath should standardize a missing path locally");
+}
+
+- (void)test_application_executable_iri_uses_program_name_fallback_when_os_path_is_unavailable
+{
+#if defined(__APPLE__)
+    auto classObject = OFApplication.class;
+    Method osMethod = class_getClassMethod(classObject, @selector(_executablePathFromOperatingSystem));
+    Method fallbackMethod = class_getClassMethod(classObject, @selector(_executablePathFromProgramNameFallback));
+    IMP originalOSImplementation = method_getImplementation(osMethod);
+    IMP originalFallbackImplementation = method_getImplementation(fallbackMethod);
+    OFString *fallbackPath = $assert_nonnil(OFApplication.executableIRI.fileSystemRepresentation);
+
+    s_programNameFallbackExecutablePath = [fallbackPath copy];
+    method_setImplementation(osMethod, (IMP)TestExecutablePathFromOperatingSystem);
+    method_setImplementation(fallbackMethod, (IMP)TestExecutablePathFromProgramNameFallback);
+
+    @try {
+        OFIRI *executableIRI = OFApplication.executableIRI;
+
+        OTAssert((executableIRI != nilptr), @"OFApplication.executableIRI should fall back to the program-name path when the OS path is unavailable");
+        OTAssert([executableIRI.fileSystemRepresentation isEqual: fallbackPath], @"OFApplication.executableIRI should use the fallback path when the OS path is unavailable");
+    } @finally {
+        method_setImplementation(osMethod, originalOSImplementation);
+        method_setImplementation(fallbackMethod, originalFallbackImplementation);
+        s_programNameFallbackExecutablePath = nilptr;
+    }
+#else
+    OTAssert(true, @"This fallback-path test is only meaningful on Apple platforms");
+#endif
+}
+
+- (void)test_plugin_current_process_discovers_classes_by_protocol
+{
+    auto plugin = [Plugin currentProcessPlugin];
+    OFArray<Class> *serviceClasses = [plugin classesThatImplementProtocol: @protocol(PluginSampleService)];
+    bool foundSampleClass = false;
+    bool foundUnrelatedClass = false;
+    bool pathThrows = false;
+    bool moduleThrows = false;
+
+    for (Class serviceClass in serviceClasses) {
+        if (serviceClass == PluginSampleImplementation.class)
+            foundSampleClass = true;
+        if (serviceClass == PluginUnrelatedImplementation.class)
+            foundUnrelatedClass = true;
+    }
+
+    @try {
+        (void)plugin.path;
+    } @catch (OFInvalidArgumentException *exception) {
+        (void)exception;
+        pathThrows = true;
+    }
+
+    @try {
+        (void)plugin.module;
+    } @catch (OFInvalidArgumentException *exception) {
+        (void)exception;
+        moduleThrows = true;
+    }
+
+    OTAssert((plugin.isCurrentProcess), @"Current-process plugins should report current-process state");
+    OTAssert((pathThrows), @"Current-process plugins should throw for module-only path access");
+    OTAssert((moduleThrows), @"Current-process plugins should throw for module access");
+    OTAssert((foundSampleClass), @"Plugin should discover current-process classes that implement the requested protocol");
+    OTAssert((not foundUnrelatedClass), @"Plugin should filter out classes that do not implement the requested protocol");
+}
+
+- (void)test_plugin_module_loading_reports_unavailable_static_objfw_modules
+{
+    bool emptyPathThrows = false;
+
+    @try {
+        (void)[Plugin pluginWithPath: @""];
+    } @catch (OFInvalidArgumentException *exception) {
+        (void)exception;
+        emptyPathThrows = true;
+    }
+
+    OTAssert((emptyPathThrows), @"Plugin path construction should reject empty paths");
+
+    if (Plugin.canLoadModules) {
+        OTAssert(true, @"ObjFW module loading is available in this build");
+        return;
+    }
+
+    bool caughtUnavailableModuleLoading = false;
+
+    @try {
+        (void)[Plugin pluginWithPath: @"/__asyncrt_missing_plugin__"];
+    } @catch (PluginModuleUnavailableException *exception) {
+        caughtUnavailableModuleLoading = true;
+        OTAssert(([exception.path isEqual: @"/__asyncrt_missing_plugin__"]), @"Unavailable-module exceptions should retain the requested path");
+    }
+
+    OTAssert((caughtUnavailableModuleLoading), @"Plugin should report unavailable OFModule support when ObjFW is built without modules");
 }
 
 @end

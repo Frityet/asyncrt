@@ -12,5 +12,11 @@
     "explorer.fileNesting.enabled": true,
     "files.associations": {
         "*.h": "objective-c"
-    }
+    },
+    "clangd.arguments": [
+        "--query-driver=/usr/local/opt/llvm/bin/clang,/usr/local/opt/llvm/bin/clang++"
+    ],
+    "clangd.fallbackFlags": [
+        "-std=gnu23",
+    ]
 }

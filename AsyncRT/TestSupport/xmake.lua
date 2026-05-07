@@ -1,5 +1,3 @@
-local common = asyncrt_build
-
 local async_runtime_test_suites = {
     {
         name = "utilities",
@@ -70,10 +68,17 @@ local async_runtime_test_suites = {
         files = {"tests/AsyncRuntimeTests.m", "../UI/tests/TestCasesUI.m"}
     },
     {
-        name = "app_calculator",
-        class = "AsyncRuntimeAppCalculatorTests",
-        group = "app/calculator",
-        files = {"tests/AsyncRuntimeTests.m", "../App/tests/TestCasesAppCalculator.m"}
+        name = "app",
+        class = "AsyncRuntimeAppTests",
+        group = "app",
+        files = {"tests/AsyncRuntimeTests.m", "../App/tests/TestCasesApp.m"}
+    },
+    {
+        name = "objdb",
+        class = "AsyncRuntimeObjDBTests",
+        group = "objdb",
+        deps = {"ObjDB", "ObjDBSQLite"},
+        files = {"tests/AsyncRuntimeTests.m", "../ObjDB/tests/TestCasesObjDB.m"}
     },
     {
         name = "coverage",
@@ -93,22 +98,41 @@ local async_runtime_test_suites = {
 
 local async_runtime_test_target_names = {}
 
-local function configure_async_runtime_test_target(name, suite)
-    target(name)
+target("AsyncRTTestSupport", function ()
+    set_default(false)
+    set_kind("static")
+    add_deps("AsyncRTAppSupport", { public = true })
+    add_includedirs("src", { public = true })
+    if is_mode("test") or has_config("asyncrt-test-access") then
+        add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    end
+    add_files("src/*.m")
+end)
+
+for _, test_suite in ipairs(async_runtime_test_suites) do
+    local test_target_name = "async-runtime-tests-" .. test_suite.name
+    table.insert(async_runtime_test_target_names, test_target_name)
+
+    target(test_target_name, function ()
         set_default(false)
         set_kind("binary")
         set_group("tests")
         add_deps("AsyncRTTestSupport")
-        common.add_internal_test_access_define()
+        if is_mode("test") or has_config("asyncrt-test-access") then
+            add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+        end
         before_build(function ()
-            if common.internal_test_access_enabled() then
+            if is_mode("test") or has_config("asyncrt-test-access") then
                 return
             end
 
-            raise(name .. " requires xmake f -m test, xmake check, or explicit --asyncrt-test-access=y.")
+            raise(test_target_name .. " requires xmake f -m test, xmake check, or explicit --asyncrt-test-access=y.")
         end)
         if is_plat("macosx") then
             add_ldflags("-ObjC", {force = true})
+        end
+        if test_suite.deps ~= nil then
+            add_deps(table.unpack(test_suite.deps))
         end
         add_cxflags(
             "-Wno-nonnull",
@@ -122,31 +146,19 @@ local function configure_async_runtime_test_target(name, suite)
             "-Wno-nullable-to-nonnull-conversion",
             {force = true}
         )
-        add_links("objfwtest", "objfwhid")
-        add_files(table.unpack(suite.files))
+        add_links("objfwtest")
+        add_files(table.unpack(test_suite.files))
         add_tests("default", {
-            group = suite.group,
-            runargs = {suite.class},
-            timeout = suite.timeout or 5
+            group = test_suite.group,
+            runargs = {test_suite.class},
+            timeout = test_suite.timeout or 5
         })
+    end)
 end
 
-target("AsyncRTTestSupport")
-    set_default(false)
-    set_kind("static")
-    add_deps("AsyncRTAppSupport", { public = true })
-    add_includedirs("src", { public = true })
-    common.add_internal_test_access_define()
-    add_files("src/*.m")
-
-for _, test_suite in ipairs(async_runtime_test_suites) do
-    local test_target_name = "async-runtime-tests-" .. test_suite.name
-    table.insert(async_runtime_test_target_names, test_target_name)
-    configure_async_runtime_test_target(test_target_name, test_suite)
-end
-
-target("async-runtime-tests")
+target("async-runtime-tests", function ()
     set_default(false)
     set_kind("phony")
     set_group("tests")
     add_deps(table.unpack(async_runtime_test_target_names))
+end)

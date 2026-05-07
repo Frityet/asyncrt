@@ -5,16 +5,17 @@
 #pragma clang assume_nonnull begin
 
 static OFString *nillable async_ui_last_clay_error;
+static AUISize async_ui_layout_dimensions;
 
 @namespace(AUIClaySupportPrivate)
 
-+ (Clay_LayoutDirection)layoutDirectionFromDirection: (AUILayoutDirection)direction;
-+ (Clay_LayoutAlignmentX)alignmentXFromAlignment: (AUIAlignment)alignment;
-+ (Clay_LayoutAlignmentY)alignmentYFromAlignment: (AUIAlignment)alignment;
-+ (Clay_TextElementConfigWrapMode)wrapModeFromWrapMode: (AUITextWrapMode)wrapMode;
-+ (Clay_TextAlignment)textAlignmentFromAlignment: (AUITextAlignment)alignment;
-+ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIScrollAxis)scrollAxis;
-+ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIScrollAxis)scrollAxis
++ (Clay_LayoutDirection)layoutDirectionFromDirection: (AUIRawLayoutDirection)direction;
++ (Clay_LayoutAlignmentX)alignmentXFromAlignment: (AUIRawAlignment)alignment;
++ (Clay_LayoutAlignmentY)alignmentYFromAlignment: (AUIRawAlignment)alignment;
++ (Clay_TextElementConfigWrapMode)wrapModeFromWrapMode: (AUIRawTextWrapMode)wrapMode;
++ (Clay_TextAlignment)textAlignmentFromAlignment: (AUIRawTextAlignment)alignment;
++ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIRawScrollAxis)scrollAxis;
++ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIRawScrollAxis)scrollAxis
                                          elementID: (Clay_ElementId)elementID;
 + (void)handleErrorData: (Clay_ErrorData)errorData;
 
@@ -27,85 +28,85 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
 
 @namespace_implementation(AUIClaySupportPrivate)
 
-+ (Clay_LayoutDirection)layoutDirectionFromDirection: (AUILayoutDirection)direction
++ (Clay_LayoutDirection)layoutDirectionFromDirection: (AUIRawLayoutDirection)direction
 {
-    return (direction == AUILayoutDirectionRow ? CLAY_LEFT_TO_RIGHT : CLAY_TOP_TO_BOTTOM);
+    return (direction == AUIRawLayoutDirectionRow ? CLAY_LEFT_TO_RIGHT : CLAY_TOP_TO_BOTTOM);
 }
 
-+ (Clay_LayoutAlignmentX)alignmentXFromAlignment: (AUIAlignment)alignment
++ (Clay_LayoutAlignmentX)alignmentXFromAlignment: (AUIRawAlignment)alignment
 {
     switch (alignment) {
-        case AUIAlignmentCenter:
+        case AUIRawAlignmentCenter:
             return CLAY_ALIGN_X_CENTER;
-        case AUIAlignmentEnd:
+        case AUIRawAlignmentEnd:
             return CLAY_ALIGN_X_RIGHT;
-        case AUIAlignmentStart:
+        case AUIRawAlignmentStart:
         default:
             return CLAY_ALIGN_X_LEFT;
     }
 }
 
-+ (Clay_LayoutAlignmentY)alignmentYFromAlignment: (AUIAlignment)alignment
++ (Clay_LayoutAlignmentY)alignmentYFromAlignment: (AUIRawAlignment)alignment
 {
     switch (alignment) {
-        case AUIAlignmentCenter:
+        case AUIRawAlignmentCenter:
             return CLAY_ALIGN_Y_CENTER;
-        case AUIAlignmentEnd:
+        case AUIRawAlignmentEnd:
             return CLAY_ALIGN_Y_BOTTOM;
-        case AUIAlignmentStart:
+        case AUIRawAlignmentStart:
         default:
             return CLAY_ALIGN_Y_TOP;
     }
 }
 
-+ (Clay_TextElementConfigWrapMode)wrapModeFromWrapMode: (AUITextWrapMode)wrapMode
++ (Clay_TextElementConfigWrapMode)wrapModeFromWrapMode: (AUIRawTextWrapMode)wrapMode
 {
     switch (wrapMode) {
-        case AUITextWrapModeNewlines:
+        case AUIRawTextWrapModeNewlines:
             return CLAY_TEXT_WRAP_NEWLINES;
-        case AUITextWrapModeNone:
+        case AUIRawTextWrapModeNone:
             return CLAY_TEXT_WRAP_NONE;
-        case AUITextWrapModeWords:
+        case AUIRawTextWrapModeWords:
         default:
             return CLAY_TEXT_WRAP_WORDS;
     }
 }
 
-+ (Clay_TextAlignment)textAlignmentFromAlignment: (AUITextAlignment)alignment
++ (Clay_TextAlignment)textAlignmentFromAlignment: (AUIRawTextAlignment)alignment
 {
     switch (alignment) {
-        case AUITextAlignmentCenter:
+        case AUIRawTextAlignmentCenter:
             return CLAY_TEXT_ALIGN_CENTER;
-        case AUITextAlignmentRight:
+        case AUIRawTextAlignmentRight:
             return CLAY_TEXT_ALIGN_RIGHT;
-        case AUITextAlignmentLeft:
+        case AUIRawTextAlignmentLeft:
         default:
             return CLAY_TEXT_ALIGN_LEFT;
     }
 }
 
-+ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIScrollAxis)scrollAxis
++ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIRawScrollAxis)scrollAxis
 {
     return [self clipConfigFromScrollAxis: scrollAxis elementID: (Clay_ElementId){0}];
 }
 
-+ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIScrollAxis)scrollAxis
++ (Clay_ClipElementConfig)clipConfigFromScrollAxis: (AUIRawScrollAxis)scrollAxis
                                          elementID: (Clay_ElementId)elementID
 {
     Clay_ClipElementConfig config = {0};
 
     switch (scrollAxis) {
-        case AUIScrollAxisHorizontal:
+        case AUIRawScrollAxisHorizontal:
             config.horizontal = true;
             break;
-        case AUIScrollAxisVertical:
+        case AUIRawScrollAxisVertical:
             config.vertical = true;
             break;
-        case AUIScrollAxisBoth:
+        case AUIRawScrollAxisBoth:
             config.horizontal = true;
             config.vertical = true;
             break;
-        case AUIScrollAxisNone:
+        case AUIRawScrollAxisNone:
         default:
             break;
     }
@@ -161,21 +162,28 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
                             dimensions: (AUISize)dimensions
 {
     Clay_Arena arena = Clay_CreateArenaWithCapacityAndMemory(memorySize, memory);
+    async_ui_layout_dimensions = dimensions;
 
     return Clay_Initialize(arena,
                            (Clay_Dimensions){ .width = dimensions.width, .height = dimensions.height },
                            [self errorHandler]);
 }
 
++ (AUISize)layoutDimensions
+{
+    return async_ui_layout_dimensions;
+}
+
 + (void)setLayoutDimensions: (AUISize)dimensions
 {
+    async_ui_layout_dimensions = dimensions;
     Clay_SetLayoutDimensions((Clay_Dimensions){
         .width = dimensions.width,
         .height = dimensions.height
     });
 }
 
-+ (void)setPointerPositionX: (float)x y: (float)y down: (bool)pointerDown
++ (void)updatePointerPositionX: (float)x y: (float)y down: (bool)pointerDown
 {
     Clay_SetPointerState((Clay_Vector2){ .x = x, .y = y }, pointerDown);
 }
@@ -233,7 +241,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     return Clay_GetScrollContainerData(elementID);
 }
 
-+ (bool)pointerOverElementWithID: (Clay_ElementId)elementID
++ (bool)pointerIsHoveringOverElementWithID: (Clay_ElementId)elementID
 {
     return Clay_PointerOver(elementID);
 }
@@ -254,7 +262,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     Clay__CloseElement();
 }
 
-+ (Clay_Color)colorFromColor: (AUIColor)color
++ (Clay_Color)colorFromColor: (AUIRawColor)color
 {
     return (Clay_Color){
         .r = color.red,
@@ -264,7 +272,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     };
 }
 
-+ (Clay_Padding)paddingFromInsets: (AUIInsets)insets
++ (Clay_Padding)paddingFromInsets: (AUIRawInsets)insets
 {
     return (Clay_Padding){
         .left = insets.left,
@@ -274,14 +282,14 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     };
 }
 
-+ (Clay_SizingAxis)sizingAxisFromAxis: (AUILayoutAxis)axis
++ (Clay_SizingAxis)sizingAxisFromAxis: (AUIRawAxisSize)axis
 {
     switch (axis.kind) {
-        case AUILayoutAxisKindFixed:
+        case AUIRawAxisSizeKindFixed:
             return CLAY_SIZING_FIXED(axis.value);
-        case AUILayoutAxisKindPercent:
+        case AUIRawAxisSizeKindPercent:
             return CLAY_SIZING_PERCENT(axis.value);
-        case AUILayoutAxisKindFit:
+        case AUIRawAxisSizeKindFit:
             return (Clay_SizingAxis){
                 .size = {
                     .minMax = {
@@ -291,7 +299,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
                 },
                 .type = CLAY__SIZING_TYPE_FIT
             };
-        case AUILayoutAxisKindGrow:
+        case AUIRawAxisSizeKindGrow:
         default:
             return (Clay_SizingAxis){
                 .size = {
@@ -305,7 +313,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     }
 }
 
-+ (Clay_ChildAlignment)childAlignmentFromAlignment: (AUIChildAlignment)alignment
++ (Clay_ChildAlignment)childAlignmentFromAlignment: (AUIRawChildAlignment)alignment
 {
     return (Clay_ChildAlignment){
         .x = [AUIClaySupportPrivate alignmentXFromAlignment: alignment.x],
@@ -313,7 +321,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     };
 }
 
-+ (Clay_LayoutConfig)layoutConfigFromLayout: (AUILayout)layout
++ (Clay_LayoutConfig)layoutConfigFromLayout: (AUIRawLayout)layout
 {
     return (Clay_LayoutConfig){
         .sizing = {
@@ -332,7 +340,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     return CLAY_CORNER_RADIUS(radius);
 }
 
-+ (Clay_BorderElementConfig)borderFromBorder: (AUIBorder)border
++ (Clay_BorderElementConfig)borderFromBorder: (AUIRawBorder)border
 {
     return (Clay_BorderElementConfig){
         .color = [self colorFromColor: border.color],
@@ -346,7 +354,7 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     };
 }
 
-+ (Clay_TextElementConfig)textConfigFromProps: (AUITextProps)props
++ (Clay_TextElementConfig)textConfigFromProps: (AUIRawTextProps)props
 {
     return (Clay_TextElementConfig){
         .textColor = [self colorFromColor: props.style.color],
@@ -359,12 +367,12 @@ static void AUIClayErrorHandlerBridge(Clay_ErrorData errorData)
     };
 }
 
-+ (Clay_ElementDeclaration)boxDeclarationFromProps: (AUIBoxProps)props
++ (Clay_ElementDeclaration)boxDeclarationFromProps: (AUIRawBoxProps)props
 {
     return [self boxDeclarationFromProps: props elementID: (Clay_ElementId){0}];
 }
 
-+ (Clay_ElementDeclaration)boxDeclarationFromProps: (AUIBoxProps)props
++ (Clay_ElementDeclaration)boxDeclarationFromProps: (AUIRawBoxProps)props
                                      elementID: (Clay_ElementId)elementID
 {
     Clay_ElementDeclaration declaration = {0};

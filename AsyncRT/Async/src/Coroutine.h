@@ -58,7 +58,7 @@ enum [[clang::enum_extensibility(closed)]] CoroutineStatus {
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface Coroutine<__covariant T> : OFObject<OFFastEnumeration> {
+@interface Coroutine<covariant T> : OFObject<OFFastEnumeration> {
 @public // public so that the assembly trampoline can access these fields directly
     enum CoroutineStatus _status;
     void *nillable _nativeCoroutine;

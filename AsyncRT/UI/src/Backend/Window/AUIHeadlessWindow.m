@@ -2,8 +2,9 @@
 #include <stdlib.h>
 
 #import "Backend/AUICairoRenderSupport.h"
+#import "Backend/AUIWindow+Private.h"
 #import "Backend/Window/AUIHeadlessWindow.h"
-#import "AUIInternal.h"
+#import "Internal/AUIApplication+Private.h"
 
 #pragma clang assume_nonnull begin
 
@@ -25,11 +26,11 @@ static char *_Nonnull AUIHeadlessWindowFonts[] = {
 }
 
 - (instancetype)initWithApplication: (AUIApplication *nonnil)application
-                            options: (AUIWindowOptions *nonnil)options
+                      configuration: (AUIWindowConfiguration *nonnil)configuration
 {
-    self = [super initWithApplication: application options: options];
+    self = [super initWithApplication: application configuration: configuration];
     _open = false;
-    _nativeSize = options.initialSize;
+    _nativeSize = configuration.initialSize;
     _scaleFactor = 1.0;
     _surface = nullptr;
     _cairo = nullptr;

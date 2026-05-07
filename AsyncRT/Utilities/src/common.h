@@ -53,12 +53,25 @@
 + (Class)class;
 @end
 
+#define covariant __covariant
+#define contravariant __contravariant
+
 #define namespace(Name)\
     class Name;\
     [[subclassing_restricted, direct_members]]\
     @interface Name : NamespaceClass
 
 #define namespace_implementation(Name) class Name;\
+    [[direct_members]]\
     @implementation Name\
 
-#import "OFApplication+ExecutableIRI.h"
+//allow for [obj this: @"selector" is: @"not" defined: @true] for forwarding
+#define $allow_any_selectors(...) ({\
+    __auto_type _allow_any_selectors_value = (__VA_ARGS__); \
+    _Pragma("clang diagnostic push") \
+    _Pragma("clang diagnostic ignored \"-Wundeclared-selector\"") \
+    _allow_any_selectors_value; \
+    _Pragma("clang diagnostic pop") \
+})
+
+// #import "OFApplication+ExecutableIRI.h"

@@ -18,7 +18,7 @@ typedef enum AUICairoBorderSide {
 @interface AUICairoRenderSupport ()
 
 + (double)channelForValue: (uint8_t)value;
-+ (void)setSourceColor: (Clay_Color)color onContext: (cairo_t *)context;
++ (void)applySourceColor: (Clay_Color)color onContext: (cairo_t *)context;
 + (double)clampedRadius: (double)radius forBoundingBox: (Clay_BoundingBox)boundingBox;
 + (char *nillable)copyUTF8String: (Clay_StringSlice)text;
 + (char *)fontFamilyInFonts: (char *const *nillable)fonts fontID: (uint16_t)fontID;
@@ -59,7 +59,7 @@ typedef enum AUICairoBorderSide {
     return ((double)value) / 255.0;
 }
 
-+ (void)setSourceColor: (Clay_Color)color onContext: (cairo_t *)context
++ (void)applySourceColor: (Clay_Color)color onContext: (cairo_t *)context
 {
     cairo_set_source_rgba(context,
                           [self channelForValue: color.r],
@@ -145,7 +145,7 @@ typedef enum AUICairoBorderSide {
                             config: (Clay_RectangleRenderData *)config
                        boundingBox: (Clay_BoundingBox)boundingBox
 {
-    [self setSourceColor: config->backgroundColor onContext: context];
+    [self applySourceColor: config->backgroundColor onContext: context];
     [self addRoundedRectToContext: context boundingBox: boundingBox radius: config->cornerRadius];
     cairo_fill(context);
 }
@@ -159,7 +159,7 @@ typedef enum AUICairoBorderSide {
                          bottomLeft: (double)bottomLeft
                                side: (AUICairoBorderSide)side
 {
-    [self setSourceColor: config->color onContext: context];
+    [self applySourceColor: config->color onContext: context];
     cairo_new_sub_path(context);
 
     switch (side) {
@@ -263,7 +263,7 @@ typedef enum AUICairoBorderSide {
     double x = boundingBox.x - textExtents.x_bearing;
     double y = boundingBox.y + ((lineHeight - textExtents.height) / 2.0) - textExtents.y_bearing;
 
-    [self setSourceColor: config->textColor onContext: context];
+    [self applySourceColor: config->textColor onContext: context];
 
     if (config->letterSpacing == 0) {
         cairo_move_to(context, x, y);
@@ -333,7 +333,7 @@ typedef enum AUICairoBorderSide {
     cairo_clip(context);
 
     if (config->backgroundColor.a > 0) {
-        [self setSourceColor: config->backgroundColor onContext: context];
+        [self applySourceColor: config->backgroundColor onContext: context];
         cairo_paint(context);
     }
 

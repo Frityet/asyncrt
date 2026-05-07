@@ -7,9 +7,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#import "AUIExceptions.h"
+#import "AUIPrimitives.h"
 #import "Backend/AUICairoRenderSupport.h"
+#import "Backend/AUIWindow+Private.h"
 #import "Backend/Window/AUICairoX11Window.h"
-#import "AUIInternal.h"
+#import "Internal/AUIApplication+Private.h"
 
 #pragma clang assume_nonnull begin
 
@@ -119,9 +122,9 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
 }
 
 - (instancetype)initWithApplication: (AUIApplication *nonnil)application
-                            options: (AUIWindowOptions *nonnil)options
+                      configuration: (AUIWindowConfiguration *nonnil)configuration
 {
-    self = [super initWithApplication: application options: options];
+    self = [super initWithApplication: application configuration: configuration];
     _open = false;
     _display = nullptr;
     _screen = 0;
@@ -130,7 +133,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     _deleteWindowAtom = None;
     _inputMethod = nullptr;
     _inputContext = nullptr;
-    _nativeSize = options.initialSize;
+    _nativeSize = configuration.initialSize;
     _clipboardText = nilptr;
     return self;
 }
@@ -166,8 +169,8 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
                             RootWindow($assert_nonnil(_display), _screen),
                             0,
                             0,
-                            (unsigned int)self.options.initialSize.width,
-                            (unsigned int)self.options.initialSize.height,
+                            (unsigned int)self.configuration.initialSize.width,
+                            (unsigned int)self.configuration.initialSize.height,
                             0,
                             CopyFromParent,
                             InputOutput,
@@ -177,7 +180,7 @@ static char *_Nonnull AUICairoX11WindowFonts[] = {
     if (_window == 0)
         @throw [[AUIInitializationException alloc] initWithReason: @"Failed to create the X11 window"];
 
-    XStoreName($assert_nonnil(_display), _window, self.options.title.UTF8String);
+    XStoreName($assert_nonnil(_display), _window, self.configuration.title.UTF8String);
     _deleteWindowAtom = XInternAtom($assert_nonnil(_display), "WM_DELETE_WINDOW", False);
     XSetWMProtocols($assert_nonnil(_display), _window, &_deleteWindowAtom, 1);
     XMapWindow($assert_nonnil(_display), _window);

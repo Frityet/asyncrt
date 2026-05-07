@@ -1,4 +1,4 @@
-#import "AUIInternal.h"
+#import "Internal/AUIRenderContext+Private.h"
 
 #pragma clang assume_nonnull begin
 

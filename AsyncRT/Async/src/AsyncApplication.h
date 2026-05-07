@@ -22,6 +22,4 @@
 
 @end
 
-#define ASYNC_APPLICATION_DELEGATE(class_) OF_APPLICATION_DELEGATE(class_)
-
 #pragma clang assume_nonnull end

@@ -1,38 +1,34 @@
 add_rules("mode.debug", "mode.release", "mode.minsizerel", "mode.coverage", "mode.asan", "mode.tsan")
 set_allowedmodes("debug", "release", "minsizerel", "coverage", "asan", "tsan", "test")
 
-set_languages("gnulatest")
+set_languages("gnu23")
 set_toolchains("clang")
 
-local mode_uses_lto = is_mode("release") or is_mode("minsizerel")
-
-includes("xmake/common.lua")
-local common = asyncrt_build
-
-local function add_c_and_objc_flags(...)
-    add_cxflags(...)
-    add_mflags(...)
-end
+--autogen compile commands
+add_rules("plugin.compile_commands.autoupdate")
 
 add_repositories("asyncrt-xrepo xrepo", {rootdir = os.scriptdir()})
 
-option("asyncrt-test-access")
-    set_default(false)
-    set_showmenu(true)
-    set_description("Enable white-box test access outside test mode.")
-option_end()
+option("asyncrt-test-access", {
+    default = false,
+    showmenu = true,
+    description = "Enable white-box test access outside test mode."
+})
 
-option("asyncrt-direct-enabled")
-    set_default(true)
-    set_showmenu(true)
-    set_description("Enable Clang direct ObjC dispatch in non-test builds. Test-access builds still disable it.")
-option_end()
+option("asyncrt-direct-enabled", {
+    default = true,
+    showmenu = true,
+    description = "Enable Clang direct ObjC dispatch in non-test builds. Test-access builds still disable it."
+})
 
-option("asyncrt-ui-x11")
-    set_default(false)
-    set_showmenu(true)
-    set_description("Build AsyncRTUI against the Cairo/X11 backend on macOS. Non-macOS targets already use Cairo/X11 by default.")
-option_end()
+option("asyncrt-ui-x11", {
+    default = false,
+    showmenu = true,
+    description = "Build AsyncRTUI against the Cairo/X11 backend on macOS. Non-macOS targets already use Cairo/X11 by default."
+})
+
+local internal_test_access_enabled = is_mode("test") or has_config("asyncrt-test-access")
+local ui_uses_cairo_x11_backend = (not is_plat("macosx")) or has_config("asyncrt-ui-x11")
 
 add_requires("objfw", {
     configs = {
@@ -41,7 +37,7 @@ add_requires("objfw", {
     }
 })
 
-if common.ui_uses_cairo_x11_backend() or common.internal_test_access_enabled() then
+if ui_uses_cairo_x11_backend or internal_test_access_enabled then
     add_requires("cairo")
 end
 
@@ -49,7 +45,9 @@ add_packages("objfw")
 
 set_warnings("all", "error")
 
-common.add_direct_dispatch_flags()
+if not has_config("asyncrt-direct-enabled") or internal_test_access_enabled then
+    add_mflags("-fobjc-disable-direct-methods-for-testing", {force = true})
+end
 
 if is_mode("asan") then
     set_policy("build.sanitizer.address", true)
@@ -60,17 +58,21 @@ if is_mode("tsan") then
     set_policy("build.sanitizer.thread", true)
 end
 
-if mode_uses_lto then
---    set_policy("build.optimization.lto", true)
-end
-
 if is_mode("coverage") then
     -- Coverage needs unoptimized frames for reliable source mapping and the
     -- coroutine path still needs conservative stack metadata.
+    local coverage_flags = {
+        "-O0",
+        "-fno-omit-frame-pointer",
+        "-fno-optimize-sibling-calls",
+        "-fprofile-instr-generate",
+        "-fcoverage-mapping"
+    }
+
     set_optimize("none")
-    add_c_and_objc_flags("-O0", "-fno-omit-frame-pointer", "-fno-optimize-sibling-calls")
     set_symbols("debug")
-    add_c_and_objc_flags("-fprofile-instr-generate", "-fcoverage-mapping")
+    add_cxflags(table.unpack(coverage_flags))
+    add_mflags(table.unpack(coverage_flags))
     add_ldflags("-fprofile-instr-generate", "-fcoverage-mapping", {force = true})
 end
 
@@ -79,27 +81,32 @@ if is_mode("test") then
     set_optimize("none")
 end
 
-add_c_and_objc_flags("-Wall", "-Wextra")
-add_c_and_objc_flags("-xobjective-c", "-fms-extensions", "-Wno-microsoft")
-add_c_and_objc_flags("-Wno-unused-function")
-add_c_and_objc_flags(
+local c_and_objc_flags = {
+    "-Wall",
+    "-Wextra",
+    "-xobjective-c",
+    "-fms-extensions",
+    "-Wno-microsoft",
+    "-Wno-unused-function",
     "-Wassign-enum",
     "-Wenum-conversion",
-    "-Wenum-enum-conversion"
-)
-add_c_and_objc_flags(
+    "-Wenum-enum-conversion",
     "-Wnull-dereference",
     "-Wnull-conversion",
     "-Wnullability-completeness",
     "-Wnullable-to-nonnull-conversion",
     "-Wno-auto-var-id",
-    "-Wno-compare-distinct-pointer-types" --why the fuck is this a diagnostic?
-)
-add_c_and_objc_flags("-Wno-missing-braces")
+    "-Wno-compare-distinct-pointer-types",
+    "-Wno-missing-braces"
+}
+
+add_cxflags(table.unpack(c_and_objc_flags))
+add_mflags(table.unpack(c_and_objc_flags))
 
 if is_plat("linux") and is_mode("debug") then
     add_ldflags("-rdynamic")
-    add_c_and_objc_flags("-fno-omit-frame-pointer")
+    add_cxflags("-fno-omit-frame-pointer")
+    add_mflags("-fno-omit-frame-pointer")
 end
 
 includes("AsyncRT", "tools")

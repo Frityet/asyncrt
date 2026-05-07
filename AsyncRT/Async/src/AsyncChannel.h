@@ -18,7 +18,7 @@
 @end
 
 [[subclassing_restricted, direct_members]]
-@interface AsyncChannel<__covariant T> : OFObject
+@interface AsyncChannel<covariant T> : OFObject
 
 @property(readonly, nonatomic) size_t capacity;
 @property(readonly, nonatomic) bool isClosed;

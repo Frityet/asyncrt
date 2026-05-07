@@ -1,7 +1,7 @@
 #pragma once
 
 #import "Backend/AUIInput.h"
-#import "Backend/AUIWindowOptions.h"
+#import "AUIWindowConfiguration.h"
 
 #pragma clang assume_nonnull begin
 
@@ -10,14 +10,14 @@
 @interface AUIWindow : OFObject
 
 @property(readonly, nonatomic) AUIApplication *application;
-@property(readonly, nonatomic) AUIWindowOptions *options;
+@property(readonly, nonatomic) AUIWindowConfiguration *configuration;
 @property(readonly, nonatomic) bool isOpen;
 @property(readonly, nonatomic) AUISize viewportSize;
 @property(readonly, nonatomic) double scaleFactor;
 @property(nonatomic) bool isDarkMode;
 
 - (instancetype)initWithApplication: (AUIApplication *nonnil)application
-                            options: (AUIWindowOptions *nonnil)options [[designated_initailiser]];
+                      configuration: (AUIWindowConfiguration *nonnil)configuration [[designated_initailiser]];
 - (void)openWindow;
 - (void)pollEvents;
 - (void)renderFrame;

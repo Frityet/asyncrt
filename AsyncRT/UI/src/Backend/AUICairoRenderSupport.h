@@ -2,7 +2,8 @@
 
 #include <cairo.h>
 
-#import "AUIInternal.h"
+#include "common.h"
+#import "clay.h"
 
 #pragma clang assume_nonnull begin
 

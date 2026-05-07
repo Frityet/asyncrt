@@ -23,9 +23,12 @@
 
 #include <stdlib.h>
 
+#import "AUIExceptions.h"
+#import "AUIPrimitives.h"
 #import "Backend/AUICoreGraphicsRenderSupport.h"
+#import "Backend/AUIWindow+Private.h"
 #import "Backend/Window/AUICoreGraphicsWindow.h"
-#import "AUIInternal.h"
+#import "Internal/AUIApplication+Private.h"
 
 
 #pragma clang assume_nonnull begin
@@ -804,9 +807,9 @@
 }
 
 - (instancetype)initWithApplication: (AUIApplication *nonnil)application
-                            options: (AUIWindowOptions *nonnil)options
+                      configuration: (AUIWindowConfiguration *nonnil)configuration
 {
-    self = [super initWithApplication: application options: options];
+    self = [super initWithApplication: application configuration: configuration];
     _open = false;
     _window = nilptr;
     _renderView = nilptr;
@@ -822,7 +825,7 @@
 - (AUISize)viewportSize
 {
     if (_renderView == nilptr)
-        return [self _viewportSizeForNativeSize: self.options.initialSize];
+        return [self _viewportSizeForNativeSize: self.configuration.initialSize];
 
     return $assert_nonnil(_renderView).viewportSize;
 }
@@ -1058,13 +1061,13 @@
         return;
     }
 
-    if (self.options.isResizable)
+    if (self.configuration.isResizable)
         styleMask |= NSWindowStyleMaskResizable;
 
     if ([NSWindow respondsToSelector: @selector(setAllowsAutomaticWindowTabbing:)])
         NSWindow.allowsAutomaticWindowTabbing = NO;
 
-    const NSRect frame = NSMakeRect(0.0, 0.0, self.options.initialSize.width, self.options.initialSize.height);
+    const NSRect frame = NSMakeRect(0.0, 0.0, self.configuration.initialSize.width, self.configuration.initialSize.height);
     _window = [[AUICoreGraphicsNativeWindow alloc] initWithContentRect: frame
                                                              styleMask: styleMask
                                                                backing: NSBackingStoreBuffered
@@ -1075,7 +1078,7 @@
     _window.colorSpace = [NSColorSpace sRGBColorSpace];
 
     {
-        NSString *title = self.options.title.NSObject;
+        NSString *title = self.configuration.title.NSObject;
         NSString *fallbackTitle = ((OFString *)@"asyncrt UI").NSObject;
 
         _window.title = (title != nilptr ? title : fallbackTitle);

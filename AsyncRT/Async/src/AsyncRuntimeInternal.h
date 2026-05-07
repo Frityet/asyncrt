@@ -13,8 +13,8 @@ void AsyncRetainForTSAN(id nillable object);
 
 @namespace(AsyncSchedulerValidation)
 
-+ (void)validateRunLoop: (OFRunLoop *nonnil)runLoop
-                   mode: (OFRunLoopMode nonnil)mode
++ (void)validateRunLoop: (OFRunLoop *nillable)runLoop
+                   mode: (OFRunLoopMode nillable)mode
          maxWorkerCount: (size_t)maxWorkerCount
       maxDrainBatchSize: (size_t)maxDrainBatchSize;
 
@@ -41,15 +41,15 @@ void AsyncRetainForTSAN(id nillable object);
 @protocol AsyncTaskStateObserver;
 
 [[subclassing_restricted, direct_members]]
-@interface AsyncTaskState<__covariant T> : OFObject
+@interface AsyncTaskState<covariant T> : OFObject
 
 @property(readonly, nonatomic) enum AsyncTaskStatus status;
 @property(readonly, nonatomic) bool isCompleted;
 @property(readonly, nonatomic) id value;
 @property(readonly, nonatomic) OFException *failureException;
 
-+ (AsyncTaskState *)resolved: (id)value;
-+ (AsyncTaskState *)rejected: (OFException *)exception;
++ (AsyncTaskState *)resolved: (id nillable)value;
++ (AsyncTaskState *)rejected: (OFException *nillable)exception;
 + (AsyncTaskState<OFArray<id> *> *)allTasks: (OFArray<Task *> *)tasks;
 + (AsyncTaskState *)raceTasks: (OFArray<Task *> *)tasks;
 + (OFString *)describeStatus: (enum AsyncTaskStatus)status;

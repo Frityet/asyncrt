@@ -1,37 +1,21 @@
-local common = asyncrt_build
-
-local function configure_app_support_target()
+target("AsyncRTAppSupport", function ()
+    set_kind("static")
     add_deps("AsyncRTUI", { public = true })
     add_includedirs("src", { public = true })
-    add_files(
-        "src/Components/**.m",
-        "src/CalculatorEvaluator.m",
-        "src/CalculatorModel.m",
-        "src/CalculatorTheme.m"
-    )
-    common.add_internal_test_access_define()
-end
+    add_files("src/AsyncHTTPClientBridge.m", "src/Booru.m", "src/Gelbooru.m", "src/Realbooru.m")
 
-target("AsyncRTAppSupport")
-    set_kind("static")
-    configure_app_support_target()
+    if is_mode("test") or has_config("asyncrt-test-access") then
+        add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    end
+end)
 
-target("App")
+target("App", function ()
     set_kind("binary")
     add_deps("AsyncRTAppSupport")
     if is_plat("macosx") then
-        add_rules("xcode.application")
-        add_rpathdirs("@loader_path")
         add_ldflags("-ObjC", {force = true})
-        add_files("src/Info.plist")
-        on_run(function (target)
-            import("core.base.option")
-
-            local bundledir = path.absolute(target:data("xcode.bundle.rootdir"))
-            local arguments = option.get("arguments")
-            local executable = path.join(bundledir, "Contents", "MacOS", target:name())
-
-            os.execv(executable, arguments or {})
-        end)
     end
-    add_files("src/main.m")
+    add_files("src/main.m",
+              "src/ITerm2ImageGallery.m",
+              "src/TerminalLoadingView.m")
+end)

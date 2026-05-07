@@ -21,7 +21,7 @@
 
 [[subclassing_restricted]]
 @interface CLICommandSchema : OFObject
-+ (instancetype)schemaForCommand: (CLICommand *)command;
++ (instancetype)schemaForCommand: (id<CLICommand>)command;
 - (void)resetValues;
 - (OFString *)helpTextForCommandPath: (OFString *)commandPath;
 @end
@@ -83,7 +83,7 @@
 @implementation ParserOpaqueValue @end
 
 [[subclassing_restricted]]
-@interface ParserIvarFallbackCommand : CLICommand {
+@interface ParserIvarFallbackCommand : OFObject<CLICommand> {
     CLIOption<OFString *> *_mysteryOption;
 }
 
@@ -103,10 +103,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-ivar-fallback-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserLeafCoverageCommand : CLICommand
+@interface ParserLeafCoverageCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) CLIOption<OFString *> *leafValue;
 
@@ -121,10 +126,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-leaf-coverage-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserErrorCoverageCommand : CLICommand
+@interface ParserErrorCoverageCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) CLIOption<OFNumber *> *count;
 @property(readonly, nonatomic) CLIOption<OFNumber *> *force;
@@ -154,10 +164,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-error-coverage-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserSubcommandOnlyCommand : CLICommand
+@interface ParserSubcommandOnlyCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) ParserLeafCoverageCommand *serve;
 
@@ -172,10 +187,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-subcommand-only-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserUnexpectedArgumentCommand : CLICommand
+@interface ParserUnexpectedArgumentCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) CLIOption<OFNumber *> *verbose;
 
@@ -190,10 +210,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-unexpected-argument-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserDuplicateLongCommand : CLICommand
+@interface ParserDuplicateLongCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) CLIOption<OFString *> *first;
 @property(readonly, nonatomic) CLIOption<OFString *> *second;
@@ -210,10 +235,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-duplicate-long-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserDuplicateShortCommand : CLICommand
+@interface ParserDuplicateShortCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) CLIOption<OFString *> *first;
 @property(readonly, nonatomic) CLIOption<OFString *> *second;
@@ -230,10 +260,15 @@
     return self;
 }
 
++ (OFString *)cliCommandName
+{
+    return @"parser-duplicate-short-command";
+}
+
 @end
 
 [[subclassing_restricted]]
-@interface ParserDuplicateSubcommandCommand : CLICommand
+@interface ParserDuplicateSubcommandCommand : OFObject<CLICommand>
 
 @property(readonly, nonatomic) ParserLeafCoverageCommand *dupValue;
 @property(readonly, nonatomic) ParserLeafCoverageCommand *dup_value;
@@ -248,6 +283,11 @@
     _dupValue = [[ParserLeafCoverageCommand alloc] init];
     _dup_value = [[ParserLeafCoverageCommand alloc] init];
     return self;
+}
+
++ (OFString *)cliCommandName
+{
+    return @"parser-duplicate-subcommand-command";
 }
 
 @end

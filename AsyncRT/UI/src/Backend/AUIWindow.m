@@ -1,9 +1,12 @@
 #include <math.h>
 #include <stdlib.h>
 
-#import "Backend/AUIWindow.h"
+#import "AUIExceptions.h"
 #import "AUIClaySupport.h"
-#import "AUIInternal.h"
+#import "Backend/AUIWindow+Private.h"
+#import "Backend/AUIWindow.h"
+#import "Internal/AUIApplication+Private.h"
+#import "Internal/AUIInputState.h"
 
 #pragma clang assume_nonnull begin
 
@@ -121,7 +124,7 @@
 [[direct_members]]
 @implementation AUIWindow {
     AUIApplication *_application;
-    AUIWindowOptions *_options;
+    AUIWindowConfiguration *_configuration;
     void *nillable _clayMemory;
     size_t _clayMemorySize;
     Clay_Context *nillable _clayContext;
@@ -132,18 +135,18 @@
 
 
 - (instancetype)initWithApplication: (AUIApplication *nonnil)application
-                            options: (AUIWindowOptions *nonnil)options
+                      configuration: (AUIWindowConfiguration *nonnil)configuration
 {
     self = [super init];
     _application = application;
-    _options = options;
+    _configuration = configuration;
     _clayMemory = nullptr;
     _clayMemorySize = 0;
     _clayContext = nullptr;
     _darkMode = false;
     _hasExplicitDarkMode = false;
-    _referenceViewportSize = [AUIWindowSupport viewportSizeForNativeSize: options.initialSize
-                                                            contentScale: options.contentScale];
+    _referenceViewportSize = [AUIWindowSupport viewportSizeForNativeSize: configuration.initialSize
+                                                            contentScale: configuration.contentScale];
     return self;
 }
 
@@ -170,12 +173,12 @@
 
 - (double)_contentScale
 {
-    return self.options.contentScale;
+    return self.configuration.contentScale;
 }
 
 - (bool)_scalesWithWindowSize
 {
-    return self.options.scalesWithWindowSize;
+    return self.configuration.scalesWithWindowSize;
 }
 
 - (AUISize)_viewportSizeForNativeSize: (AUISize)nativeSize
@@ -299,7 +302,7 @@
     [self _prepareClayContextForViewportSize: viewportSize];
     Clay_SetMeasureTextFunction(textMeasureFunction, userData);
     AUIInputState *inputState = self.application._inputState;
-    [AUIClay setPointerPositionX: inputState.pointerX
+    [AUIClay updatePointerPositionX: inputState.pointerX
                                 y: inputState.pointerY
                              down: inputState.isPrimaryButtonDown];
     Clay_RenderCommandArray commands = [self.application _buildRenderCommandsWithViewportSize: viewportSize
@@ -321,7 +324,7 @@
                                                                   textMeasureFunction: textMeasureFunction
                                                                              userData: userData];
 
-    if (not self.options.automaticallyResizesToRootComponent)
+    if (not self.configuration.automaticallyResizesToContent)
         return commands;
 
     for (size_t iteration = 0; iteration < 3; iteration++) {

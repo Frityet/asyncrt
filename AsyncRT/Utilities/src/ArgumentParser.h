@@ -44,10 +44,11 @@ typedef enum [[clang::enum_extensibility(closed)]] : uint8_t {
 
 @end
 
-@interface CLICommand : OFObject
+@protocol CLICommand<OFObject>
 
 + (OFString *)cliCommandName;
-+ (OFString *nillable)cliCommandDescription;
+@optional
++ (OFString *)cliCommandDescription;
 
 @end
 
@@ -66,11 +67,11 @@ typedef enum [[clang::enum_extensibility(closed)]] : uint8_t {
 @interface ArgumentParserHelpException : ArgumentParserException @end
 
 [[subclassing_restricted, direct_members]]
-@interface ArgumentParser<T> : OFObject
+@interface ArgumentParser<covariant T : id<CLICommand>> : OFObject
 
 @property (readonly, nonatomic) T command;
 
-- (instancetype)initWithCommand: (T)command;
+- (instancetype)initWithCommand: (T nillable)command;
 - (T)parseArguments: (OFArray<OFString *> *)arguments;
 - (T)parseCommandLineArguments;
 - (OFString *)helpText;

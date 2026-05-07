@@ -199,11 +199,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     return self._internalTaskState.isCompleted;
 }
 
-- (id)value
-{
-    return self._internalTaskState.value;
-}
-
 - (OFException *)failureException
 {
     return self._internalTaskState.failureException;
