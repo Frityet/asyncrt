@@ -3,6 +3,8 @@ target("AsyncRT", function ()
     add_deps("Utilities", { public = true })
     add_includedirs("src", { public = true })
     add_includedirs("../extern")
+    add_headerfiles("src/*.h")
+    add_headerfiles("../Utilities/src/*.h")
 
     local coroutine_mflags = {"-fno-objc-arc"}
     if is_mode("release") then
@@ -24,5 +26,9 @@ target("AsyncRT", function ()
 
     if is_mode("test") or has_config("asyncrt-test-access") then
         add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })
+    end
+
+    if is_plat("linux") then
+        add_syslinks("pthread", { public = true })
     end
 end)

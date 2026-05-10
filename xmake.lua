@@ -27,8 +27,39 @@ option("asyncrt-ui-x11", {
     description = "Build AsyncRTUI against the Cairo/X11 backend on macOS. Non-macOS targets already use Cairo/X11 by default."
 })
 
+option("asyncrt-ui", {
+    default = true,
+    showmenu = true,
+    description = "Build the AsyncRT UI module."
+})
+
+option("asyncrt-db", {
+    default = true,
+    showmenu = true,
+    description = "Build the ObjDB module and database providers."
+})
+
+option("asyncrt-app", {
+    default = true,
+    showmenu = true,
+    description = "Build the example application support module."
+})
+
+option("asyncrt-test-support", {
+    default = true,
+    showmenu = true,
+    description = "Build AsyncRT test support targets."
+})
+
+option("asyncrt-tools", {
+    default = true,
+    showmenu = true,
+    description = "Build AsyncRT tool targets."
+})
+
 local internal_test_access_enabled = is_mode("test") or has_config("asyncrt-test-access")
-local ui_uses_cairo_x11_backend = (not is_plat("macosx")) or has_config("asyncrt-ui-x11")
+local asyncrt_ui_enabled = has_config("asyncrt-ui")
+local ui_uses_cairo_x11_backend = asyncrt_ui_enabled and ((not is_plat("macosx")) or has_config("asyncrt-ui-x11"))
 
 add_requires("objfw", {
     configs = {
@@ -37,7 +68,7 @@ add_requires("objfw", {
     }
 })
 
-if ui_uses_cairo_x11_backend or internal_test_access_enabled then
+if asyncrt_ui_enabled and (ui_uses_cairo_x11_backend or internal_test_access_enabled) then
     add_requires("cairo")
 end
 
@@ -109,4 +140,8 @@ if is_plat("linux") and is_mode("debug") then
     add_mflags("-fno-omit-frame-pointer")
 end
 
-includes("AsyncRT", "tools")
+includes("AsyncRT")
+
+if has_config("asyncrt-tools") then
+    includes("tools")
+end

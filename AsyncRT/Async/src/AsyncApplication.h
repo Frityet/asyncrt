@@ -12,6 +12,7 @@
 
 @property(readonly, nonatomic) AsyncScheduler *nillable scheduler;
 @property(readonly, nonatomic) Task<id> *nillable launchTask;
+@property(readonly, nonatomic) bool shouldTerminateAfterLaunchTaskCompletes;
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
                                taskGroup: (AsyncTaskGroup *)taskGroup;

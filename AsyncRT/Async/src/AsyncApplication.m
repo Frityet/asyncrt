@@ -43,7 +43,8 @@
             id value = launchTask.await;
 
             [self asyncApplicationDidFinishWithValue: value];
-            [OFApplication async_scheduleTerminationWithStatus: [self applicationExitStatusForValue: value]];
+            if (self.shouldTerminateAfterLaunchTaskCompletes)
+                [OFApplication async_scheduleTerminationWithStatus: [self applicationExitStatusForValue: value]];
         } @catch (OFException *exception) {
             [self asyncApplicationDidFailWithException: exception];
             [OFApplication async_scheduleTerminationWithStatus: [self applicationExitStatusForException: exception]];
@@ -65,6 +66,11 @@
     (void)notification;
     (void)taskGroup;
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
+}
+
+- (bool)shouldTerminateAfterLaunchTaskCompletes
+{
+    return true;
 }
 
 - (void)asyncApplicationDidFinishWithValue: (id)value
