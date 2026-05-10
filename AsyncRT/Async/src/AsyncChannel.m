@@ -59,8 +59,11 @@
     OFMutex *_lock;
     bool _closed;
     OFMutableArray<id> *_buffer;
+    size_t _bufferHeadIndex;
     OFMutableArray<AsyncChannelSendWaitRegistration *> *_sendWaitRegistrations;
+    size_t _sendWaitRegistrationHeadIndex;
     OFMutableArray<AsyncChannelReceiveWaitRegistration *> *_receiveWaitRegistrations;
+    size_t _receiveWaitRegistrationHeadIndex;
 }
 
 
@@ -71,14 +74,98 @@
     _lock = [OFMutex mutex];
     _closed = false;
     _buffer = [OFMutableArray array];
+    _bufferHeadIndex = 0;
     _sendWaitRegistrations = [OFMutableArray array];
+    _sendWaitRegistrationHeadIndex = 0;
     _receiveWaitRegistrations = [OFMutableArray array];
+    _receiveWaitRegistrationHeadIndex = 0;
     return self;
+}
+
+- (size_t)_liveBufferCount
+{
+    return _buffer.count - _bufferHeadIndex;
+}
+
+- (size_t)_liveSendWaitRegistrationCount
+{
+    return _sendWaitRegistrations.count - _sendWaitRegistrationHeadIndex;
+}
+
+- (size_t)_liveReceiveWaitRegistrationCount
+{
+    return _receiveWaitRegistrations.count - _receiveWaitRegistrationHeadIndex;
+}
+
+- (void)_compactBufferIfNeeded
+{
+    if (_bufferHeadIndex == 0)
+        return;
+    if (_bufferHeadIndex < 128 and _bufferHeadIndex * 2 < _buffer.count)
+        return;
+
+    auto compactedBuffer = [OFMutableArray<id> arrayWithCapacity: self._liveBufferCount];
+    for (size_t index = _bufferHeadIndex; index < _buffer.count; index++)
+        [compactedBuffer addObject: _buffer[index]];
+
+    _buffer = compactedBuffer;
+    _bufferHeadIndex = 0;
+}
+
+- (void)_compactSendWaitRegistrationsIfNeeded
+{
+    if (_sendWaitRegistrationHeadIndex == 0)
+        return;
+    if (_sendWaitRegistrationHeadIndex < 128 and _sendWaitRegistrationHeadIndex * 2 < _sendWaitRegistrations.count)
+        return;
+
+    auto compactedRegistrations = [OFMutableArray<AsyncChannelSendWaitRegistration *> arrayWithCapacity: self._liveSendWaitRegistrationCount];
+    for (size_t index = _sendWaitRegistrationHeadIndex; index < _sendWaitRegistrations.count; index++)
+        [compactedRegistrations addObject: _sendWaitRegistrations[index]];
+
+    _sendWaitRegistrations = compactedRegistrations;
+    _sendWaitRegistrationHeadIndex = 0;
+}
+
+- (void)_compactReceiveWaitRegistrationsIfNeeded
+{
+    if (_receiveWaitRegistrationHeadIndex == 0)
+        return;
+    if (_receiveWaitRegistrationHeadIndex < 128 and _receiveWaitRegistrationHeadIndex * 2 < _receiveWaitRegistrations.count)
+        return;
+
+    auto compactedRegistrations = [OFMutableArray<AsyncChannelReceiveWaitRegistration *> arrayWithCapacity: self._liveReceiveWaitRegistrationCount];
+    for (size_t index = _receiveWaitRegistrationHeadIndex; index < _receiveWaitRegistrations.count; index++)
+        [compactedRegistrations addObject: _receiveWaitRegistrations[index]];
+
+    _receiveWaitRegistrations = compactedRegistrations;
+    _receiveWaitRegistrationHeadIndex = 0;
+}
+
+- (id)_popBufferedValue
+{
+    id value = _buffer[_bufferHeadIndex++];
+    [self _compactBufferIfNeeded];
+    return value;
+}
+
+- (AsyncChannelSendWaitRegistration *)_popSendWaitRegistration
+{
+    AsyncChannelSendWaitRegistration *registration = _sendWaitRegistrations[_sendWaitRegistrationHeadIndex++];
+    [self _compactSendWaitRegistrationsIfNeeded];
+    return registration;
+}
+
+- (AsyncChannelReceiveWaitRegistration *)_popReceiveWaitRegistration
+{
+    AsyncChannelReceiveWaitRegistration *registration = _receiveWaitRegistrations[_receiveWaitRegistrationHeadIndex++];
+    [self _compactReceiveWaitRegistrationsIfNeeded];
+    return registration;
 }
 
 - (bool)isClosed
 {
-    block_reference bool closed;
+    bool closed;
 
     [_lock lock];
     @try {
@@ -93,7 +180,8 @@
 - (void)send: (id)value
 {
     Task *currentTask = Task.currentTask;
-    block_reference bool didSendImmediately = false;
+    bool didSendImmediately = false;
+    AsyncChannelReceiveWaitRegistration *nillable receiveRegistration = nilptr;
 
     if (currentTask == nilptr)
         @throw [OFInvalidArgumentException exception];
@@ -105,21 +193,19 @@
         if (_closed)
             @throw [[AsyncChannelClosedException alloc] initWithChannel: self operation: @"send"];
 
-        if (_receiveWaitRegistrations.count > 0) {
-            AsyncChannelReceiveWaitRegistration *receiveRegistration = _receiveWaitRegistrations[0];
-            [_receiveWaitRegistrations removeObjectAtIndex: 0];
-            [receiveRegistration signalReceivedValue: value];
+        if (self._liveReceiveWaitRegistrationCount > 0) {
+            receiveRegistration = [self _popReceiveWaitRegistration];
             didSendImmediately = true;
-            return;
-        }
-
-        if (_capacity > 0 and _buffer.count < _capacity) {
+        } else if (_capacity > 0 and self._liveBufferCount < _capacity) {
             [_buffer addObject: value];
             didSendImmediately = true;
         }
     } @finally {
         [_lock unlock];
     }
+
+    if (receiveRegistration != nilptr)
+        [$assert_nonnil(receiveRegistration) signalReceivedValue: value];
 
     if (didSendImmediately)
         return;
@@ -135,8 +221,9 @@
 - (id)receive
 {
     Task *currentTask = Task.currentTask;
-    block_reference id receivedValue = nilptr;
-    block_reference bool didReceiveImmediately = false;
+    id receivedValue = nilptr;
+    bool didReceiveImmediately = false;
+    AsyncChannelSendWaitRegistration *nillable deliveredSendRegistration = nilptr;
 
     if (currentTask == nilptr)
         @throw [OFInvalidArgumentException exception];
@@ -145,23 +232,18 @@
 
     [_lock lock];
     @try {
-        if (_buffer.count > 0) {
-            receivedValue = _buffer[0];
-            [_buffer removeObjectAtIndex: 0];
+        if (self._liveBufferCount > 0) {
+            receivedValue = [self _popBufferedValue];
 
-            if (_sendWaitRegistrations.count > 0) {
-                AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
-                [_sendWaitRegistrations removeObjectAtIndex: 0];
-                [_buffer addObject: sendRegistration.value];
-                [sendRegistration signalDelivered];
+            if (self._liveSendWaitRegistrationCount > 0) {
+                deliveredSendRegistration = [self _popSendWaitRegistration];
+                [_buffer addObject: $assert_nonnil(deliveredSendRegistration).value];
             }
 
             didReceiveImmediately = true;
-        } else if (_sendWaitRegistrations.count > 0) {
-            AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
-            [_sendWaitRegistrations removeObjectAtIndex: 0];
-            receivedValue = sendRegistration.value;
-            [sendRegistration signalDelivered];
+        } else if (self._liveSendWaitRegistrationCount > 0) {
+            deliveredSendRegistration = [self _popSendWaitRegistration];
+            receivedValue = $assert_nonnil(deliveredSendRegistration).value;
             didReceiveImmediately = true;
         }
 
@@ -170,6 +252,9 @@
     } @finally {
         [_lock unlock];
     }
+
+    if (deliveredSendRegistration != nilptr)
+        [$assert_nonnil(deliveredSendRegistration) signalDelivered];
 
     if (didReceiveImmediately)
         return $assert_nonnil(receivedValue);
@@ -195,10 +280,20 @@
         if (not _closed) {
             shouldClose = true;
             _closed = true;
-            sendRegistrations = [_sendWaitRegistrations copy];
-            receiveRegistrations = [_receiveWaitRegistrations copy];
+            auto activeSendRegistrations = [OFMutableArray<AsyncChannelSendWaitRegistration *> arrayWithCapacity: self._liveSendWaitRegistrationCount];
+            for (size_t index = _sendWaitRegistrationHeadIndex; index < _sendWaitRegistrations.count; index++)
+                [activeSendRegistrations addObject: _sendWaitRegistrations[index]];
+            sendRegistrations = [activeSendRegistrations copy];
+
+            auto activeReceiveRegistrations = [OFMutableArray<AsyncChannelReceiveWaitRegistration *> arrayWithCapacity: self._liveReceiveWaitRegistrationCount];
+            for (size_t index = _receiveWaitRegistrationHeadIndex; index < _receiveWaitRegistrations.count; index++)
+                [activeReceiveRegistrations addObject: _receiveWaitRegistrations[index]];
+            receiveRegistrations = [activeReceiveRegistrations copy];
+
             [_sendWaitRegistrations removeAllObjects];
             [_receiveWaitRegistrations removeAllObjects];
+            _sendWaitRegistrationHeadIndex = 0;
+            _receiveWaitRegistrationHeadIndex = 0;
         }
     } @finally {
         [_lock unlock];
@@ -215,31 +310,33 @@
 
 - (void)_armSendRegistration: (AsyncChannelSendWaitRegistration *)registration
 {
+    AsyncChannelReceiveWaitRegistration *nillable receiveRegistration = nilptr;
+    bool shouldSignalClosed = false;
+    bool shouldSignalDelivered = false;
+
     [_lock lock];
     @try {
         if (_closed) {
-            [registration signalClosed];
-            return;
-        }
-
-        if (_receiveWaitRegistrations.count > 0) {
-            AsyncChannelReceiveWaitRegistration *receiveRegistration = _receiveWaitRegistrations[0];
-            [_receiveWaitRegistrations removeObjectAtIndex: 0];
-            [receiveRegistration signalReceivedValue: registration.value];
-            [registration signalDelivered];
-            return;
-        }
-
-        if (_capacity > 0 and _buffer.count < _capacity) {
+            shouldSignalClosed = true;
+        } else if (self._liveReceiveWaitRegistrationCount > 0) {
+            receiveRegistration = [self _popReceiveWaitRegistration];
+            shouldSignalDelivered = true;
+        } else if (_capacity > 0 and self._liveBufferCount < _capacity) {
             [_buffer addObject: registration.value];
-            [registration signalDelivered];
-            return;
+            shouldSignalDelivered = true;
+        } else {
+            [_sendWaitRegistrations addObject: registration];
         }
-
-        [_sendWaitRegistrations addObject: registration];
     } @finally {
         [_lock unlock];
     }
+
+    if (receiveRegistration != nilptr)
+        [$assert_nonnil(receiveRegistration) signalReceivedValue: registration.value];
+    if (shouldSignalDelivered)
+        [registration signalDelivered];
+    if (shouldSignalClosed)
+        [registration signalClosed];
 }
 
 - (void)_cancelSendRegistration: (AsyncChannelSendWaitRegistration *)registration
@@ -254,40 +351,40 @@
 
 - (void)_armReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)registration
 {
+    id nillable receivedValue = nilptr;
+    AsyncChannelSendWaitRegistration *nillable deliveredSendRegistration = nilptr;
+    bool shouldSignalReceived = false;
+    bool shouldSignalClosed = false;
+
     [_lock lock];
     @try {
-        if (_buffer.count > 0) {
-            id value = _buffer[0];
-            [_buffer removeObjectAtIndex: 0];
+        if (self._liveBufferCount > 0) {
+            receivedValue = [self _popBufferedValue];
+            shouldSignalReceived = true;
 
-            if (_sendWaitRegistrations.count > 0) {
-                AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
-                [_sendWaitRegistrations removeObjectAtIndex: 0];
-                [_buffer addObject: sendRegistration.value];
-                [sendRegistration signalDelivered];
+            if (self._liveSendWaitRegistrationCount > 0) {
+                deliveredSendRegistration = [self _popSendWaitRegistration];
+                [_buffer addObject: $assert_nonnil(deliveredSendRegistration).value];
             }
-
-            [registration signalReceivedValue: value];
-            return;
+        } else if (self._liveSendWaitRegistrationCount > 0) {
+            deliveredSendRegistration = [self _popSendWaitRegistration];
+            receivedValue = $assert_nonnil(deliveredSendRegistration).value;
+            shouldSignalReceived = true;
+        } else if (_closed) {
+            shouldSignalClosed = true;
+        } else {
+            [_receiveWaitRegistrations addObject: registration];
         }
-
-        if (_sendWaitRegistrations.count > 0) {
-            AsyncChannelSendWaitRegistration *sendRegistration = _sendWaitRegistrations[0];
-            [_sendWaitRegistrations removeObjectAtIndex: 0];
-            [registration signalReceivedValue: sendRegistration.value];
-            [sendRegistration signalDelivered];
-            return;
-        }
-
-        if (_closed) {
-            [registration signalClosed];
-            return;
-        }
-
-        [_receiveWaitRegistrations addObject: registration];
     } @finally {
         [_lock unlock];
     }
+
+    if (shouldSignalReceived)
+        [registration signalReceivedValue: $assert_nonnil(receivedValue)];
+    if (deliveredSendRegistration != nilptr)
+        [$assert_nonnil(deliveredSendRegistration) signalDelivered];
+    if (shouldSignalClosed)
+        [registration signalClosed];
 }
 
 - (void)_cancelReceiveRegistration: (AsyncChannelReceiveWaitRegistration *)registration

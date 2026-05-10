@@ -144,6 +144,7 @@ void AsyncRetainForTSAN(id nillable object);
 
 - (void)_enqueueTask: (Task *)task;
 - (void)_enqueueBlock: (void (^)(void))block;
+- (bool)_tryEnqueueBlock: (void (^)(void))block;
 - (void)_recordTaskResolutionForTask: (Task *)task;
 
 @end

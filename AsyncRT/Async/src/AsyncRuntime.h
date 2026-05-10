@@ -5,8 +5,10 @@
 #import "AsyncScheduler.h"
 #import "AsyncTaskGroup.h"
 #import "AsyncChannel.h"
+#import "AsyncStreamTasks.h"
 #import "Task.h"
 #import "AsyncApplication.h"
+#import "AsyncHTTPServer.h"
 
 #pragma clang assume_nonnull begin
 

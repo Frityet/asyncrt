@@ -271,8 +271,11 @@ static atomic_t(uint64_t) async_next_task_id = 1;
             return [[AsyncTaskExecutionCompletion alloc] initWithException: [[TaskReturnedNilException alloc] initWithTask: self]];
 
         return [[AsyncTaskExecutionCompletion alloc] initWithValue: value];
-    } @catch (OFException *exception) {
-        return [[AsyncTaskExecutionCompletion alloc] initWithException: exception];
+    } @catch (id exception) {
+        if ([$assert_nonnil(exception) isKindOfClass: OFException.class])
+            return [[AsyncTaskExecutionCompletion alloc] initWithException: (OFException *)$assert_nonnil(exception)];
+
+        return [[AsyncTaskExecutionCompletion alloc] initWithException: [OFInvalidArgumentException exception]];
     }
 }
 

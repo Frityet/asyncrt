@@ -89,6 +89,9 @@
 - (Task<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
 - (Task<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
 - (Task<id> *)offload: (id (^)(void))block;
+- (void)runUntilTaskCompletes: (Task *)task;
+- (bool)runUntilTaskCompletes: (Task *)task timeout: (OFTimeInterval)timeout;
+- (void)runUntilIdle;
 - (AsyncSchedulerSnapshot *)snapshot;
 - (void)shutdown;
 - (instancetype)init OF_UNAVAILABLE;

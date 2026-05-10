@@ -5,8 +5,14 @@
 
 #pragma clang assume_nonnull begin
 
+@class AsyncWorkerPool;
+
 static OFString * const async_default_scheduler_key = @"AsyncScheduler.defaultScheduler";
 static size_t const async_default_drain_batch_size = 64;
+static OFTimeInterval const async_scheduler_run_interval = 0.01;
+static OFOnceControl async_shared_worker_pool_once = OFOnceControlInitValue;
+static OFMutex *nillable async_shared_worker_pool_lock;
+static AsyncWorkerPool *nillable async_shared_worker_pool;
 
 @protocol AsyncTaskCoroutineLike
 
@@ -61,12 +67,20 @@ static size_t const async_default_drain_batch_size = 64;
 
 @property(readonly, nonatomic) size_t maxWorkerCount;
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount [[designated_initailiser]];
++ (AsyncWorkerPool *)sharedPoolWithMaxWorkerCount: (size_t)maxWorkerCount;
+- (instancetype)initWithMaxWorkerCount: (size_t)maxWorkerCount [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
-- (void)enqueueBlock: (id (^)(void))block completionSource: (AsyncCompletionSource<id> *)completionSource;
+- (bool)enqueueBlock: (id (^)(void))block
+           scheduler: (AsyncScheduler *)scheduler
+    completionSource: (AsyncCompletionSource<id> *)completionSource;
 - (void)shutdown;
 
 @end
+
+static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
+{
+    async_shared_worker_pool_lock = [OFMutex mutex];
+}
 
 @namespace_implementation(AsyncSchedulerValidation)
 
@@ -252,7 +266,7 @@ static size_t const async_default_drain_batch_size = 64;
     _cancelledTaskCount = 0;
 
     [self _initializeWakePipe];
-    _workerPool = [[AsyncWorkerPool alloc] initWithScheduler: self maxWorkerCount: maxWorkerCount];
+    _workerPool = nilptr;
     [self _armWakeReadHandler];
     return self;
 }
@@ -273,16 +287,67 @@ static size_t const async_default_drain_batch_size = 64;
 
     if (pipe(pipeFileDescriptors) != 0)
         @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"failed to create scheduler wake pipe"];
-    if (fcntl(pipeFileDescriptors[0], F_SETFL, O_NONBLOCK) != 0 or
-        fcntl(pipeFileDescriptors[1], F_SETFL, O_NONBLOCK) != 0) {
-        close(pipeFileDescriptors[0]);
-        close(pipeFileDescriptors[1]);
-        @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"failed to configure scheduler wake pipe"];
+
+    for (size_t index = 0; index < 2; index++) {
+        int descriptor = pipeFileDescriptors[index];
+        int flags = fcntl(descriptor, F_GETFL, 0);
+        int descriptorFlags = fcntl(descriptor, F_GETFD, 0);
+
+        if (flags < 0 or descriptorFlags < 0
+            or fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) != 0
+            or fcntl(descriptor, F_SETFD, descriptorFlags | FD_CLOEXEC) != 0) {
+            close(pipeFileDescriptors[0]);
+            close(pipeFileDescriptors[1]);
+            @throw [[AsyncSchedulerInvalidInitializationException alloc] initWithReason: @"failed to configure scheduler wake pipe"];
+        }
     }
 
     _wakeReadFileDescriptor = pipeFileDescriptors[0];
     _wakeWriteFileDescriptor = pipeFileDescriptors[1];
     _wakeReadFile = [[OFFile alloc] initWithHandle: _wakeReadFileDescriptor];
+}
+
+- (void)_clearPendingWakeSignal
+{
+    [_lock lock];
+    @try {
+        _wakeSignalPending = false;
+    } @finally {
+        [_lock unlock];
+    }
+}
+
+- (bool)_hasReadyRunnables
+{
+    [_lock lock];
+    @try {
+        return (_readyRunnables.count > _readyRunnableHeadIndex);
+    } @finally {
+        [_lock unlock];
+    }
+}
+
+- (bool)_writeWakeByte
+{
+    if (_wakeWriteFileDescriptor < 0)
+        return false;
+
+    char wakeByte = 1;
+
+    while (true) {
+        ssize_t writeCount = write(_wakeWriteFileDescriptor, &wakeByte, sizeof(wakeByte));
+
+        if (writeCount == (ssize_t)sizeof(wakeByte))
+            return true;
+        if (writeCount >= 0)
+            continue;
+        if (errno == EINTR)
+            continue;
+        if (errno == EAGAIN or errno == EWOULDBLOCK)
+            return true;
+
+        return false;
+    }
 }
 
 - (void)_armWakeReadHandler
@@ -322,16 +387,11 @@ static size_t const async_default_drain_batch_size = 64;
         [_lock unlock];
     }
 
-    if (not shouldWrite or _wakeWriteFileDescriptor < 0)
+    if (not shouldWrite)
         return;
 
-    char wakeByte = 1;
-    ssize_t writeCount = write(_wakeWriteFileDescriptor, &wakeByte, sizeof(wakeByte));
-    if (writeCount >= 0)
-        return;
-
-    if (errno == EAGAIN or errno == EWOULDBLOCK or errno == EBADF)
-        return;
+    if (not [self _writeWakeByte])
+        [self _clearPendingWakeSignal];
 }
 
 - (void)_drainWakePipe
@@ -344,18 +404,15 @@ static size_t const async_default_drain_batch_size = 64;
                 continue;
             if (readCount == 0)
                 break;
+            if (errno == EINTR)
+                continue;
             if (errno == EAGAIN or errno == EWOULDBLOCK)
                 break;
             break;
         }
     }
 
-    [_lock lock];
-    @try {
-        _wakeSignalPending = false;
-    } @finally {
-        [_lock unlock];
-    }
+    [self _clearPendingWakeSignal];
 }
 
 - (void)_compactReadyQueueIfNeeded
@@ -422,7 +479,7 @@ static size_t const async_default_drain_batch_size = 64;
         [task _clearReadyQueued];
 }
 
-- (void)_enqueueBlock: (void (^)(void))block
+- (bool)_tryEnqueueBlock: (void (^)(void))block
 {
     bool shouldWake = false;
 
@@ -438,6 +495,13 @@ static size_t const async_default_drain_batch_size = 64;
 
     if (shouldWake)
         [self _signalWakePipeIfNeeded];
+
+    return shouldWake;
+}
+
+- (void)_enqueueBlock: (void (^)(void))block
+{
+    (void)[self _tryEnqueueBlock: block];
 }
 
 - (void)_recordTaskResolutionForTask: (Task *)task
@@ -491,9 +555,12 @@ static size_t const async_default_drain_batch_size = 64;
             coroutineStatus = coroutine.status;
             returnedObject = coroutine.returnedObject;
         }
-    } @catch (OFException *exception) {
+    } @catch (id exception) {
         [task _captureCurrentScopeContext];
-        [task _rejectTaskWithException: exception];
+        if ([$assert_nonnil(exception) isKindOfClass: OFException.class])
+            [task _rejectTaskWithException: (OFException *)$assert_nonnil(exception)];
+        else
+            [task _rejectTaskWithException: [OFInvalidArgumentException exception]];
         return;
     } @finally {
         [task _captureCurrentScopeContext];
@@ -528,17 +595,23 @@ static size_t const async_default_drain_batch_size = 64;
     [instruction.registration arm];
 }
 
+- (bool)_drainReadyQueueOnce
+{
+    OFArray<id<AsyncSchedulerRunnable>> *batch = [self _dequeueReadyBatch];
+
+    if (batch.count == 0)
+        return false;
+
+    for (id<AsyncSchedulerRunnable> runnable in batch)
+        [runnable runOnScheduler: self];
+
+    return true;
+}
+
 - (void)_drainReadyQueue
 {
-    while (true) {
-        OFArray<id<AsyncSchedulerRunnable>> *batch = [self _dequeueReadyBatch];
-
-        if (batch.count == 0)
-            return;
-
-        for (id<AsyncSchedulerRunnable> runnable in batch)
-            [runnable runOnScheduler: self];
-    }
+    if ([self _drainReadyQueueOnce] and [self _hasReadyRunnables])
+        [self _signalWakePipeIfNeeded];
 }
 
 - (Task *)sleepForTimeInterval: (OFTimeInterval)timeInterval
@@ -569,22 +642,69 @@ static size_t const async_default_drain_batch_size = 64;
 
 - (Task<id> *)offload: (id (^)(void))block
 {
+    AsyncWorkerPool *workerPool = nilptr;
+
     [_lock lock];
     @try {
         if (_shutdown)
             @throw [OFInvalidArgumentException exception];
+
+        if (_workerPool == nilptr)
+            _workerPool = [AsyncWorkerPool sharedPoolWithMaxWorkerCount: self.maxWorkerCount];
+
+        workerPool = _workerPool;
     } @finally {
         [_lock unlock];
     }
 
     auto completionSource = [[AsyncCompletionSource alloc] init];
-    [_workerPool enqueueBlock: block completionSource: completionSource];
+    if (not [$assert_nonnil(workerPool) enqueueBlock: block scheduler: self completionSource: completionSource])
+        [completionSource reject: [OFInvalidArgumentException exception]];
+
     return completionSource.task;
+}
+
+- (void)runUntilTaskCompletes: (Task *)task
+{
+    while (not task.isCompleted) {
+        if ([self _drainReadyQueueOnce])
+            continue;
+
+        auto deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: async_scheduler_run_interval];
+        [self.runLoop runMode: self.mode beforeDate: deadline];
+    }
+}
+
+- (bool)runUntilTaskCompletes: (Task *)task timeout: (OFTimeInterval)timeout
+{
+    OFDate *deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: timeout];
+
+    while (not task.isCompleted) {
+        if ([self _drainReadyQueueOnce])
+            continue;
+
+        OFDate *sliceDeadline = [[OFDate alloc] initWithTimeIntervalSinceNow: async_scheduler_run_interval];
+
+        if ([sliceDeadline compare: deadline] == OFOrderedDescending)
+            sliceDeadline = deadline;
+
+        [self.runLoop runMode: self.mode beforeDate: sliceDeadline];
+
+        if ([deadline compare: OFDate.date] != OFOrderedDescending)
+            return task.isCompleted;
+    }
+
+    return true;
+}
+
+- (void)runUntilIdle
+{
+    while ([self _drainReadyQueueOnce])
+        ;
 }
 
 - (void)shutdown
 {
-    AsyncWorkerPool *nillable workerPool = nilptr;
     OFFile *nillable wakeReadFile = nilptr;
     int wakeWriteFileDescriptor = -1;
     bool shouldShutdown = false;
@@ -597,7 +717,6 @@ static size_t const async_default_drain_batch_size = 64;
             [_readyRunnables removeAllObjects];
             _readyRunnableHeadIndex = 0;
             [_activeTasks removeAllObjects];
-            workerPool = _workerPool;
             _workerPool = nilptr;
             wakeReadFile = _wakeReadFile;
             _wakeReadFile = nilptr;
@@ -622,8 +741,6 @@ static size_t const async_default_drain_batch_size = 64;
             [wakeReadFile close];
         } @catch (OFException *) {
         }
-
-    [workerPool shutdown];
 }
 
 - (void)dealloc
@@ -734,23 +851,27 @@ static size_t const async_default_drain_batch_size = 64;
         value = self.block();
         if (value == nilptr)
             exception = [OFInvalidArgumentException exception];
-    } @catch (OFException *caughtException) {
-        exception = caughtException;
+    } @catch (id caughtException) {
+        if ([$assert_nonnil(caughtException) isKindOfClass: OFException.class])
+            exception = (OFException *)$assert_nonnil(caughtException);
+        else
+            exception = [OFInvalidArgumentException exception];
     }
 
-    [scheduler _enqueueBlock: ^{
+    if (not [scheduler _tryEnqueueBlock: ^{
         if (exception != nilptr)
             [completionSource reject: $assert_nonnil(exception)];
         else
             [completionSource fulfill: $assert_nonnil(value)];
-    }];
+    }]) {
+        [completionSource reject: [OFInvalidArgumentException exception]];
+    }
 }
 
 @end
 
 [[direct_members]]
 @implementation AsyncWorkerPool {
-    AsyncScheduler *_scheduler;
     OFCondition *_condition;
     OFMutableArray<AsyncOffloadJob *> *_jobs;
     size_t _jobHeadIndex;
@@ -758,10 +879,24 @@ static size_t const async_default_drain_batch_size = 64;
     bool _stopping;
 }
 
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler maxWorkerCount: (size_t)maxWorkerCount
++ (AsyncWorkerPool *)sharedPoolWithMaxWorkerCount: (size_t)maxWorkerCount
+{
+    OFOnce(&async_shared_worker_pool_once, AsyncSchedulerInitialiseSharedWorkerPoolState);
+
+    [async_shared_worker_pool_lock lock];
+    @try {
+        if (async_shared_worker_pool == nilptr)
+            async_shared_worker_pool = [[AsyncWorkerPool alloc] initWithMaxWorkerCount: maxWorkerCount];
+
+        return $assert_nonnil(async_shared_worker_pool);
+    } @finally {
+        [async_shared_worker_pool_lock unlock];
+    }
+}
+
+- (instancetype)initWithMaxWorkerCount: (size_t)maxWorkerCount
 {
     self = [super init];
-    _scheduler = scheduler;
     _maxWorkerCount = maxWorkerCount;
     _condition = [[OFCondition alloc] init];
     _jobs = [OFMutableArray array];
@@ -779,7 +914,7 @@ static size_t const async_default_drain_batch_size = 64;
                     while ((self->_jobs.count - self->_jobHeadIndex) == 0 and not self->_stopping)
                         [self->_condition wait];
 
-                    if (self->_stopping and (self->_jobs.count - self->_jobHeadIndex) == 0)
+                    if (self->_stopping)
                         return nilptr;
 
                     job = self->_jobs[self->_jobHeadIndex];
@@ -813,17 +948,24 @@ static size_t const async_default_drain_batch_size = 64;
     [self shutdown];
 }
 
-- (void)enqueueBlock: (id (^)(void))block completionSource: (AsyncCompletionSource<id> *)completionSource
+- (bool)enqueueBlock: (id (^)(void))block
+           scheduler: (AsyncScheduler *)scheduler
+    completionSource: (AsyncCompletionSource<id> *)completionSource
 {
-    auto job = [[AsyncOffloadJob alloc] initWithScheduler: _scheduler completionSource: completionSource block: block];
+    auto job = [[AsyncOffloadJob alloc] initWithScheduler: scheduler completionSource: completionSource block: block];
 
     [_condition lock];
     @try {
+        if (_stopping)
+            return false;
+
         [_jobs addObject: job];
         [_condition signal];
     } @finally {
         [_condition unlock];
     }
+
+    return true;
 }
 
 - (void)shutdown

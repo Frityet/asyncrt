@@ -65,12 +65,14 @@ local async_runtime_test_suites = {
         class = "AsyncRuntimeUITests",
         group = "ui",
         timeout = 30,
+        deps = {"AsyncRTUI"},
         files = {"tests/AsyncRuntimeTests.m", "../UI/tests/TestCasesUI.m"}
     },
     {
         name = "app",
         class = "AsyncRuntimeAppTests",
         group = "app",
+        deps = {"AsyncRTAppSupport"},
         files = {"tests/AsyncRuntimeTests.m", "../App/tests/TestCasesApp.m"}
     },
     {
@@ -97,11 +99,30 @@ local async_runtime_test_suites = {
 }
 
 local async_runtime_test_target_names = {}
+local enabled_async_runtime_test_suites = {}
+
+for _, test_suite in ipairs(async_runtime_test_suites) do
+    local include_suite = true
+
+    if test_suite.name == "ui" then
+        include_suite = has_config("asyncrt-ui")
+    elseif test_suite.name == "app" then
+        include_suite = has_config("asyncrt-app") and has_config("asyncrt-ui")
+    elseif test_suite.name == "objdb" then
+        include_suite = has_config("asyncrt-db")
+    end
+
+    if include_suite then
+        table.insert(enabled_async_runtime_test_suites, test_suite)
+    end
+end
+
+async_runtime_test_suites = enabled_async_runtime_test_suites
 
 target("AsyncRTTestSupport", function ()
     set_default(false)
     set_kind("static")
-    add_deps("AsyncRTAppSupport", { public = true })
+    add_deps("AsyncRT", { public = true })
     add_includedirs("src", { public = true })
     if is_mode("test") or has_config("asyncrt-test-access") then
         add_defines("ASYNC_RUNTIME_TEST_BUILD", { public = true })

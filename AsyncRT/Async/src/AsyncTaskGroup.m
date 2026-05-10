@@ -347,8 +347,11 @@
     async_current_task_group = self;
     @try {
         result = block(self);
-    } @catch (OFException *exception) {
-        bodyException = exception;
+    } @catch (id exception) {
+        if ([$assert_nonnil(exception) isKindOfClass: OFException.class])
+            bodyException = (OFException *)$assert_nonnil(exception);
+        else
+            bodyException = [OFInvalidArgumentException exception];
     } @finally {
         async_current_task_group = previousTaskGroup;
         if (currentTask != nilptr)
