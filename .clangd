@@ -1,6 +1,8 @@
 CompileFlags:
-  Compiler: /usr/local/opt/llvm/bin/clang
+  Compiler: /usr/bin/clang
   Remove:
     - -fno-constant-nsnumber-literals
     - -fno-constant-nsarray-literals
     - -fno-constant-nsdictionary-literals
+Index:
+  Background: Skip

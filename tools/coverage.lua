@@ -39,9 +39,9 @@ end
 local function _source_files(projectdir)
     local files = {}
     local excluded_patterns = {
-        "^AsyncRT/UI/src/Backend/",
-        "^AsyncRT/Async/src/AsyncApplication%.m$",
-        "^AsyncRT/UI/src/AUIExceptions%.m$"
+        "^AsyncRT/Application/UI/Backend/",
+        "^AsyncRT/Application/Core/AsyncApplication%.m$",
+        "^AsyncRT/Application/UI/AsyncUIExceptions%.m$"
     }
 
     local function is_excluded(relative)
@@ -55,10 +55,11 @@ local function _source_files(projectdir)
     end
 
     for _, pattern in ipairs({
-        path.join(projectdir, "AsyncRT", "Utilities", "src", "**.m"),
-        path.join(projectdir, "AsyncRT", "Async", "src", "**.m"),
-        path.join(projectdir, "AsyncRT", "UI", "src", "**.m"),
-        path.join(projectdir, "AsyncRT", "App", "src", "**.m")
+        path.join(projectdir, "AsyncRT", "Common", "**.m"),
+        path.join(projectdir, "AsyncRT", "Core", "**.m"),
+        path.join(projectdir, "AsyncRT", "Application", "**.m"),
+        path.join(projectdir, "AsyncRT", "Networking", "**.m"),
+        path.join(projectdir, "AsyncRT", "Database", "**.m")
     }) do
         for _, file in ipairs(os.files(pattern)) do
             if path.filename(file) == "main.m" then

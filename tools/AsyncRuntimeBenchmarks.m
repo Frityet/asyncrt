@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#import "AsyncRuntime.h"
+#import <AsyncRT/Core/AsyncRuntime.h>
 
 #pragma clang assume_nonnull begin
 
@@ -47,7 +47,7 @@ static void benchmark_task_map_chain(AsyncTaskGroup *rootTaskGroup)
     (void)rootTaskGroup;
 
     for (size_t round = 0; round < task_map_chain_rounds; round++) {
-        Task *task = [Task resolved: AsyncUnit.unit];
+        AsyncTask *task = [AsyncTask resolved: AsyncUnit.unit];
 
         for (size_t depth = 0; depth < task_map_chain_depth; depth++) {
             task = [task map: ^id(id value) {
@@ -62,15 +62,15 @@ static void benchmark_task_map_chain(AsyncTaskGroup *rootTaskGroup)
 static void benchmark_task_all_resolved(AsyncTaskGroup *rootTaskGroup)
 {
     (void)rootTaskGroup;
-    auto inputs = [OFMutableArray<Task *> arrayWithCapacity: task_all_resolved_batch_size];
+    auto inputs = [OFMutableArray<AsyncTask *> arrayWithCapacity: task_all_resolved_batch_size];
 
     for (size_t index = 0; index < task_all_resolved_batch_size; index++)
-        [inputs addObject: [Task resolved: AsyncUnit.unit]];
+        [inputs addObject: [AsyncTask resolved: AsyncUnit.unit]];
 
-    OFArray<Task *> *resolvedInputs = [inputs copy];
+    OFArray<AsyncTask *> *resolvedInputs = [inputs copy];
 
     for (size_t round = 0; round < task_all_resolved_rounds; round++)
-        [[Task all: resolvedInputs] await];
+        [[AsyncTask all: resolvedInputs] await];
 }
 
 static void benchmark_task_all_trivial_tasks(AsyncTaskGroup *rootTaskGroup)
@@ -80,12 +80,12 @@ static void benchmark_task_all_trivial_tasks(AsyncTaskGroup *rootTaskGroup)
     };
 
     for (size_t round = 0; round < task_all_trivial_tasks_rounds; round++) {
-        auto tasks = [OFMutableArray<Task *> arrayWithCapacity: task_all_trivial_tasks_batch_size];
+        auto tasks = [OFMutableArray<AsyncTask *> arrayWithCapacity: task_all_trivial_tasks_batch_size];
 
         for (size_t index = 0; index < task_all_trivial_tasks_batch_size; index++)
             [tasks addObject: [rootTaskGroup spawnTask: trivialBlock]];
 
-        [[Task all: tasks] await];
+        [[AsyncTask all: tasks] await];
     }
 }
 
@@ -258,7 +258,7 @@ static void print_usage(const char *program)
 {
     (void)notification;
 
-    OFArray<OFString *> *arguments = OFApplication.arguments ?: @[];
+    OFArray<OFString *> *arguments = OFApplication.arguments ?: [OFArray array];
     const char *program = (OFApplication.programName != nilptr ? OFApplication.programName.UTF8String : "async-runtime-benchmarks");
     const char *selectedScenario = (arguments.count >= 1 ? arguments[0].UTF8String : "all");
     double secondsPerSample = (arguments.count >= 2 ? strtod(arguments[1].UTF8String, nullptr) : 1.0);
@@ -266,7 +266,7 @@ static void print_usage(const char *program)
 
     if (secondsPerSample <= 0 or sampleCount == 0) {
         print_usage(program);
-        return @1;
+        return [OFNumber numberWithInt: 1];
     }
 
     if (strcmp(selectedScenario, "all") == 0) {
@@ -280,7 +280,7 @@ static void print_usage(const char *program)
 
     if (scenario == nullptr) {
         print_usage(program);
-        return @1;
+        return [OFNumber numberWithInt: 1];
     }
 
     print_scenario_summary($assert_nonnil(scenario), rootTaskGroup, secondsPerSample, sampleCount);

@@ -1,17 +1,9 @@
-includes("Utilities", "Async")
+includes("Common", "Core", "Application/Core", "Application/Terminal", "Networking/HTTP")
 
 if has_config("asyncrt-db") then
-    includes("ObjDB")
+    includes("Database")
 end
 
 if has_config("asyncrt-ui") then
-    includes("UI")
-end
-
-if has_config("asyncrt-app") and has_config("asyncrt-ui") then
-    includes("App")
-end
-
-if has_config("asyncrt-test-support") then
-    includes("TestSupport")
+    includes("Application/UI")
 end
