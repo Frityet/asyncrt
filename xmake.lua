@@ -216,20 +216,6 @@ add_cxflags(c_and_objc_flags)
 add_mflags(c_and_objc_flags)
 add_mflags("-include", "ObjFW/ObjFW.h", {force = true})
 
-local asyncrt_module_map = os.scriptdir() .. "/AsyncRT/module.modulemap"
-add_cxflags(
-    "-fmodules",
-    "-fmodules-cache-path=$(builddir)/.clang-modules",
-    "-fmodule-map-file=" .. asyncrt_module_map,
-    {force = true}
-)
-add_mflags(
-    "-fmodules",
-    "-fmodules-cache-path=$(builddir)/.clang-modules",
-    "-fmodule-map-file=" .. asyncrt_module_map,
-    {force = true}
-)
-
 if is_plat("linux") and is_mode("debug") then
     add_ldflags("-rdynamic")
     add_cxflags("-fno-omit-frame-pointer")

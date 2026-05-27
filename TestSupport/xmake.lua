@@ -63,13 +63,6 @@ local async_runtime_test_suites = {
         files = {"tests/AsyncRuntimeTests.m", "tests/Core/TestCasesAsync.m"}
     },
     {
-        name = "modules",
-        class = "AsyncRuntimeModuleImportTests",
-        group = "modules",
-        deps = {"AsyncRTDatabaseProviderSQLite"},
-        files = {"tests/AsyncRuntimeTests.m", "tests/Modules/TestCasesModules.m"}
-    },
-    {
         name = "ui",
         class = "AsyncRuntimeUITests",
         group = "ui",
@@ -118,7 +111,7 @@ for _, test_suite in ipairs(async_runtime_test_suites) do
         include_suite = has_config("asyncrt-ui")
     elseif test_suite.name == "app" then
         include_suite = has_config("asyncrt-app") and has_config("asyncrt-ui")
-    elseif test_suite.name == "database" or test_suite.name == "modules" then
+    elseif test_suite.name == "database" then
         include_suite = has_config("asyncrt-db")
     end
 

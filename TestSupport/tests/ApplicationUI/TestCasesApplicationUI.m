@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-@import AsyncRT.Application.UI;
-
 #import <TestSupport/TestSupport.h>
 #import <AsyncRT/Application/UI/AsyncUI.h>
 #import <AsyncRT/Application/UI/AsyncUIAdvanced.h>
