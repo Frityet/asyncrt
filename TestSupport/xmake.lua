@@ -98,6 +98,14 @@ local async_runtime_test_suites = {
         group = "coverage/extras",
         timeout = 60,
         files = {"tests/AsyncRuntimeTests.m", "tests/TestCasesCoverageExtras.m"}
+    },
+    {
+        name = "webui",
+        class = "AsyncRuntimeWebUITests",
+        group = "webui",
+        timeout = 30,
+        deps = {"AsyncRTWebUI"},
+        files = {"tests/AsyncRuntimeTests.m", "tests/WebUI/TestCasesWebUI.m"}
     }
 }
 
@@ -113,6 +121,8 @@ for _, test_suite in ipairs(async_runtime_test_suites) do
         include_suite = has_config("asyncrt-app") and has_config("asyncrt-ui")
     elseif test_suite.name == "database" then
         include_suite = has_config("asyncrt-db")
+    elseif test_suite.name == "webui" then
+        include_suite = has_config("asyncrt-webui")
     end
 
     if include_suite then
