@@ -2,7 +2,14 @@
 
 #import "AsyncWebUIRequest.h"
 
-@interface AsyncWebUIWindowConfiguration : OFObject
+@interface AsyncWebUIWindowConfiguration : OFObject <OFCopying>
+
+@property(readwrite, copy, nonatomic) OFString *title;
+@property(readwrite, nonatomic) unsigned int width;
+@property(readwrite, nonatomic) unsigned int height;
+@property(readwrite, nonatomic) bool resizable;
+
++ (instancetype)configuration;
 
 @end
 
@@ -16,7 +23,8 @@
                             scheduler: (AsyncScheduler *)scheduler
     [[designated_initailiser]];
 
-// - (void)navigateToIRI: (OFIRI *)IRI;
+- (void)loadHTML: (OFString *)html;
+- (void)loadIRI: (OFIRI *)IRI;
 
 - (void)bindAction: (OFString *)name toHandler: (AsyncWebUIActionHandler)handler;
 
