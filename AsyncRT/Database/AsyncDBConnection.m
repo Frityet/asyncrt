@@ -32,4 +32,46 @@
 
 @end
 
+@implementation OFObject (AsyncDBConnectionConvenience)
+
+- (AsyncTask<AsyncDBWriteResult *> *)asyncdb_executeSQL: (OFString *)SQL
+{
+    return [self asyncdb_executeSQL: SQL
+                             values: [OFArray array]];
+}
+
+- (AsyncTask<AsyncDBWriteResult *> *)asyncdb_executeSQL: (OFString *)SQL
+                                                 values: (OFArray<id> *)values
+{
+    if (![self conformsToProtocol: @protocol(AsyncDBConnection)])
+        return [AsyncTask rejected: [OFInvalidArgumentException exception]];
+
+    id<AsyncDBConnection> connection = (id<AsyncDBConnection>)self;
+    return (AsyncTask<AsyncDBWriteResult *> *)[[connection prepareStatementWithSQL: SQL]
+        flatMap: ^AsyncTask *(id<AsyncDBPreparedStatement> statement) {
+            return [statement executeWithValues: values];
+        }];
+}
+
+- (AsyncTask<OFArray<OFDictionary<OFString *, id> *> *> *)asyncdb_fetchRowsWithSQL: (OFString *)SQL
+{
+    return [self asyncdb_fetchRowsWithSQL: SQL
+                                   values: [OFArray array]];
+}
+
+- (AsyncTask<OFArray<OFDictionary<OFString *, id> *> *> *)asyncdb_fetchRowsWithSQL: (OFString *)SQL
+                                                                             values: (OFArray<id> *)values
+{
+    if (![self conformsToProtocol: @protocol(AsyncDBConnection)])
+        return [AsyncTask rejected: [OFInvalidArgumentException exception]];
+
+    id<AsyncDBConnection> connection = (id<AsyncDBConnection>)self;
+    return (AsyncTask<OFArray<OFDictionary<OFString *, id> *> *> *)[[connection prepareStatementWithSQL: SQL]
+        flatMap: ^AsyncTask *(id<AsyncDBPreparedStatement> statement) {
+            return [statement fetchRowsWithValues: values];
+        }];
+}
+
+@end
+
 #pragma clang assume_nonnull end

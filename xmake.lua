@@ -32,6 +32,12 @@ option("asyncrt-ui", {
     description = "Build the AsyncRT UI module. This pulls in Cairo/X11 on non-macOS targets."
 })
 
+option("asyncrt-webui", {
+    default = true,
+    showmenu = true,
+    description = "Build the AsyncRT WebUI module."
+})
+
 option("asyncrt-db", {
     default = true,
     showmenu = true,
@@ -192,7 +198,7 @@ if get_config("kind") == "shared" then
     add_mflags("-fPIC")
 end
 
-local c_and_objc_flags = {
+local flags = {
     "-Wall",
     "-Wextra",
     "-xobjective-c",
@@ -212,9 +218,8 @@ local c_and_objc_flags = {
     "-Wno-missing-braces"
 }
 
-add_cxflags(c_and_objc_flags)
-add_mflags(c_and_objc_flags)
-add_mflags("-include", "ObjFW/ObjFW.h", {force = true})
+add_cxflags(flags)
+add_mxflags(flags)
 
 if is_plat("linux") and is_mode("debug") then
     add_ldflags("-rdynamic")

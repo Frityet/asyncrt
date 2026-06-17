@@ -7,3 +7,8 @@ end
 if has_config("asyncrt-ui") then
     includes("Application/UI")
 end
+
+if has_config("asyncrt-webui") then
+    includes("Application/WebUI")
+end
+

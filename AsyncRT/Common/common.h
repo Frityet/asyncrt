@@ -74,9 +74,8 @@
 
 //allow for forwarding selectors that are intentionally not declared
 #define $allow_any_selectors(...) ({\
-    __auto_type _allow_any_selectors_value = (__VA_ARGS__); \
     _Pragma("clang diagnostic push") \
     _Pragma("clang diagnostic ignored \"-Wundeclared-selector\"") \
-    _allow_any_selectors_value; \
+    (__VA_ARGS__); \
     _Pragma("clang diagnostic pop") \
 })

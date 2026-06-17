@@ -8,14 +8,6 @@
 #define _CONCAT(x, y) x##y
 #define $concat(...) _CONCAT(__VA_ARGS__)
 
-struct DBEntityOptions {
-    OFConstantString *tableName;
-};
-
-#define dbsql clang
-#define sqltable(...)\
-    objc_runtime_name("DBEntity {"__VA_OPT__(#__VA_ARGS__)", .at=\""__FILE__":"$str(__LINE__)"\"}"), clang::annotate("", @encode(typeof((struct DBEntityOptions){ __VA_ARGS__ })))
-
 @interface Money : OFObject @end
 @interface DBDeleteAction : OFObject
 
@@ -38,8 +30,8 @@ struct DBEntityOptions {
 
 @protocol DBComparableExpression <DBExpression>
 
-- (id<DBBooleanPredicate>)isEqualTo:(id<DBExpression>)other;
-- (id<DBBooleanPredicate>)isNotEqualTo:(id<DBExpression>)other;
+- (id<DBBooleanPredicate>)isEqual:(id<DBExpression>)other;
+- (id<DBBooleanPredicate>)isNotEqual:(id<DBExpression>)other;
 
 @end
 
@@ -146,6 +138,8 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 @protocol DBTableConfiguration<OFObject>
 
 @optional
+- (OFString *)tableName;
+- (OFDictionary<OFString *, OFString *> *)sqlNameOverrides;
 - (OFArray<id<Column>> *)unique;
 - (OFArray<id<ForeignKey>> *)relationships;
 
@@ -164,10 +158,6 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 @protocol Optional<Column> @end
 @protocol Unique<Column> @end
 @protocol Nullable<Column> @end
-
-#define sqlname synthesize
-
-[[dbsql::sqltable(.tableName = @"movies")]]
 @interface Movie : DBTable
 
 @property OFNumber<Column, PrimaryKey> *id;
@@ -180,12 +170,18 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 @implementation Movie
 
-@sqlname releaseDate = release_date;
-@sqlname createdAt = created_at;
+-tableName          { return @"movies"; }
+-sqlNameOverrides
+{
+    return @{
+        @"releaseDate": @"release_date",
+        @"createdAt": @"created_at",
+    };
+}
 
 @end
 
-[[dbsql::sqltable(.tableName = @"cinemas")]]
+// [[dbsql::sqltable(.tableName = @"cinemas")]]
 @interface Cinema : DBTable
 
 @property OFNumber<Column, PrimaryKey> *id;
@@ -198,13 +194,12 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 @implementation Cinema
 
-@sqlname createdAt = created_at;
-
--unique { return @[ self.name, self.city, self.country ]; }
+-tableName          { return @"cinemas"; }
+-sqlNameOverrides   { return @{ @"createdAt": @"created_at", }; }
+-unique             { return @[ self.name, self.city, self.country ]; }
 
 @end
 
-[[dbsql::sqltable(.tableName = @"showings")]]
 @interface Showing : DBTable
 
 @property OFNumber<Column, PrimaryKey> *id;
@@ -219,6 +214,15 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 @implementation Showing
 
+-tableName { return @"showings"; }
+-sqlNameOverrides
+{
+    return @{
+        @"startsAt": @"starts_at",
+        @"endsAt": @"ends_at",
+    };
+}
+
 -unique { return @[ self.cinema, self.auditorium, self.startsAt ]; }
 -relationships
 {
@@ -230,7 +234,7 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 @end
 
-[[dbsql::sqltable(.tableName = @"tickets")]]
+// [[dbsql::sqltable(.tableName = @"tickets")]]
 @interface Ticket : DBTable
 
 @property OFNumber<Column, PrimaryKey> *id;
@@ -248,8 +252,14 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 @implementation Ticket
 
-@sqlname createdAt = created_at;
-@sqlname updatedAt = updated_at;
+-tableName { return @"tickets"; }
+-sqlNameOverrides
+{
+    return @{
+        @"createdAt": @"created_at",
+        @"updatedAt": @"updated_at",
+    };
+}
 
 -unique { return @[ self.showing, self.seat ]; }
 -relationships
@@ -260,7 +270,6 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 }
 @end
 
-[[dbsql::sqltable(.tableName = @"ticket_reservations")]]
 @interface TicketReservation : DBTable
 
 @property OFNumber<Column, PrimaryKey> *id;
@@ -274,6 +283,7 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 @implementation TicketReservation
 
+-tableName { return @"ticket_reservations"; }
 -relationships
 {
     return @[
@@ -311,17 +321,8 @@ typedef id<DBBooleanPredicate> (^DBQueryBuilderJoinAll_f)(id<DBTableConfiguratio
 
 int main(int argc, const char *argv[])
 {
-    (void)(argc, argv);
-}
-
-static void f()
-{
-    // int guess = 0;
-    // char buffer[15];
-    // int target = random();
-
-
-    // (void)buffer, (void)target, (void)guess, (void)eIP;
+    ((void)argc, (void)argv);
+    
     const auto Tickets = Ticket.table;
     const auto Showings = Showing.table;
     const auto Movies = Movie.table;
@@ -329,7 +330,7 @@ static void f()
     const auto Reservations = TicketReservation.table;
 
     auto query = [[[[[[[[DBQueryBuilder<TicketReservationQueryRow *> from: Tickets] joinAll: @[ Movies, Cinemas, Showings ]] leftJoin: Reservations]
-                         where: [[Tickets.status isEqualTo: @"reserved"] and: [Reservations.expiresAt isGreaterThan: Reservations.reservedAt]]]
+                         where: [[Tickets.status isEqual: @"reserved"] and: [Reservations.expiresAt isGreaterThan: Reservations.reservedAt]]]
                          orderBy: Showings.startsAt ascending: true]
                          orderBy: Cinemas.name ascending: true]
                          limit: 50]

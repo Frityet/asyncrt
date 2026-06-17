@@ -60,4 +60,15 @@
 
 @end
 
+@interface OFObject (AsyncDBConnectionConvenience)
+
+- (AsyncTask<AsyncDBWriteResult *> *)asyncdb_executeSQL: (OFString *)SQL;
+- (AsyncTask<AsyncDBWriteResult *> *)asyncdb_executeSQL: (OFString *)SQL
+                                                 values: (OFArray<id> *)values;
+- (AsyncTask<OFArray<OFDictionary<OFString *, id> *> *> *)asyncdb_fetchRowsWithSQL: (OFString *)SQL;
+- (AsyncTask<OFArray<OFDictionary<OFString *, id> *> *> *)asyncdb_fetchRowsWithSQL: (OFString *)SQL
+                                                                             values: (OFArray<id> *)values;
+
+@end
+
 #pragma clang assume_nonnull end

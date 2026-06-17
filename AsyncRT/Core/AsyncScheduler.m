@@ -359,10 +359,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     [_wakeReadFile asyncReadIntoBuffer: _wakeBuffer
                                 length: sizeof(_wakeBuffer)
                            runLoopMode: self.mode
-                               handler: ^bool(OFStream *stream, void *buffer, size_t length, id nillable exception) {
-        (void)stream;
-        (void)buffer;
-        (void)length;
+                               handler: ^bool(OFStream *, void *, size_t, id nillable exception) {
 
         if (exception != nilptr)
             return not unsafeSelf->_shutdown;
