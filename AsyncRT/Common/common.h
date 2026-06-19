@@ -31,6 +31,8 @@
 
 #define atomic_t(...) _Atomic(__VA_ARGS__)
 
+#define $raw(...) #__VA_ARGS__
+
 #define $as_nonnil(...) (__builtin_assume((__VA_ARGS__) != nilptr), (typeof(typeof(*(__VA_ARGS__)) *nonnil))(__VA_ARGS__))
 #if defined(NDEBUG)
 #   define $assert_nonnil(...) $as_nonnil(__VA_ARGS__)

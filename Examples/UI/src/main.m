@@ -1,5 +1,5 @@
 #import <AsyncRT/Application/Terminal/AsyncArgumentParser.h>
-#import <AsyncRT/Application/Core/AsyncApplication.h>
+#import <AsyncRT/Application/Core/Application.h>
 #import "Gelbooru.h"
 #import "ITerm2ImageGallery.h"
 #import "Realbooru.h"

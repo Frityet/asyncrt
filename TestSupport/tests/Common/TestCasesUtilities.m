@@ -47,7 +47,7 @@
 #if defined(__APPLE__)
 static OFString *nillable s_programNameFallbackExecutablePath = nilptr;
 
-static id
+static id nillable
 TestExecutablePathFromOperatingSystem(id self, SEL _cmd)
 {
     (void)self;
@@ -55,7 +55,7 @@ TestExecutablePathFromOperatingSystem(id self, SEL _cmd)
     return nilptr;
 }
 
-static id
+static id nillable
 TestExecutablePathFromProgramNameFallback(id self, SEL _cmd)
 {
     (void)self;
@@ -68,6 +68,14 @@ TestExecutablePathFromProgramNameFallback(id self, SEL _cmd)
 @interface AsyncRuntimeUtilitiesTests : OTTestCase @end
 
 @implementation AsyncRuntimeUtilitiesTests
+
+- (void)test_raw_macro_stringifies_source_tokens
+{
+    OFString *raw = [OFString stringWithUTF8String: $raw(hello "world")];
+
+    OTAssert(([raw isEqual: @"hello \"world\""]),
+             @"$raw should stringify tokens and escape embedded string literal quotes");
+}
 
 - (void)test_pointer_basic_data_view
 {
@@ -241,6 +249,7 @@ TestExecutablePathFromProgramNameFallback(id self, SEL _cmd)
     @try {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnonnull"
+#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
         (void)[some valueOr: nilptr];
 #pragma clang diagnostic pop
     } @catch (OFInvalidArgumentException *) {

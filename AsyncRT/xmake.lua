@@ -4,11 +4,6 @@ if has_config("asyncrt-db") then
     includes("Database")
 end
 
-if has_config("asyncrt-ui") then
+if has_config("asyncrt-ui") or has_config("asyncrt-webui") then
     includes("Application/UI")
 end
-
-if has_config("asyncrt-webui") then
-    includes("Application/WebUI")
-end
-

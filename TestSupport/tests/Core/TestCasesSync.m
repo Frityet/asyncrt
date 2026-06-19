@@ -425,7 +425,8 @@ static id await_task_on_scheduler(id self, SEL _cmd, AsyncScheduler *scheduler, 
     __block size_t pendingCancellationCallCount = 0;
     __block bool cancellationObserved = false;
 
-    OTAssert((resolvedCompletionSource.task != nilptr), @"AsyncCompletionSource should eagerly create its task");
+    AsyncTask<OFString *> *nillable resolvedTask = resolvedCompletionSource.task;
+    OTAssert((resolvedTask != nilptr), @"AsyncCompletionSource should eagerly create its task");
     OTAssert((resolvedCompletionSource.task == resolvedCompletionSource.task), @"AsyncCompletionSource.task should be stable across reads");
     OTAssert((resolvedCompletionSource.task.status == AsyncTaskStatus_PENDING), @"a new AsyncCompletionSource task should start pending");
 

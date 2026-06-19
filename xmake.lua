@@ -238,6 +238,10 @@ if has_config("asyncrt-app") then
         includes("Examples/UI")
     end
 
+    if has_config("asyncrt-webui") then
+        includes("Examples/WebUI")
+    end
+
     if has_config("asyncrt-db") then
         includes("Examples/DB")
     end

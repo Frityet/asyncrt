@@ -6,16 +6,16 @@
 #import "Booru.h"
 #import "Gelbooru.h"
 #import "Realbooru.h"
-#import <AsyncRT/Application/UI/AsyncUI.h>
-#import <AsyncRT/Application/UI/AsyncUIAdvanced.h>
-#import <AsyncRT/Application/UI/AsyncUIClaySupport.h>
-#import <AsyncRT/Application/UI/Backend/Window/AsyncUIHeadlessWindow.h>
-#import <AsyncRT/Application/UI/Internal/AsyncUIApplication+Private.h>
+#import <AsyncRT/Application/UI/Surface/Immediate/Immediate.h>
+#import <AsyncRT/Application/UI/Surface/Immediate/Advanced.h>
+#import <AsyncRT/Application/UI/Surface/Immediate/ClaySupport.h>
+#import <AsyncRT/Application/UI/Window/Platform/Headless/Window.h>
+#import <AsyncRT/Application/UI/Surface/Immediate/Internal/Application+Private.h>
 
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-@interface AsyncUITestApplication : AsyncUIApplication
+@interface AsyncUITestApplication : AsyncImmediateUIApplication
 
 @property(readonly, nonatomic) bool didStart;
 @property(readonly, nonatomic) AsyncTaskGroup *nillable startedTaskGroup;
