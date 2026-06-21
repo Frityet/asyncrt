@@ -2,55 +2,96 @@
 
 #pragma clang assume_nonnull begin
 
+@interface AsyncWebUIDefaultRootComponent : AsyncWebUIComponent
+
+@end
+
+@implementation AsyncWebUIDefaultRootComponent
+
++ (OFString *)layout
+{
+    return @$raw(
+        <div class="root">
+            <h1>Welcome to AsyncRT Web UI!</h1>
+            <p>This is the default root component. Please override AsyncWebUIApplication`s rootComponent method to provide your own root component.</p>
+        </div>
+    );
+}
+
++ (OFString *)styling
+{
+    return @$raw(
+        .root {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            color: #333;
+        }
+    );
+}
+
+@end
+
 @implementation AsyncWebUIApplication {
-    AsyncWebUIView *_webView;
+    AsyncWebUIView *nillable _webView;
+    AsyncWebUIComponent *nillable _rootComponent;
 }
 
 - (bool)shouldTerminateAfterLaunchTaskCompletes
-{
-    return false;
-}
+{ return false; }
 
-- (AsyncWebUIView *)webView
-{
-    return _webView;
-}
+- (AsyncWebUIView *nillable)webView
+{ return _webView; }
 
-- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
-                               taskGroup: (AsyncTaskGroup *)taskGroup
+- (AsyncWebUIComponent *nillable)rootComponent
+{ return _rootComponent; }
+
+- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification taskGroup: (AsyncTaskGroup *)taskGroup
 {
     (void)notification;
 
-    AsyncUIWindowConfiguration *nillable configuration = self.windowConfiguration;
-    if (configuration == nilptr)
-        configuration = AsyncUIWindowConfiguration.defaults;
+    auto webView = [[AsyncWebUIView alloc] initWithConfiguration: $assert_nonnil(self.windowConfiguration) scheduler: $assert_nonnil(self.scheduler)];
+    _webView = webView;
 
-    Class webViewClass = self.webViewClass;
-    _webView = [[webViewClass alloc] initWithConfiguration: $assert_nonnil(configuration)
-                                                 scheduler: $assert_nonnil(self.scheduler)];
+    Class rootComponentClass = self.rootComponentClass;
+    if (![rootComponentClass isSubclassOfClass: AsyncWebUIComponent.class])
+        @throw [OFInvalidArgumentException exception];
 
-    OFString *nillable html = self.initialHTML;
-    OFIRI *nillable IRI = self.initialIRI;
+    auto rootComponent = (AsyncWebUIComponent *)[[rootComponentClass alloc] init];
+    _rootComponent = rootComponent;
+    [rootComponent mountToWebView: webView componentID: @"root"];
 
-    if (html != nilptr)
-        [_webView loadHTML: $assert_nonnil(html)];
-    else if (IRI != nilptr)
-        [_webView loadIRI: $assert_nonnil(IRI)];
+    [webView bindAction: [AsyncWebUIComponent invokeActionName]
+               toHandler: ^AsyncTask<OFString *> *(AsyncWebUIRequest request) {
+                   return [rootComponent taskToHandleActionRequest: request];
+               }];
 
-    [self applicationDidStartWithWebView: _webView taskGroup: taskGroup];
+    [webView loadHTML: [OFString stringWithFormat: @$raw(
+        <!doctype html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <script>%@</script>
+        </head>
+        <body>
+            %@
+        </body>
+        </html>
+    ), [rootComponentClass definitionJavaScript], rootComponent.elementHTML]];
 
-    while (not _webView.isClosed) {
-        [_webView pollEvents];
-        if (_webView.isClosed)
-            break;
-
-        (void)[taskGroup.scheduler sleepForTimeInterval: (1.0 / 60.0)].await;
+    [self applicationDidStartWithWebView: webView taskGroup: taskGroup];
+    while (not webView.isClosed) {
+        [[taskGroup.scheduler sleepForTimeInterval: (1.0 / 60.0)] await];
+        [webView pollEvents];
     }
-
     return @0;
 }
 
-- (AsyncUIWindowConfiguration *nillable)windowConfiguration
+- (AsyncUIWindowConfiguration *)windowConfiguration
 {
     auto configuration = super.windowConfiguration;
     configuration.title = @"AsyncRT Web UI";
@@ -59,23 +100,10 @@
     return configuration;
 }
 
-- (Class)webViewClass
-{
-    return AsyncWebUIView.class;
-}
+- (Class)rootComponentClass
+{ return AsyncWebUIDefaultRootComponent.class; }
 
-- (OFString *nillable)initialHTML
-{
-    return @"<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>";
-}
-
-- (OFIRI *nillable)initialIRI
-{
-    return nilptr;
-}
-
-- (void)applicationDidStartWithWebView: (AsyncWebUIView *)webView
-                             taskGroup: (AsyncTaskGroup *)taskGroup
+- (void)applicationDidStartWithWebView: (AsyncWebUIView *)webView taskGroup: (AsyncTaskGroup *)taskGroup
 {
     (void)webView;
     (void)taskGroup;
@@ -85,8 +113,12 @@
 {
     (void)notification;
 
-    if (_webView != nilptr)
-        [$assert_nonnil(_webView) close];
+    AsyncWebUIView *nillable webView = _webView;
+    if (webView != nilptr)
+        [$assert_nonnil(webView) close];
+
+    _webView = nilptr;
+    _rootComponent = nilptr;
 }
 
 @end

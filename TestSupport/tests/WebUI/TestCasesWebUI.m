@@ -4,6 +4,71 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
+@interface AsyncWebUITestComponent : AsyncWebUIComponent
+@end
+
+@implementation AsyncWebUITestComponent
+
++ (OFString *)layout
+{
+    return @$raw(<button class="primary" onclick="[self onPress:]">Press {{message}}</button>);
+}
+
++ (OFString *)styling
+{
+    return @$raw(.primary { color: "red"; });
+}
+
+@end
+
+[[subclassing_restricted]]
+@interface AsyncWebUIStatefulTestComponent : AsyncWebUIComponent
+
+@property(nonatomic) OFString *message;
+@property(nonatomic) int counter;
+@property(nonatomic) bool mounted;
+@property(nonatomic) OFDictionary<OFString *, id> *nillable lastEvent;
+
+@end
+
+@implementation AsyncWebUIStatefulTestComponent
+
+- (instancetype)init
+{
+    self = [super init];
+    _message = @"Hello & <AsyncRT>";
+    _counter = 2;
+    _mounted = false;
+    _lastEvent = nilptr;
+    return self;
+}
+
++ (OFString *)layout
+{
+    return @$raw(
+        <section>
+            <h1>{{message}}</h1>
+            <button onclick="[self onIncrementClick:]">{{counter}}</button>
+        </section>
+    );
+}
+
+- (void)onMountToWebView: (AsyncWebUIView *)webView
+{
+    (void)webView;
+    self.mounted = true;
+}
+
+- (void)onIncrementClick: (id)sender
+{
+    self.counter += 1;
+    if ([sender isKindOfClass: OFDictionary.class])
+        self.lastEvent = (OFDictionary<OFString *, id> *)sender;
+}
+
+@end
+
+[[subclassing_restricted]]
 @interface AsyncWebUITestView : AsyncWebUIView
 
 @property(readonly, nonatomic) OFMutableArray<OFString *> *evaluatedJavaScripts;
@@ -57,9 +122,9 @@
     OTAssert((not webConfiguration.automaticallyResizesToContent),
              @"Web windows should not inherit immediate content auto-resizing");
     OTAssert((not webApplication.shouldTerminateAfterLaunchTaskCompletes),
-             @"Web applications should stay alive after their launch task creates the view");
-    OTAssert((webApplication.initialHTML != nilptr), @"Web applications should provide default initial HTML");
-    OTAssert((webApplication.initialIRI == nilptr), @"Web applications should not load an IRI unless requested");
+             @"Web applications should stay alive while their root component is mounted");
+    OTAssert(([webApplication.rootComponentClass isSubclassOfClass: AsyncWebUIComponent.class]),
+             @"Web applications should provide a root component class");
 }
 
 - (void)test_web_view_copies_configuration_and_tracks_loaded_content
@@ -83,6 +148,122 @@
         [view loadIRI: IRI];
         OTAssert(([view.loadedIRI.string isEqual: @"https://example.com/app"]), @"IRI loads should be recorded");
         OTAssert((view.loadedHTML == nilptr), @"Loading an IRI should clear previous HTML");
+    }];
+}
+
+- (void)test_web_component_identifier_and_definition_are_valid_for_custom_elements
+{
+    OTAssert(([AsyncWebUITestComponent.identifier isEqual: @"awuic-asyncwebuitestcomponent"]),
+             @"Component identifiers should be lowercase custom element names");
+    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"const tagName = \"awuic-asyncwebuitestcomponent\""]),
+             @"Component definitions should embed the lowercase identifier");
+    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"customElements.define(tagName, Component)"]),
+             @"Component definitions should register the lowercase identifier");
+    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"const styleText = \".primary { color: \\\"red\\\"; }\""]),
+             @"Component styling should be JSON-escaped before entering JavaScript");
+    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"const layoutHTML = \"<button class=\\\"primary\\\" onclick=\\\"[self onPress:]\\\">Press {{message}}</button>\""]),
+             @"Component layout should be JSON-escaped before entering JavaScript");
+    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"window.AsyncRT.invoke(invokeActionName"]),
+             @"Generated components should call through the AsyncRT browser bridge");
+    OTAssert((not [AsyncWebUITestComponent.definitionJavaScript containsString: @"globalThis.AsyncWebUI"]),
+             @"Generated components should not depend on the old placeholder global");
+}
+
+- (void)test_web_component_state_mounting_and_element_html
+{
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
+                                                            scheduler: rootTaskGroup.scheduler];
+        auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
+
+        [component mountToWebView: view componentID: @"root"];
+
+        OTAssert((component.webView == view), @"Mounted components should retain their web view");
+        OTAssert(([component.componentID isEqual: @"root"]), @"Mounted components should retain their component ID");
+        OTAssert(component.mounted, @"Mounting should call the component lifecycle hook");
+        OTAssert(([AsyncWebUIStatefulTestComponent.observedProperties containsObject: @"message"]),
+                 @"Observed properties should include declared object properties");
+        OTAssert(([AsyncWebUIStatefulTestComponent.observedProperties containsObject: @"counter"]),
+                 @"Observed properties should include declared scalar properties");
+
+        auto state = component.propertyState;
+        OTAssert(([[state objectForKey: @"message"] isEqual: @"Hello & <AsyncRT>"]),
+                 @"Component state should include object property values");
+        OTAssert((((OFNumber *)[state objectForKey: @"counter"]).intValue == 2),
+                 @"Component state should include boxed scalar property values");
+
+        OFString *elementHTML = component.elementHTML;
+        OTAssert(([elementHTML containsString: @"<awuic-asyncwebuistatefultestcomponent"]),
+                 @"Mounted components should render their custom element tag");
+        OTAssert(([elementHTML containsString: @"data-async-webui-id=\"root\""]),
+                 @"Mounted component HTML should include the component ID");
+        OTAssert(([elementHTML containsString: @"&quot;message&quot;"]),
+                 @"Mounted component HTML should XML-escape JSON state for attributes");
+        OTAssert(([elementHTML containsString: @"Hello &amp; &lt;AsyncRT&gt;"]),
+                 @"Mounted component HTML should XML-escape state values for attributes");
+    }];
+}
+
+- (void)test_web_component_action_dispatch_updates_state
+{
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
+                                                            scheduler: rootTaskGroup.scheduler];
+        auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
+        [component mountToWebView: view componentID: @"root"];
+
+        AsyncWebUIRequest request = (AsyncWebUIRequest){
+            .action = AsyncWebUIComponent.invokeActionName,
+            .payloadJSON = @"{\"componentID\":\"root\",\"selector\":\"onIncrementClick:\",\"event\":{\"type\":\"click\"}}",
+            .requestID = @"component-action"
+        };
+        OFString *responseJSON = [component taskToHandleActionRequest: request].await;
+        auto response = (OFDictionary<OFString *, id> *)responseJSON.objectByParsingJSON;
+        auto state = (OFDictionary<OFString *, id> *)[response objectForKey: @"state"];
+
+        OTAssert((component.counter == 3), @"Component action selectors should be invoked");
+        OTAssert((component.lastEvent != nilptr), @"Component action selectors should receive the event payload");
+        OTAssert(([[component.lastEvent objectForKey: @"type"] isEqual: @"click"]),
+                 @"Event payloads should be passed to one-argument selectors");
+        OTAssert(([[response objectForKey: @"componentID"] isEqual: @"root"]),
+                 @"Action responses should include the component ID");
+        OTAssert((((OFNumber *)[state objectForKey: @"counter"]).intValue == 3),
+                 @"Action responses should include updated component state");
+
+        @try {
+            AsyncWebUIRequest invalidRequest = (AsyncWebUIRequest){
+                .action = AsyncWebUIComponent.invokeActionName,
+                .payloadJSON = @"{\"componentID\":\"root\",\"selector\":\"missingAction:\"}",
+                .requestID = @"component-action-invalid"
+            };
+            (void)[component taskToHandleActionRequest: invalidRequest].await;
+            OTAssert(false, @"Invalid component selectors should reject the action task");
+        } @catch (AsyncWebUIComponentException *exception) {
+            OTAssert(([exception.description containsString: @"does not respond"]),
+                     @"Invalid component selector failures should describe the rejected selector");
+        }
+    }];
+}
+
+- (void)test_web_component_render_task_emits_component_update
+{
+    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
+                                                            scheduler: rootTaskGroup.scheduler];
+        auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
+        [component mountToWebView: view componentID: @"root"];
+
+        component.counter = 9;
+        (void)[component taskToRender].await;
+
+        OTAssert((view.evaluatedJavaScripts.count == 1), @"Rendering should evaluate one browser update event");
+        OFString *javaScript = [view.evaluatedJavaScripts objectAtIndex: 0];
+        OTAssert(([javaScript containsString: AsyncWebUIComponent.updateEventName]),
+                 @"Render tasks should emit the component update event");
+        OTAssert(([javaScript containsString: @"\"componentID\":\"root\""]),
+                 @"Render tasks should include the mounted component ID");
+        OTAssert(([javaScript containsString: @"\"counter\":9"]),
+                 @"Render tasks should include the current component state");
     }];
 }
 

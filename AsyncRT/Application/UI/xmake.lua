@@ -152,6 +152,7 @@ if has_config("asyncrt-webui") then
         add_deps("AsyncRTApplicationUIBase", "AsyncRTNetworkingHTTP", { public = true })
         add_includedirs("../../..", { public = true })
         add_headerfiles("Surface/Web/(**.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_extrafiles("Surface/Web/Component.js")
         add_files("Surface/Web/*.m", "Surface/Web/Platform/WKWebKit/View.m")
 
         if is_plat("macosx") then

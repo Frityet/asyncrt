@@ -1108,7 +1108,7 @@
     if (application == nilptr)
         return;
 
-    for (;;) {
+    while (true) {
         NSEvent *event = [application nextEventMatchingMask: NSEventMaskAny
                                                   untilDate: NSDate.distantPast
                                                      inMode: NSDefaultRunLoopMode

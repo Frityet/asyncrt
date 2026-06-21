@@ -13,13 +13,10 @@
 @property(readonly, nonatomic) OFIRI *nillable loadedIRI;
 @property(readonly, nonatomic) bool isClosed;
 
-+ (OFString *)javaScriptToDispatchEventNamed: (OFString *)name
-                                  payloadJSON: (OFString *nillable)payloadJSON;
-+ (OFString *)javaScriptToResolveRequestID: (OFString *)requestID
-                               responseJSON: (OFString *nillable)responseJSON;
++ (OFString *)javaScriptToDispatchEventNamed: (OFString *)name payloadJSON: (OFString *nillable)payloadJSON;
++ (OFString *)javaScriptToResolveRequestID: (OFString *)requestID responseJSON: (OFString *nillable)responseJSON;
 
-- (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration
-                            scheduler: (AsyncScheduler *)scheduler [[designated_initailiser]];
+- (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration scheduler: (AsyncScheduler *)scheduler [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 - (void)loadHTML: (OFString *)html;

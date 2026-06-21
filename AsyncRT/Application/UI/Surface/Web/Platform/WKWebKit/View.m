@@ -9,6 +9,18 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted]]
+@interface AsyncWKWebKitJavaScriptEvaluationException : OFException
+
+@property(readonly, copy, nonatomic) OFString *reason;
+@property(readonly, copy, nonatomic) OFString *javaScript;
+
+- (instancetype)initWithError: (NSError *)error
+                   javaScript: (OFString *)javaScript [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
 [[subclassing_restricted, direct_members]]
 @interface AsyncWKWebKitScriptMessageHandler : NSObject<WKScriptMessageHandler>
 
@@ -33,6 +45,7 @@
 
 + (NSApplication *)ensureSharedApplication;
 + (void)pollEventsForWindow: (NSWindow *nillable)window;
++ (OFString *)responseJSONForException: (OFException *)exception;
 
 @end
 
@@ -41,6 +54,37 @@
 - (void)webKitWindowWillClose: (NSNotification *)notification;
 - (void)webKitViewDidReceiveScriptMessage: (WKScriptMessage *)message;
 - (WKUserScript *)_bridgeUserScript;
+
+@end
+
+@implementation AsyncWKWebKitJavaScriptEvaluationException
+
+- (instancetype)initWithError: (NSError *)error
+                   javaScript: (OFString *)javaScript
+{
+    self = [super init];
+
+    OFString *localizedDescription = (OFString *)error.localizedDescription.OFObject;
+    OFString *domain = (OFString *)error.domain.OFObject;
+    OFString *userInfo = (OFString *)error.userInfo.description.OFObject;
+
+    _reason = [[OFString stringWithFormat: @"JavaScript evaluation failed: %@ (domain=%@ code=%ld userInfo=%@)",
+                                       localizedDescription,
+                                       domain,
+                                       (long)error.code,
+                                       userInfo] copy];
+    _javaScript = [javaScript copy];
+
+    return self;
+}
+
+- (OFString *)description
+{
+    return [OFString stringWithFormat: @"%@: %@\nJavaScript:\n%@",
+                                      self.className,
+                                      self.reason,
+                                      self.javaScript];
+}
 
 @end
 
@@ -100,36 +144,29 @@
 {
     static bool prepared = false;
     static AsyncWKWebKitApplicationDelegate *delegate = nilptr;
-    NSApplication *application = NSApplication.sharedApplication;
-
-    if (application == nilptr)
-        application = [NSApplication sharedApplication];
-
+    NSApplication *app = [NSApplication sharedApplication];
     if (not prepared) {
         delegate = [[AsyncWKWebKitApplicationDelegate alloc] init];
-        application.delegate = delegate;
-        application.activationPolicy = NSApplicationActivationPolicyRegular;
+        app.delegate = delegate;
+        app.activationPolicy = NSApplicationActivationPolicyRegular;
 
         if ([NSWindow respondsToSelector: @selector(setAllowsAutomaticWindowTabbing:)])
             NSWindow.allowsAutomaticWindowTabbing = NO;
 
-        [application finishLaunching];
+        [app finishLaunching];
         prepared = true;
     }
 
-    return application;
+    return app;
 }
 
 + (void)pollEventsForWindow: (NSWindow *nillable)window
 {
-    NSApplication *nillable application = NSApplication.sharedApplication;
+    NSApplication *application = NSApplication.sharedApplication;
     bool didProcessEvent = false;
 
-    if (application == nilptr)
-        return;
-
-    for (;;) {
-        NSEvent *event = [$assert_nonnil(application) nextEventMatchingMask: NSEventMaskAny
+    while (true) {
+        NSEvent *event = [application nextEventMatchingMask: NSEventMaskAny
                                                                   untilDate: NSDate.distantPast
                                                                      inMode: NSDefaultRunLoopMode
                                                                     dequeue: YES];
@@ -137,18 +174,31 @@
         if (event == nilptr)
             break;
 
-        [$assert_nonnil(application) sendEvent: $assert_nonnil(event)];
+        [application sendEvent: $assert_nonnil(event)];
         didProcessEvent = true;
     }
 
-    if (window != nilptr and $assert_nonnil(application).active and
-        (not [$assert_nonnil(window) isKeyWindow] or not [$assert_nonnil(window) isMainWindow])) {
-        [$assert_nonnil(window) makeKeyAndOrderFront: nilptr];
+    if (application.active and (not window.isKeyWindow or not window.isMainWindow)) {
+        [window makeKeyAndOrderFront: nilptr];
         didProcessEvent = true;
     }
 
     if (didProcessEvent)
-        [$assert_nonnil(application) updateWindows];
+        [application updateWindows];
+}
+
++ (OFString *)responseJSONForException: (OFException *)exception
+{
+    auto error = [OFMutableDictionary<OFString *, id> dictionary];
+    [error setObject: exception.className forKey: @"className"];
+    [error setObject: exception.description forKey: @"description"];
+    [error makeImmutable];
+
+    auto response = [OFMutableDictionary<OFString *, id> dictionary];
+    [response setObject: error forKey: @"error"];
+    [response makeImmutable];
+
+    return response.JSONRepresentation;
 }
 
 @end
@@ -166,14 +216,8 @@
     self = [super initWithConfiguration: configuration scheduler: scheduler];
 
     NSApplication *sharedApplication = [AsyncWKWebKitApplicationSupport ensureSharedApplication];
-
-    NSRect windowRect = NSMakeRect(0.0,
-                                   0.0,
-                                   (CGFloat)configuration.initialWidth,
-                                   (CGFloat)configuration.initialHeight);
-    NSWindowStyleMask styleMask = (NSWindowStyleMaskTitled |
-                                   NSWindowStyleMaskClosable |
-                                   NSWindowStyleMaskMiniaturizable);
+    auto windowRect = NSMakeRect(0.0, 0.0, (CGFloat)configuration.initialWidth, (CGFloat)configuration.initialHeight);
+    auto styleMask = (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable);
 
     if (configuration.isResizable)
         styleMask |= NSWindowStyleMaskResizable;
@@ -231,7 +275,8 @@
         (void)result;
 
         if (error != nilptr)
-            [completionSource reject: [OFException exception]];
+            [completionSource reject: [[AsyncWKWebKitJavaScriptEvaluationException alloc] initWithError: $assert_nonnil(error)
+                                                                                            javaScript: javaScript]];
         else
             [completionSource fulfill: AsyncUnit.unit];
     }];
@@ -275,23 +320,23 @@
 
 - (void)webKitViewDidReceiveScriptMessage: (WKScriptMessage *)message
 {
-    if (not [message.name isEqualToString: ((OFString *)@"asyncrt").NSObject])
+    if (not [message.name isEqualToString: @"asyncrt".NSObject])
         return;
     if (not [message.body isKindOfClass: NSDictionary.class])
         return;
 
     auto dictionary = (NSDictionary *)message.body;
-    id actionObject = dictionary[((OFString *)@"action").NSObject];
-    id payloadObject = dictionary[((OFString *)@"payload").NSObject];
-    id requestIDObject = dictionary[((OFString *)@"requestID").NSObject];
+    id actionObject = dictionary[@"action".NSObject];
+    id payloadObject = dictionary[@"payload".NSObject];
+    id requestIDObject = dictionary[@"requestID".NSObject];
 
     if (not [actionObject isKindOfClass: NSString.class])
         return;
     if (not [requestIDObject isKindOfClass: NSString.class])
         return;
 
-    OFString *action = (OFString *)((NSString *)actionObject).OFObject;
-    OFString *requestID = (OFString *)((NSString *)requestIDObject).OFObject;
+    OFString *action = ((NSString *)actionObject).OFObject;
+    OFString *requestID = ((NSString *)requestIDObject).OFObject;
     OFString *payloadJSON = @"null";
 
     if ([payloadObject isKindOfClass: NSString.class])
@@ -305,7 +350,10 @@
         .requestID = requestID
     };
 
-    AsyncTask<OFString *> *task = [self taskToHandleRequest: request];
+    AsyncTask<id> *task = [[self taskToHandleRequest: request] recoverOnScheduler: self.scheduler
+                                                                          handler: ^id(OFException *exception) {
+        return [AsyncWKWebKitApplicationSupport responseJSONForException: exception];
+    }];
     (void)[task mapOnScheduler: self.scheduler transform: ^id(OFString *responseJSON) {
         OFString *javaScript = [AsyncWebUIView javaScriptToResolveRequestID: requestID
                                                                responseJSON: responseJSON];
@@ -316,20 +364,22 @@
 
 - (WKUserScript *)_bridgeUserScript
 {
-    OFString *source = @"(() => {"
-        "const bridge = window.AsyncRT || {};"
-        "bridge.invoke = (action, payload) => new Promise((resolve) => {"
-        "const requestID = Math.random().toString(36).slice(2) + Date.now().toString(36);"
-        "const eventName = 'asyncrt_response_' + requestID;"
-        "window.addEventListener(eventName, (event) => resolve(event.detail), { once: true });"
-        "window.webkit.messageHandlers.asyncrt.postMessage({"
-        "action: String(action),"
-        "payload: payload === undefined ? null : JSON.stringify(payload),"
-        "requestID"
-        "});"
-        "});"
-        "window.AsyncRT = bridge;"
-        "})();";
+    OFString *source = @$raw(
+        (() => {
+            const bridge = window.AsyncRT || {};
+            bridge.invoke = (action, payload) => new Promise((resolve) => {
+                const requestID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+                const eventName = 'asyncrt_response_' + requestID;
+                window.addEventListener(eventName, (event) => resolve(event.detail), { once: true });
+                window.webkit.messageHandlers.asyncrt.postMessage({
+                    action: String(action),
+                    payload: payload === undefined ? null : JSON.stringify(payload),
+                    requestID
+                });
+            });
+            window.AsyncRT = bridge;
+        })();
+    );
 
     return [[WKUserScript alloc] initWithSource: source.NSObject
                                   injectionTime: WKUserScriptInjectionTimeAtDocumentStart

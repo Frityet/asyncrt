@@ -4,7 +4,7 @@
 
 @implementation AsyncUIApplication
 
-- (AsyncUIWindowConfiguration *nillable)windowConfiguration
+- (AsyncUIWindowConfiguration *)windowConfiguration
 {
     return AsyncUIWindowConfiguration.defaults;
 }

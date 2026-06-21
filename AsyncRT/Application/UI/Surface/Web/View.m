@@ -33,16 +33,13 @@
 {
     OFString *detailJSON = (payloadJSON != nilptr ? $assert_nonnil(payloadJSON) : @"null");
 
-    return [OFString stringWithFormat: @"window.dispatchEvent(new CustomEvent(%@, { detail: %@ }));",
-                                      name.JSONRepresentation,
-                                      detailJSON];
+    return [OFString stringWithFormat: @"window.dispatchEvent(new CustomEvent(%@, { detail: %@ }));", name.JSONRepresentation, detailJSON];
 }
 
 + (OFString *)javaScriptToResolveRequestID: (OFString *)requestID
                                responseJSON: (OFString *nillable)responseJSON
 {
-    return [self javaScriptToDispatchEventNamed: [OFString stringWithFormat: @"asyncrt_response_%@", requestID]
-                                    payloadJSON: responseJSON];
+    return [self javaScriptToDispatchEventNamed: [OFString stringWithFormat: @"asyncrt_response_%@", requestID] payloadJSON: responseJSON];
 }
 
 - (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration
@@ -126,13 +123,12 @@
 
 - (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript
 {
-    (void)javaScript;
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 }
 
 - (void)emitEvent: (OFString *)name withJSONPayload: (OFString *nillable)payloadJSON
 {
-    (void)[self taskToEvaluateJavaScript: [AsyncWebUIView javaScriptToDispatchEventNamed: name payloadJSON: payloadJSON]];
+    [self taskToEvaluateJavaScript: [AsyncWebUIView javaScriptToDispatchEventNamed: name payloadJSON: payloadJSON]];
 }
 
 - (void)pollEvents

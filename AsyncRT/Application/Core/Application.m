@@ -3,6 +3,31 @@
 
 #pragma clang assume_nonnull begin
 
+@namespace(AsyncApplicationExceptionLogging)
+
++ (void)logException: (OFException *)exception;
+
+@end
+
+@namespace_implementation(AsyncApplicationExceptionLogging)
+
++ (void)logException: (OFException *)exception
+{
+    OFArray<OFString *> *nillable stackTraceSymbols = exception.stackTraceSymbols;
+
+    OFLog(@"Unhandled exception: %@", exception.className);
+    OFLog(@"%@", exception.description);
+
+    if (stackTraceSymbols == nilptr or $assert_nonnil(stackTraceSymbols).count == 0)
+        return;
+
+    OFLog(@"Stack trace:");
+    for (OFString *symbol in $assert_nonnil(stackTraceSymbols))
+        OFLog(@"  %@", symbol);
+}
+
+@end
+
 @interface OFApplication(AsyncApplicationDelegateSupport)
 
 + (void)async_scheduleTerminationWithStatus: (int)status;
@@ -80,7 +105,7 @@
 
 - (void)asyncApplicationDidFailWithException: (OFException *)exception
 {
-    OFLog(@"%@", exception);
+    [AsyncApplicationExceptionLogging logException: exception];
 }
 
 - (void)asyncApplicationWillTerminate: (OFNotification *)notification

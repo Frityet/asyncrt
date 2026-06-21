@@ -1,19 +1,18 @@
 #pragma once
 
 #import <AsyncRT/Application/UI/Application.h>
-#import <AsyncRT/Application/UI/Surface/Web/View.h>
+#import "View.h"
+#import "Component.h"
 
 #pragma clang assume_nonnull begin
 
 @interface AsyncWebUIApplication : AsyncUIApplication
 
-@property(readonly, nonatomic) AsyncWebUIView *webView;
+@property(readonly, nonatomic) AsyncWebUIView *nillable webView;
+@property(readonly, nonatomic) AsyncWebUIComponent *nillable rootComponent;
 
-- (Class)webViewClass;
-- (OFString *nillable)initialHTML;
-- (OFIRI *nillable)initialIRI;
-- (void)applicationDidStartWithWebView: (AsyncWebUIView *)webView
-                             taskGroup: (AsyncTaskGroup *)taskGroup;
+- (Class)rootComponentClass;
+- (void)applicationDidStartWithWebView: (AsyncWebUIView *)webView taskGroup: (AsyncTaskGroup *)taskGroup;
 
 @end
 
