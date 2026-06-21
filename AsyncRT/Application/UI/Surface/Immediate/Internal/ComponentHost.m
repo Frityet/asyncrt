@@ -113,7 +113,6 @@
     unretained AsyncUIComponent *nillable _owner;
     AsyncUIApplication *nillable _application;
     AsyncUIComponentHost *nillable _parentHost;
-    AsyncTaskGroup *nillable _mountedTaskGroup;
     bool _isMounted;
     bool _needsContentUpdate;
     bool _isRenderingContent;
@@ -136,14 +135,12 @@
 
 - (void)attachToApplication: (AsyncUIApplication *nillable)application
                   parentHost: (AsyncUIComponentHost *nillable)parentHost
-                   taskGroup: (AsyncTaskGroup *nillable)taskGroup
 {
     _application = application;
     _parentHost = parentHost;
-    _mountedTaskGroup = taskGroup;
 
     for (AsyncUIComponentHost *childHost in _childHostsByKey.objectEnumerator)
-        [childHost attachToApplication: application parentHost: self taskGroup: taskGroup];
+        [childHost attachToApplication: application parentHost: self];
 }
 
 - (void)detachFromApplication
@@ -153,15 +150,13 @@
 
     _application = nilptr;
     _parentHost = nilptr;
-    _mountedTaskGroup = nilptr;
 }
 
-- (void)ensureMountedInTaskGroup: (AsyncTaskGroup *nonnil)taskGroup
+- (void)ensureMounted
 {
     if (_isMounted)
         return;
 
-    _mountedTaskGroup = taskGroup;
     _isMounted = true;
     if (_owner != nilptr)
         [_owner componentDidMount];
@@ -264,9 +259,9 @@
         if (_application != nilptr and existingHost.application != nilptr and existingHost.application != _application)
             @throw [[AsyncUIRenderException alloc] initWithReason: @"A child component is already attached to a different application"];
 
-        [existingHost attachToApplication: _application parentHost: self taskGroup: _mountedTaskGroup];
-        if (_mountedTaskGroup != nilptr)
-            [existingHost ensureMountedInTaskGroup: $assert_nonnil(_mountedTaskGroup)];
+        [existingHost attachToApplication: _application parentHost: self];
+        if (_isMounted)
+            [existingHost ensureMounted];
         _childHostsByKey[key] = existingHost;
     }
 
@@ -329,7 +324,7 @@
     _currentHookIndex++;
 }
 
-- (AsyncTask<id> *nillable)useTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)useTask: (id (^nillable)(void))launchBlock
                  dependencies: (OFArray<id> *nillable)dependencies
                          name: (OFString *nillable)name
 {
@@ -365,25 +360,24 @@
     return taskSlot.task;
 }
 
-- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(void))launchBlock
                                   name: (OFString *nillable)name
 {
-    if (_mountedTaskGroup == nilptr or launchBlock == nilptr)
+    if (not _isMounted or launchBlock == nilptr)
         return nilptr;
 
-    AsyncTaskGroup *mountedTaskGroup = $assert_nonnil(_mountedTaskGroup);
-    id (^taskLaunchBlock)(AsyncTaskGroup *taskGroup) = [launchBlock copy];
+    id (^taskLaunchBlock)(void) = [launchBlock copy];
     unretained AsyncUIComponentHost *unsafeSelf = self;
 
-    auto task = [mountedTaskGroup spawnTask: ^id {
+    auto task = [AsyncRuntime spawnNamed: name block: ^id {
         @try {
-            return [mountedTaskGroup performInChildTaskGroupNamed: name
-                                                            block: taskLaunchBlock];
+            id nillable result = taskLaunchBlock();
+            return (result != nilptr ? $assert_nonnil(result) : (id)AsyncUnit.unit);
         } @finally {
             if (unsafeSelf != nilptr)
                 [unsafeSelf setNeedsRender];
         }
-    } name: name];
+    }];
     return task;
 }
 

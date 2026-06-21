@@ -8,7 +8,7 @@
 @interface AsyncUIApplication : AsyncApplication
 
 - (AsyncUIWindowConfiguration *)windowConfiguration;
-- (void)applicationDidStartWithTaskGroup: (AsyncTaskGroup *)taskGroup;
+- (void)applicationDidStart;
 - (void)setNeedsRender;
 
 @end

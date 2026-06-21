@@ -11,8 +11,9 @@
 @property(readonly, nonatomic) AsyncWebUIView *nillable webView;
 @property(readonly, nonatomic) AsyncWebUIComponent *nillable rootComponent;
 
-- (Class)rootComponentClass;
-- (void)applicationDidStartWithWebView: (AsyncWebUIView *)webView taskGroup: (AsyncTaskGroup *)taskGroup;
+- (AsyncWebUIComponent *)createRootComponent;
+- (OFString *)documentStyle;
+- (void)applicationDidStartWithWebView: (AsyncWebUIView *)webView;
 
 @end
 

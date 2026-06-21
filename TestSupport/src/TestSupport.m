@@ -7,8 +7,7 @@ static unsigned int const async_runtime_test_default_http_redirects = 10;
 
 @namespace_implementation(AsyncRuntimeTestSupport)
 
-+ (AsyncTask<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
-                                              seconds: (OFTimeInterval)seconds
++ (AsyncTask<OFString *> *)timerResolvedStringAfter: (OFTimeInterval)seconds
                                                 value: (OFString *)value
 {
     auto completionSource = [[AsyncCompletionSource<OFString *> alloc] init];
@@ -18,12 +17,11 @@ static unsigned int const async_runtime_test_default_http_redirects = 10;
                                           selector: @selector(fulfill:)
                                             object: value
                                            repeats: false];
-    [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
+    [AsyncScheduler.sharedScheduler.runLoop addTimer: timer forMode: AsyncScheduler.sharedScheduler.mode];
     return completionSource.task;
 }
 
-+ (AsyncTask<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
-                                              seconds: (OFTimeInterval)seconds
++ (AsyncTask<OFString *> *)timerRejectedStringAfter: (OFTimeInterval)seconds
                                             exception: (OFException *)exception
 {
     auto completionSource = [[AsyncCompletionSource<OFString *> alloc] init];
@@ -33,43 +31,37 @@ static unsigned int const async_runtime_test_default_http_redirects = 10;
                                           selector: @selector(reject:)
                                             object: exception
                                            repeats: false];
-    [scheduler.runLoop addTimer: timer forMode: scheduler.mode];
+    [AsyncScheduler.sharedScheduler.runLoop addTimer: timer forMode: AsyncScheduler.sharedScheduler.mode];
     return completionSource.task;
 }
 
 + (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (AsyncHTTPClient *)client
-                                         onScheduler: (AsyncScheduler *)scheduler
 {
     return [self taskToPerformHTTPRequest: request
                            withHTTPClient: client
                                 redirects: async_runtime_test_default_http_redirects
-                              onScheduler: scheduler
                  cancelOnTaskCancellation: true];
 }
 
 + (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (AsyncHTTPClient *)client
                                            redirects: (unsigned int)redirects
-                                         onScheduler: (AsyncScheduler *)scheduler
 {
     return [self taskToPerformHTTPRequest: request
                            withHTTPClient: client
                                 redirects: redirects
-                              onScheduler: scheduler
                  cancelOnTaskCancellation: true];
 }
 
 + (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (AsyncHTTPClient *)client
                                            redirects: (unsigned int)redirects
-                                         onScheduler: (AsyncScheduler *)scheduler
                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation
 {
     (void)cancelOnTaskCancellation;
     return [client performRequest: request
-                        redirects: redirects
-                      onScheduler: scheduler];
+                        redirects: redirects];
 }
 
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot

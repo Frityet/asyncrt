@@ -192,7 +192,7 @@
 - (OFString *)description
 {
     OFString *taskDescription = (self.task == nilptr ? @"<nil>" : self.task.description);
-    return [OFString stringWithFormat: @"AsyncTaskContinuationOutsideTaskException: %@ requires an explicit scheduler outside a AsyncTask", taskDescription];
+    return [OFString stringWithFormat: @"AsyncTaskContinuationOutsideTaskException: %@ cannot infer a continuation task", taskDescription];
 }
 
 @end
@@ -211,8 +211,8 @@
 }
 
 + (void)_scheduleBlock: (void (^)(void))block
-          onScheduler: (AsyncScheduler *)scheduler
 {
+    auto scheduler = [self _schedulerForContinuation];
     [scheduler _enqueueBlock: block];
 }
 
@@ -243,12 +243,12 @@
     return $assert_nonnil([task _internalTaskState]);
 }
 
-+ (AsyncScheduler *)_continuationSchedulerOrThrowForTaskState: (AsyncTaskState *)promise
++ (AsyncScheduler *)_schedulerForContinuation
 {
     AsyncTask *currentTask = AsyncTask.currentTask;
 
     if (currentTask == nilptr)
-        @throw [[AsyncTaskContinuationOutsideTaskException alloc] initWithTask: promise._taskForExceptions];
+        return AsyncScheduler.sharedScheduler;
 
     return currentTask.scheduler;
 }
@@ -338,11 +338,6 @@
 
 - (AsyncTaskState<id> *)map: (id (^)(id value))transform
 {
-    return [self mapOnScheduler: [AsyncTaskState _continuationSchedulerOrThrowForTaskState: self] transform: transform];
-}
-
-- (AsyncTaskState<id> *)mapOnScheduler: (AsyncScheduler *)scheduler transform: (id (^)(id value))transform
-{
     auto completionSource = [[AsyncCompletionSource alloc] init];
     auto observer = [[AsyncTaskStateBlockObserver alloc]
         initWithTaskState: self
@@ -353,12 +348,12 @@
                       } @catch (OFException *exception) {
                           [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: exception];
                       }
-                  } onScheduler: scheduler];
+                  }];
               }
                onReject: ^(AsyncTaskState *, OFException *exception) {
                   [AsyncTaskState _scheduleBlock: ^{
                       [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: exception];
-                  } onScheduler: scheduler];
+                  }];
               }];
 
     [observer attach];
@@ -366,11 +361,6 @@
 }
 
 - (AsyncTaskState<id> *)flatMapTask: (AsyncTask * (^)(id value))transform
-{
-    return [self flatMapTaskOnScheduler: [AsyncTaskState _continuationSchedulerOrThrowForTaskState: self] transform: transform];
-}
-
-- (AsyncTaskState<id> *)flatMapTaskOnScheduler: (AsyncScheduler *)scheduler transform: (AsyncTask * (^)(id value))transform
 {
     auto completionSource = [[AsyncCompletionSource alloc] init];
     auto observer = [[AsyncTaskStateBlockObserver alloc]
@@ -382,12 +372,12 @@
                       } @catch (OFException *exception) {
                           [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: exception];
                       }
-                  } onScheduler: scheduler];
+                  }];
               }
                onReject: ^(AsyncTaskState *, OFException *exception) {
                   [AsyncTaskState _scheduleBlock: ^{
                       [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: exception];
-                  } onScheduler: scheduler];
+                  }];
               }];
 
     [observer attach];
@@ -396,18 +386,13 @@
 
 - (AsyncTaskState<id> *)recover: (id (^)(OFException *exception))handler
 {
-    return [self recoverOnScheduler: [AsyncTaskState _continuationSchedulerOrThrowForTaskState: self] handler: handler];
-}
-
-- (AsyncTaskState<id> *)recoverOnScheduler: (AsyncScheduler *)scheduler handler: (id (^)(OFException *exception))handler
-{
     auto completionSource = [[AsyncCompletionSource alloc] init];
     auto observer = [[AsyncTaskStateBlockObserver alloc]
         initWithTaskState: self
               onResolve: ^(AsyncTaskState *, id value) {
                   [AsyncTaskState _scheduleBlock: ^{
                       [AsyncTaskState _fulfillCompletionSourceOrReject: completionSource value: value];
-                  } onScheduler: scheduler];
+                  }];
               }
                onReject: ^(AsyncTaskState *, OFException *exception) {
                   [AsyncTaskState _scheduleBlock: ^{
@@ -416,7 +401,7 @@
                       } @catch (OFException *caughtException) {
                           [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: caughtException];
                       }
-                  } onScheduler: scheduler];
+                  }];
               }];
 
     [observer attach];
@@ -425,18 +410,13 @@
 
 - (AsyncTaskState<id> *)flatRecoverTask: (AsyncTask * (^)(OFException *exception))handler
 {
-    return [self flatRecoverTaskOnScheduler: [AsyncTaskState _continuationSchedulerOrThrowForTaskState: self] handler: handler];
-}
-
-- (AsyncTaskState<id> *)flatRecoverTaskOnScheduler: (AsyncScheduler *)scheduler handler: (AsyncTask * (^)(OFException *exception))handler
-{
     auto completionSource = [[AsyncCompletionSource alloc] init];
     auto observer = [[AsyncTaskStateBlockObserver alloc]
         initWithTaskState: self
               onResolve: ^(AsyncTaskState *, id value) {
                   [AsyncTaskState _scheduleBlock: ^{
                       [AsyncTaskState _fulfillCompletionSourceOrReject: completionSource value: value];
-                  } onScheduler: scheduler];
+                  }];
               }
                onReject: ^(AsyncTaskState *, OFException *exception) {
                   [AsyncTaskState _scheduleBlock: ^{
@@ -445,7 +425,7 @@
                       } @catch (OFException *caughtException) {
                           [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: caughtException];
                       }
-                  } onScheduler: scheduler];
+                  }];
               }];
 
     [observer attach];
@@ -453,11 +433,6 @@
 }
 
 - (AsyncTaskState *)ensure: (void (^)(void))block
-{
-    return [self ensureOnScheduler: [AsyncTaskState _continuationSchedulerOrThrowForTaskState: self] block: block];
-}
-
-- (AsyncTaskState *)ensureOnScheduler: (AsyncScheduler *)scheduler block: (void (^)(void))block
 {
     auto completionSource = [[AsyncCompletionSource alloc] init];
     auto observer = [[AsyncTaskStateBlockObserver alloc]
@@ -470,7 +445,7 @@
                       } @catch (OFException *exception) {
                           [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: exception];
                       }
-                  } onScheduler: scheduler];
+                  }];
               }
                onReject: ^(AsyncTaskState *, OFException *exception) {
                   [AsyncTaskState _scheduleBlock: ^{
@@ -480,7 +455,7 @@
                       } @catch (OFException *caughtException) {
                           [AsyncTaskState _rejectCompletionSourceIfPending: completionSource exception: caughtException];
                       }
-                  } onScheduler: scheduler];
+                  }];
               }];
 
     [observer attach];

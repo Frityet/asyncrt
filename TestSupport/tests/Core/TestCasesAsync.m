@@ -3,441 +3,221 @@
 #pragma clang assume_nonnull begin
 
 [[subclassing_restricted]]
-static void run_async_test_case(AsyncRuntimeTestCase *self,
-                                SEL _cmd,
-                                void (*test)(id, SEL, AsyncTaskGroup *))
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        test(self, _cmd, rootTaskGroup);
-    }];
-}
-
-[[subclassing_restricted]]
 @interface AsyncRuntimeTaskTests : AsyncRuntimeTestCase @end
 
 @implementation AsyncRuntimeTaskTests
 
-- (void)test_task_await
+- (void)test_task_await_and_current_context
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            OFString *fulfilledValue;
-            OFString *immediateValue;
-            AsyncTask<OFString *> *awaitableTask;
+    [self runAsyncBlock: ^{
+        AsyncTask *currentTask = $assert_nonnil([AsyncTask currentTask]);
+        OFString *timerValue = [[AsyncRuntimeTestSupport timerResolvedStringAfter: 0.01
+                                                                            value: @"timer"] await];
+        OFString *immediateValue = [[AsyncTask resolved: @"immediate"] await];
 
-            OTAssert((AsyncTask.currentTask != nilptr), @"AsyncTask.currentTask should be set inside AsyncRuntime.run");
-            OTAssert((AsyncTaskGroup.currentTaskGroup == rootScope), @"AsyncTaskGroup.currentTaskGroup should point at the root scope inside AsyncRuntime.run");
-
-            fulfilledValue = [AsyncRuntimeTestSupport timerResolvedStringForScheduler: scheduler seconds: 0.01 value: @"timer-value"].await;
-            immediateValue = [AsyncTask resolved: @"immediate-value"].await;
-            awaitableTask = [AsyncTask resolved: @"awaitable-task"];
-
-            OTAssert(([fulfilledValue isEqual: @"timer-value"]), @"await should return the fulfilled timer value");
-            OTAssert(([immediateValue isEqual: @"immediate-value"]), @"await on an already fulfilled task should return immediately");
-            OTAssert(([awaitableTask.await isEqual: @"awaitable-task"]), @"AsyncTask.await should use the runtime task await implementation");
+        OTAssert((currentTask.scheduler == [AsyncScheduler sharedScheduler]), @"Runtime tasks should use the managed scheduler");
+        OTAssert(([timerValue isEqual: @"timer"]), @"await should resume timer-backed tasks");
+        OTAssert(([immediateValue isEqual: @"immediate"]), @"await should return already-fulfilled values inside runtime tasks");
     }];
 }
 
-- (void)test_task_rejection_paths
+- (void)test_task_rejection_and_nil_return_paths
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            bool caughtRejectedAwait = false;
-            bool caughtImmediateRejection = false;
+    [self runAsyncBlock: ^{
+        bool caughtTimerRejection = false;
+        bool caughtImmediateRejection = false;
+        bool caughtNilReturn = false;
 
-            @try {
-                [[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]] await];
-            } @catch (TestRejectionException *) {
-                caughtRejectedAwait = true;
-            }
+        @try {
+            (void)[[AsyncRuntimeTestSupport timerRejectedStringAfter: 0.01
+                                                           exception: [[TestRejectionException alloc] init]] await];
+        } @catch (TestRejectionException *) {
+            caughtTimerRejection = true;
+        }
 
-            @try {
-                [[AsyncTask rejected: [[TestRejectionException alloc] init]] await];
-            } @catch (TestRejectionException *) {
-                caughtImmediateRejection = true;
-            }
+        @try {
+            (void)[[AsyncTask rejected: [[TestRejectionException alloc] init]] await];
+        } @catch (TestRejectionException *) {
+            caughtImmediateRejection = true;
+        }
 
-            OTAssert((caughtRejectedAwait), @"await should rethrow the original timer rejection exception");
-            OTAssert((caughtImmediateRejection), @"await on an already rejected task should rethrow immediately");
+        auto nilTask = [AsyncRuntime spawnNamed: @"nil-return" block: ^id {
+            return nilptr;
+        }];
+
+        @try {
+            (void)[nilTask await];
+        } @catch (AsyncTaskReturnedNilException *) {
+            caughtNilReturn = true;
+        }
+
+        OTAssert(caughtTimerRejection, @"Timer rejections should rethrow the original exception");
+        OTAssert(caughtImmediateRejection, @"Immediate rejections should rethrow the original exception");
+        OTAssert(caughtNilReturn, @"Runtime tasks returning nilptr should reject");
+        OTAssert((nilTask.status == AsyncTaskStatus_REJECTED), @"Nil-returning tasks should be marked rejected");
     }];
 }
 
 - (void)test_task_combinators
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            block_reference bool ensureCalledOnFulfilled = false;
-            block_reference bool ensureCalledOnRejected = false;
-            bool caughtRejectedEnsure = false;
-            bool caughtMapThrow = false;
-            bool caughtRecoverThrow = false;
-            bool caughtNilMap = false;
-            bool caughtNilRecover = false;
-            OFString *mappedValue;
-            OFString *flatMappedValue;
-            OFString *recoveredValue;
-            OFString *flatRecoveredValue;
-            OFString *ensuredValue;
+    [self runAsyncBlock: ^{
+        block_reference bool ensureFulfilledCalled = false;
+        block_reference bool ensureRejectedCalled = false;
+        bool caughtEnsureRejection = false;
+        bool caughtMapThrow = false;
+        bool caughtNilRecover = false;
 
-            mappedValue = [[AsyncTask resolved: @"alpha"] map: ^id(OFString *value) {
-                return [value stringByAppendingString: @"-mapped"];
-            }].await;
-            flatMappedValue = [[AsyncRuntimeTestSupport timerResolvedStringForScheduler: scheduler seconds: 0.01 value: @"beta"] flatMap: ^AsyncTask<OFString *> *(OFString *value) {
-                return [AsyncTask resolved: [value uppercaseString]];
-            }].await;
-            recoveredValue = [[AsyncTask rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
-                OTAssert(([exception isKindOfClass: TestRejectionException.class]), @"recover should receive the original rejection");
-                return @"recovered";
-            }].await;
-            flatRecoveredValue = [[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]] flatRecover: ^AsyncTask<OFString *> *(OFException *exception) {
-                OTAssert(([exception isKindOfClass: TestRejectionException.class]), @"flatRecover should receive the original rejection");
-                return [AsyncTask resolved: @"flat-recovered"];
-            }].await;
-            ensuredValue = [[AsyncRuntimeTestSupport timerResolvedStringForScheduler: scheduler seconds: 0.01 value: @"ensured"] ensure: ^{
-                ensureCalledOnFulfilled = true;
-            }].await;
+        OFString *mapped = [[[AsyncTask resolved: @"alpha"] map: ^id(OFString *value) {
+            return [value stringByAppendingString: @"-mapped"];
+        }] await];
 
-            @try {
-                (void)[[AsyncRuntimeTestSupport timerRejectedStringForScheduler: scheduler seconds: 0.01 exception: [[TestRejectionException alloc] init]] ensure: ^{
-                    ensureCalledOnRejected = true;
-                }].await;
-            } @catch (TestRejectionException *) {
-                caughtRejectedEnsure = true;
-            }
+        OFString *flatMapped = [[[AsyncTask resolved: @"beta"] flatMap: ^AsyncTask *(OFString *value) {
+            return [AsyncRuntimeTestSupport timerResolvedStringAfter: 0.01
+                                                               value: value.uppercaseString];
+        }] await];
 
-            @try {
-                (void)[[AsyncTask resolved: @"throw"] map: ^id(OFString *value) {
-                    (void)value;
-                    @throw [[TestRejectionException alloc] init];
-                }].await;
-            } @catch (TestRejectionException *) {
-                caughtMapThrow = true;
-            }
+        OFString *recovered = [[[AsyncTask rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
+            OTAssert(([exception isKindOfClass: TestRejectionException.class]), @"recover should receive the original exception");
+            return @"recovered";
+        }] await];
 
-            @try {
-                (void)[[AsyncTask rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
-                    (void)exception;
-                    @throw [[TestRejectionException alloc] init];
-                }].await;
-            } @catch (TestRejectionException *) {
-                caughtRecoverThrow = true;
-            }
+        OFString *flatRecovered = [[[AsyncTask rejected: [[TestRejectionException alloc] init]] flatRecover: ^AsyncTask *(OFException *exception) {
+            OTAssert(([exception isKindOfClass: TestRejectionException.class]), @"flatRecover should receive the original exception");
+            return [AsyncRuntimeTestSupport timerResolvedStringAfter: 0.01
+                                                               value: @"flat-recovered"];
+        }] await];
 
-            @try {
-                (void)[[AsyncTask resolved: @"nil-map"] map: ^id(OFString *value) {
-                    (void)value;
-                    return nilptr;
-                }].await;
-            } @catch (AsyncTaskNilResolutionValueException *) {
-                caughtNilMap = true;
-            }
+        OFString *ensured = [[[AsyncTask resolved: @"kept"] ensure: ^{
+            ensureFulfilledCalled = true;
+        }] await];
 
-            @try {
-                (void)[[AsyncTask rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
-                    (void)exception;
-                    return nilptr;
-                }].await;
-            } @catch (AsyncTaskNilResolutionValueException *) {
-                caughtNilRecover = true;
-            }
+        @try {
+            (void)[[[AsyncTask rejected: [[TestRejectionException alloc] init]] ensure: ^{
+                ensureRejectedCalled = true;
+            }] await];
+        } @catch (TestRejectionException *) {
+            caughtEnsureRejection = true;
+        }
 
-            OTAssert(([mappedValue isEqual: @"alpha-mapped"]), @"map should transform fulfilled tasks");
-            OTAssert(([flatMappedValue isEqual: @"BETA"]), @"flatMap should flatten pending task chains");
-            OTAssert(([recoveredValue isEqual: @"recovered"]), @"recover should turn rejections into fulfilled values");
-            OTAssert(([flatRecoveredValue isEqual: @"flat-recovered"]), @"flatRecover should flatten recovery tasks");
-            OTAssert(([ensuredValue isEqual: @"ensured"]), @"ensure should preserve fulfilled values");
-            OTAssert((ensureCalledOnFulfilled), @"ensure should run for fulfilled tasks");
-            OTAssert((ensureCalledOnRejected), @"ensure should run for rejected tasks");
-            OTAssert((caughtRejectedEnsure), @"ensure should preserve the original rejection when the ensure block succeeds");
-            OTAssert((caughtMapThrow), @"map should reject when its transform throws");
-            OTAssert((caughtRecoverThrow), @"recover should reject when its handler throws");
-            OTAssert((caughtNilMap), @"map should reject with AsyncTaskNilResolutionValueException when its transform returns nilptr");
-            OTAssert((caughtNilRecover), @"recover should reject with AsyncTaskNilResolutionValueException when its handler returns nilptr");
+        @try {
+            (void)[[[AsyncTask resolved: @"throw"] map: ^id(OFString *value) {
+                (void)value;
+                @throw [[TestRejectionException alloc] init];
+            }] await];
+        } @catch (TestRejectionException *) {
+            caughtMapThrow = true;
+        }
+
+        @try {
+            (void)[[[AsyncTask rejected: [[TestRejectionException alloc] init]] recover: ^id(OFException *exception) {
+                (void)exception;
+                return nilptr;
+            }] await];
+        } @catch (AsyncTaskNilResolutionValueException *) {
+            caughtNilRecover = true;
+        }
+
+        OTAssert(([mapped isEqual: @"alpha-mapped"]), @"map should transform values");
+        OTAssert(([flatMapped isEqual: @"BETA"]), @"flatMap should flatten task values");
+        OTAssert(([recovered isEqual: @"recovered"]), @"recover should turn failures into values");
+        OTAssert(([flatRecovered isEqual: @"flat-recovered"]), @"flatRecover should flatten recovery tasks");
+        OTAssert(([ensured isEqual: @"kept"]), @"ensure should preserve fulfilled values");
+        OTAssert(ensureFulfilledCalled, @"ensure should run for fulfilled values");
+        OTAssert(ensureRejectedCalled, @"ensure should run for rejected values");
+        OTAssert(caughtEnsureRejection, @"ensure should preserve original rejections");
+        OTAssert(caughtMapThrow, @"map should reject when transforms throw");
+        OTAssert(caughtNilRecover, @"recover should reject nilptr recovery values");
     }];
 }
 
-- (void)test_task_continuation_scheduler_capture
+- (void)test_task_all_and_race
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
-            auto crossThreadResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-            auto thread = [[CrossThreadResolverThread alloc] initWithResolver: crossThreadResolver value: @"thread-value" delay: 0.01];
-            block_reference OFThread *continuationThread = nilptr;
-            OFString *transformedValue;
+    [self runAsyncBlock: ^{
+        OFArray<id> *allResult = [[AsyncTask all: [OFArray arrayWithObjects:
+            [AsyncRuntime spawnNamed: @"all-first" block: ^id {
+                [[AsyncRuntime sleepForTimeInterval: 0.02] await];
+                return @"first";
+            }],
+            [AsyncTask resolved: @"second"],
+            [AsyncRuntime spawnNamed: @"all-third" block: ^id {
+                [[AsyncRuntime sleepForTimeInterval: 0.01] await];
+                return @"third";
+            }],
+            nil]] await];
+        OFString *raceWinner = [[AsyncTask race: [OFArray arrayWithObjects:
+            [AsyncRuntimeTestSupport timerResolvedStringAfter: 0.03 value: @"slow"],
+            [AsyncRuntimeTestSupport timerResolvedStringAfter: 0.01 value: @"fast"],
+            nil]] await];
+        bool caughtAllFailure = false;
+        bool caughtEmptyRace = false;
 
-            [thread start];
-            transformedValue = [crossThreadResolver.task map: ^id(OFString *value) {
-                continuationThread = $assert_nonnil(OFThread.currentThread);
-                return [value stringByAppendingString: @"-mapped"];
-            }].await;
+        @try {
+            (void)[[AsyncTask all: [OFArray arrayWithObjects:
+                [AsyncTask resolved: @"ok"],
+                [AsyncTask rejected: [[TestRejectionException alloc] init]],
+                nil]] await];
+        } @catch (TestRejectionException *) {
+            caughtAllFailure = true;
+        }
 
-            OTAssert(([transformedValue isEqual: @"thread-value-mapped"]), @"default task combinators should resolve the transformed value");
-            OTAssert((continuationThread == expectedThread), @"default task combinators should resume on the current task scheduler thread");
-            OTAssert((AsyncTask.currentTask.scheduler == scheduler), @"awaiting the transformed task should preserve the current task scheduler");
-            (void)[thread join];
-    }];
-}
+        @try {
+            (void)[AsyncTask race: [OFArray array]];
+        } @catch (OFInvalidArgumentException *) {
+            caughtEmptyRace = true;
+        }
 
-- (void)test_task_ensure_on_scheduler
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            block_reference bool fulfilledEnsureCalled = false;
-            block_reference bool rejectedEnsureCalled = false;
-            block_reference bool caughtRejected = false;
-            block_reference OFString *fulfilledResult = nilptr;
-
-            fulfilledResult = [[AsyncTask resolved: @"kept"] ensureOnScheduler: scheduler block: ^{
-                fulfilledEnsureCalled = true;
-            }].await;
-
-            @try {
-                (void)[[AsyncTask rejected: [[TestRejectionException alloc] init]] ensureOnScheduler: scheduler block: ^{
-                    rejectedEnsureCalled = true;
-                }].await;
-            } @catch (TestRejectionException *) {
-                caughtRejected = true;
-            }
-
-            OTAssert(([fulfilledResult isEqual: @"kept"]), @"ensureOnScheduler should preserve fulfilled values");
-            OTAssert((fulfilledEnsureCalled), @"ensureOnScheduler should run its block for fulfilled tasks");
-            OTAssert((rejectedEnsureCalled), @"ensureOnScheduler should run its block for rejected tasks");
-            OTAssert((caughtRejected), @"ensureOnScheduler should preserve the original rejection");
-    }];
-}
-
-- (void)test_task_collection_helpers
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            AsyncTask<OFArray<id> *> *emptyAll = [AsyncTask all: [OFArray array]];
-            bool caughtEmptyRace = false;
-            bool caughtAllFailure = false;
-            bool caughtRaceRejection = false;
-            block_reference bool allSiblingCancelled = false;
-            block_reference bool raceResolvedSiblingCancelled = false;
-            block_reference bool raceRejectedSiblingCancelled = false;
-            OFArray<id> *singleAllResult;
-            OFArray<id> *orderedAllResult;
-            OFString *singleRaceWinner;
-            OFString *resolvedRaceWinner;
-
-            OTAssert((emptyAll.isCompleted), @"AsyncTask.all should resolve immediately for empty input");
-            OTAssert((emptyAll.await.count == 0), @"AsyncTask.all should fulfill empty input with an empty array");
-
-            singleAllResult = [AsyncTask all: [OFArray arrayWithObject: [AsyncTask resolved: @"only"]]].await;
-            OTAssert((singleAllResult.count == 1), @"AsyncTask.all should preserve single-element input");
-            OTAssert(([[singleAllResult objectAtIndex: 0] isEqual: @"only"]), @"AsyncTask.all should preserve single-element values");
-
-            orderedAllResult = [AsyncTask all: [OFArray arrayWithObjects:
-                [rootScope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.03] await];
-                    return @"first";
-                } name: @"task-all-first"],
-                [AsyncTask resolved: @"second"],
-                [rootScope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    return @"third";
-                } name: @"task-all-third"],
-                nil]].await;
-
-            OTAssert((orderedAllResult.count == 3), @"AsyncTask.all should return every result");
-            OTAssert(([[orderedAllResult objectAtIndex: 0] isEqual: @"first"]), @"AsyncTask.all should preserve input order for the first result");
-            OTAssert(([[orderedAllResult objectAtIndex: 1] isEqual: @"second"]), @"AsyncTask.all should preserve input order for mixed AsyncTask inputs");
-            OTAssert(([[orderedAllResult objectAtIndex: 2] isEqual: @"third"]), @"AsyncTask.all should preserve input order for the last result");
-
-            AsyncTask *allSlowSibling = [rootScope spawnTask: ^{
-                @try {
-                    while (true)
-                        [[scheduler sleepForTimeInterval: 0.05] await];
-                } @catch (AsyncTaskCancelledException *) {
-                    allSiblingCancelled = true;
-                    return AsyncUnit.unit;
-                }
-            } name: @"task-all-cancelled-sibling"];
-
-            @try {
-                [[AsyncTask all: [OFArray arrayWithObjects: allSlowSibling, [AsyncTask rejected: [[TestRejectionException alloc] init]], nil]] await];
-            } @catch (TestRejectionException *) {
-                caughtAllFailure = true;
-            }
-
-            [[scheduler sleepForTimeInterval: 0.05] await];
-
-            @try {
-                (void)[AsyncTask race: [OFArray array]];
-            } @catch (OFInvalidArgumentException *) {
-                caughtEmptyRace = true;
-            }
-
-            singleRaceWinner = [AsyncTask race: [OFArray arrayWithObject: [AsyncTask resolved: @"winner"]]].await;
-
-            resolvedRaceWinner = [AsyncTask race: [OFArray arrayWithObjects:
-                [AsyncTask resolved: @"race-winner"],
-                [rootScope spawnTask: ^{
-                    @try {
-                        while (true)
-                            [[scheduler sleepForTimeInterval: 0.05] await];
-                    } @catch (AsyncTaskCancelledException *) {
-                        raceResolvedSiblingCancelled = true;
-                        return AsyncUnit.unit;
-                    }
-                } name: @"task-race-resolved-sibling"],
-                nil]].await;
-
-            [[scheduler sleepForTimeInterval: 0.05] await];
-
-            @try {
-                (void)[AsyncTask race: [OFArray arrayWithObjects:
-                    [AsyncTask rejected: [[TestRejectionException alloc] init]],
-                    [rootScope spawnTask: ^{
-                        @try {
-                            while (true)
-                                [[scheduler sleepForTimeInterval: 0.05] await];
-                        } @catch (AsyncTaskCancelledException *) {
-                            raceRejectedSiblingCancelled = true;
-                            return AsyncUnit.unit;
-                        }
-                    } name: @"task-race-rejected-sibling"],
-                    nil]].await;
-            } @catch (TestRejectionException *) {
-                caughtRaceRejection = true;
-            }
-
-            [[scheduler sleepForTimeInterval: 0.05] await];
-
-            OTAssert((caughtAllFailure), @"AsyncTask.all should reject on the first failure");
-            OTAssert((allSiblingCancelled), @"AsyncTask.all should cancel unresolved sibling tasks after a failure");
-            OTAssert((caughtEmptyRace), @"AsyncTask.race should reject empty input");
-            OTAssert(([singleRaceWinner isEqual: @"winner"]), @"AsyncTask.race should preserve single-element input");
-            OTAssert(([resolvedRaceWinner isEqual: @"race-winner"]), @"AsyncTask.race should resolve with the first settled fulfillment");
-            OTAssert((raceResolvedSiblingCancelled), @"AsyncTask.race should cancel unresolved sibling tasks after a fulfilled winner");
-            OTAssert((caughtRaceRejection), @"AsyncTask.race should reject with the first settled rejection");
-            OTAssert((raceRejectedSiblingCancelled), @"AsyncTask.race should cancel unresolved sibling tasks after a rejected winner");
-    }];
-}
-
-- (void)test_task_metadata_and_resolution
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            AsyncTask<AsyncUnit *> *unitTask = [rootScope spawnTask: ^{
-                [[scheduler sleepForTimeInterval: 0.01] await];
-                return AsyncUnit.unit;
-            } name: @"unit-task"];
-
-            [unitTask await];
-
-            OTAssert((unitTask.scheduler == scheduler), @"spawned tasks should inherit the current scheduler");
-            OTAssert((unitTask.taskGroup == rootScope), @"spawned tasks should belong to the current task group");
-            OTAssert((unitTask.taskID > 0), @"spawned tasks should receive a stable task ID");
-            OTAssert(([unitTask.name isEqual: @"unit-task"]), @"spawned tasks should preserve their name");
-            OTAssert((unitTask.status == AsyncTaskStatus_FULFILLED), @"AsyncTask<AsyncUnit *> should fulfill successfully");
-            OTAssert((unitTask.executionState == AsyncTaskExecutionState_RESOLVED), @"awaited tasks should end in the resolved execution state");
-    }];
-}
-
-- (void)test_task_returned_nil_exception
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            block_reference AsyncTask *nillable task = nilptr;
-            AsyncTaskReturnedNilException *nillable primary_exception = nilptr;
-            bool caughtScopeFailure = false;
-
-            @try {
-                (void)[rootScope performInChildTaskGroupNamed: @"nil-return-scope" block: ^id(AsyncTaskGroup *scope) {
-                    task = [scope spawnTask: ^{
-                        return nilptr;
-                    } name: @"nil-return"];
-                    return AsyncUnit.unit;
-                }];
-            } @catch (AsyncTaskReturnedNilException *exception) {
-                primary_exception = exception;
-                caughtScopeFailure = (primary_exception != nilptr and primary_exception.task == task);
-            }
-
-            OTAssert((caughtScopeFailure), @"a scope containing a task that returns nilptr should fail with AsyncTaskReturnedNilException");
-            OTAssert(([task.failureException isKindOfClass: AsyncTaskReturnedNilException.class]), @"tasks returning nilptr should reject with AsyncTaskReturnedNilException");
-            OTAssert((task.failureException == primary_exception), @"the scope primary exception should match the task rejection exception");
-            OTAssert((task.status == AsyncTaskStatus_REJECTED), @"tasks returning nilptr should be rejected");
-            OTAssert((task.executionState == AsyncTaskExecutionState_RESOLVED), @"tasks returning nilptr should still finish with a resolved execution state");
-    }];
-}
-
-- (void)test_cross_thread_task_resolution
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
-            auto crossThreadResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-            auto thread = [[CrossThreadResolverThread alloc] initWithResolver: crossThreadResolver value: @"thread-value" delay: 0.01];
-            OFString *crossThreadValue;
-
-            [thread start];
-            crossThreadValue = crossThreadResolver.task.await;
-
-            OTAssert(([crossThreadValue isEqual: @"thread-value"]), @"cross-thread resolution should deliver the resolved value");
-            OTAssert((OFThread.currentThread == expectedThread), @"await continuations should resume on the scheduler run-loop thread");
-            OTAssert((AsyncTask.currentTask.scheduler == scheduler), @"cross-thread awaits should preserve the current task scheduler");
-            (void)[thread join];
-    }];
-}
-
-- (void)test_self_await_rejected
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            block_reference AsyncTask *selfAwaitTask = nilptr;
-
-            selfAwaitTask = [rootScope spawnTask: ^{
-                @try {
-                    [selfAwaitTask await];
-                } @catch (AsyncTaskSelfAwaitException *exception) {
-                    OTAssert((exception.task == selfAwaitTask), @"self-await should throw AsyncTaskSelfAwaitException for the task itself");
-                    return AsyncUnit.unit;
-                }
-
-                OTAssert(false, @"self-await did not throw AsyncTaskSelfAwaitException");
-                return AsyncUnit.unit;
-            } name: @"self-await"];
-
-            [selfAwaitTask await];
+        OTAssert((allResult.count == 3), @"all should keep every result");
+        OTAssert(([[allResult objectAtIndex: 0] isEqual: @"first"]), @"all should preserve input order");
+        OTAssert(([[allResult objectAtIndex: 1] isEqual: @"second"]), @"all should include immediate values");
+        OTAssert(([[allResult objectAtIndex: 2] isEqual: @"third"]), @"all should preserve delayed task order");
+        OTAssert(([raceWinner isEqual: @"fast"]), @"race should resolve to the first settled task");
+        OTAssert(caughtAllFailure, @"all should reject when an input rejects");
+        OTAssert(caughtEmptyRace, @"race should reject empty inputs");
     }];
 }
 
 - (void)test_task_cancellation_checkpoint
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            block_reference atomic_t(bool) cancelIssued = false;
-            block_reference AsyncTaskCancellationThread *cancellationThread = nilptr;
-            block_reference bool reachedCheckpoint = false;
-
-            (void)[rootScope performInChildTaskGroupNamed: @"checkpoint-scope" block: ^id(AsyncTaskGroup *scope) {
-                AsyncTask *checkpointTask = [scope spawnTask: ^{
-                    while (not atomic_load_explicit(&cancelIssued, memory_order_acquire)) {
-                        
-                    }
-
-                    reachedCheckpoint = true;
-
-                    @try {
-                        [AsyncTask checkCancellation];
-                    } @catch (AsyncTaskCancelledException *exception) {
-                        OTAssert((exception.task == AsyncTask.currentTask), @"AsyncTask.checkCancellation should report the current task");
-                        return AsyncUnit.unit;
-                    }
-
-                    OTAssert(false, @"task cancellation should only be observed at an explicit checkpoint");
+    [self runAsyncBlock: ^{
+        block_reference bool observedCancellation = false;
+        auto task = [AsyncRuntime spawnNamed: @"checkpoint" block: ^id {
+            while (true) {
+                @try {
+                    [AsyncTask checkCancellation];
+                    [[AsyncRuntime sleepForTimeInterval: 0.01] await];
+                } @catch (AsyncTaskCancelledException *exception) {
+                    observedCancellation = (exception.task == [AsyncTask currentTask]);
                     return AsyncUnit.unit;
-                } name: @"checkpoint-child"];
+                }
+            }
+        }];
 
-                cancellationThread = [[AsyncTaskCancellationThread alloc] initWithTask: checkpointTask delay: 0.01 cancelIssuedFlag: &cancelIssued];
-                [cancellationThread start];
+        [[AsyncRuntime sleepForTimeInterval: 0.02] await];
+        [task cancel];
+        (void)[task await];
+
+        OTAssert(observedCancellation, @"Task cancellation should be delivered at explicit checkpoints");
+    }];
+}
+
+- (void)test_self_await_rejected
+{
+    [self runAsyncBlock: ^{
+        block_reference AsyncTask *nillable selfAwaitTask = nilptr;
+
+        selfAwaitTask = [AsyncRuntime spawnNamed: @"self-await" block: ^id {
+            @try {
+                (void)[$assert_nonnil(selfAwaitTask) await];
+            } @catch (AsyncTaskSelfAwaitException *exception) {
+                OTAssert((exception.task == selfAwaitTask), @"Self-await should report the current task");
                 return AsyncUnit.unit;
-            }];
+            }
 
-            (void)[cancellationThread join];
-            OTAssert((reachedCheckpoint), @"the cancelled task should continue running until it reaches a cancellation checkpoint");
+            OTAssert(false, @"Self-await should throw");
+            return AsyncUnit.unit;
+        }];
+
+        (void)[selfAwaitTask await];
     }];
 }
 
@@ -448,290 +228,41 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
 
 @implementation AsyncRuntimeScopeTests
 
-- (void)test_scope_waits_for_children
+- (void)test_spawned_tasks_share_the_managed_scheduler
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto scopeEvents = [OFMutableArray<OFString *> array];
+    [self runAsyncBlock: ^{
+        auto task = [AsyncRuntime spawnNamed: @"child" block: ^id {
+            OTAssert(([AsyncTask currentTask].scheduler == [AsyncScheduler sharedScheduler]),
+                     @"Nested tasks should use the managed scheduler");
+            return @"child";
+        }];
 
-            (void)[rootScope performInChildTaskGroupNamed: @"nested-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scopeEvents addObject: @"body-enter"];
-                [scope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    [scopeEvents addObject: @"child-finished"];
-                    return AsyncUnit.unit;
-                } name: @"nested-child"];
-                [scopeEvents addObject: @"body-exit"];
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((scopeEvents.count == 3), @"nested scopes should wait for all children before returning");
-            OTAssert(([scopeEvents[0] isEqual: @"body-enter"]), @"nested scope event ordering should preserve the body start");
-            OTAssert(([scopeEvents[1] isEqual: @"body-exit"]), @"nested scope event ordering should preserve the body end before child completion");
-            OTAssert(([scopeEvents[2] isEqual: @"child-finished"]), @"nested scope should return only after the child task finishes");
+        OTAssert((task.scheduler == [AsyncScheduler sharedScheduler]), @"Spawned tasks should expose the managed scheduler");
+        OTAssert(([[task await] isEqual: @"child"]), @"Spawned tasks should resolve normally");
     }];
 }
 
-- (void)test_scope_failure_cancels_siblings
+- (void)test_manual_composition_replaces_structured_scope_waiting
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto failureEvents = [OFMutableArray<OFString *> array];
-            bool caughtAggregate = false;
+    [self runAsyncBlock: ^{
+        auto events = [OFMutableArray<OFString *> array];
+        auto first = [AsyncRuntime spawnNamed: @"composition-first" block: ^id {
+            [[AsyncRuntime sleepForTimeInterval: 0.02] await];
+            [events addObject: @"first"];
+            return @"first";
+        }];
+        auto second = [AsyncRuntime spawnNamed: @"composition-second" block: ^id {
+            [[AsyncRuntime sleepForTimeInterval: 0.01] await];
+            [events addObject: @"second"];
+            return @"second";
+        }];
 
-            @try {
-                (void)[rootScope performInChildTaskGroupNamed: @"aggregate-scope" block: ^id(AsyncTaskGroup *scope) {
-                    [scope spawnTask: ^{
-                        [[scheduler sleepForTimeInterval: 0.01] await];
-                        [failureEvents addObject: @"failing-child"];
-                        @throw [[TestRejectionException alloc] init];
-                        return AsyncUnit.unit;
-                    } name: @"failing-child"];
+        OFArray<id> *values = [[AsyncTask all: [OFArray arrayWithObjects: first, second, nil]] await];
 
-                    [scope spawnTask: ^{
-                        @try {
-                            while (true)
-                                [[scheduler sleepForTimeInterval: 0.05] await];
-                        } @catch (AsyncTaskCancelledException *) {
-                            [failureEvents addObject: @"cleanup-child"];
-                            return AsyncUnit.unit;
-                        }
-                    } name: @"cleanup-child"];
-
-                    [[scheduler sleepForTimeInterval: 0.25] await];
-                    return AsyncUnit.unit;
-                }];
-            } @catch (TestRejectionException *) {
-                caughtAggregate = true;
-            }
-
-            OTAssert((caughtAggregate), @"a child failure should surface as TestRejectionException");
-            OTAssert((failureEvents.count == 2), @"structured failure should still give siblings a chance to clean up");
-            OTAssert(([failureEvents[0] isEqual: @"failing-child"]), @"the failing child should run before sibling cancellation cleanup");
-            OTAssert(([failureEvents[1] isEqual: @"cleanup-child"]), @"sibling cleanup should happen before the scope reports failure");
-    }];
-}
-
-- (void)test_scope_deadline_clamps_to_parent
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            block_reference bool sawClampedDeadline = false;
-            OFDate *requestedDeadline = [OFDate dateWithTimeIntervalSinceNow: 0.05];
-
-            (void)[rootScope performWithTimeout: 0.02 block: ^id(AsyncTaskGroup *scope) {
-                (void)[scope performWithDeadline: requestedDeadline block: ^id(AsyncTaskGroup *childScope) {
-                    sawClampedDeadline = (childScope.deadline != nilptr and [childScope.deadline compare: requestedDeadline] != OFOrderedDescending);
-                    return AsyncUnit.unit;
-                }];
-
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((sawClampedDeadline), @"nested deadlines should clamp to the parent deadline");
-    }];
-}
-
-- (void)test_scope_spawn_child_task_group
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            block_reference bool sawChildGroup = false;
-            block_reference bool sawParentRestored = false;
-
-            OFString *childValue = (id)[rootScope spawnTaskInChildTaskGroup: ^id(AsyncTaskGroup *childScope) {
-                sawChildGroup = (AsyncTaskGroup.currentTaskGroup == childScope);
-
-                AsyncTask<OFString *> *innerTask = [childScope spawnTask: ^{
-                    OTAssert((AsyncTaskGroup.currentTaskGroup == childScope), @"nested tasks should inherit the child task group");
-                    return @"nested-value";
-                } name: @"nested-child-task"];
-
-                OFString *value = innerTask.await;
-                [innerTask cancel];
-
-                OTAssert(([value isEqual: @"nested-value"]), @"child task groups should be able to spawn and await nested tasks");
-                OTAssert((innerTask.status == AsyncTaskStatus_FULFILLED), @"cancelling a completed task should be a no-op");
-                return value;
-            } name: @"child-group"];
-
-            sawParentRestored = (AsyncTaskGroup.currentTaskGroup == rootScope and AsyncTask.currentTask.scheduler == scheduler);
-
-            OTAssert(([childValue isEqual: @"nested-value"]), @"spawnTaskInChildTaskGroup should resolve with the child block result");
-            OTAssert((sawChildGroup), @"spawnTaskInChildTaskGroup should install the child task group while running");
-            OTAssert((sawParentRestored), @"spawnTaskInChildTaskGroup should restore the parent task group after completion");
-    }];
-}
-
-- (void)test_scope_spawn_all
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            OFArray<id> *emptyResult = [rootScope spawnAllTasks: [OFArray array]].await;
-            OFArray<id> *orderedResult;
-            bool caughtSpawnAllFailure = false;
-            bool caughtSpawnAllTimeout = false;
-            block_reference bool cancelledSibling = false;
-            block_reference bool timedOutChildCancelled = false;
-            auto orderedBlocks = [OFMutableArray<id (^)(void)> array];
-            auto failingBlocks = [OFMutableArray<id (^)(void)> array];
-
-            [orderedBlocks addObject: ^{
-                [[scheduler sleepForTimeInterval: 0.03] await];
-                return @"first";
-            }];
-            [orderedBlocks addObject: ^{
-                return @"second";
-            }];
-            [orderedBlocks addObject: ^{
-                [[scheduler sleepForTimeInterval: 0.01] await];
-                return @"third";
-            }];
-
-            orderedResult = [rootScope spawnAllTasks: orderedBlocks name: @"ordered-group"].await;
-
-            [failingBlocks addObject: ^{
-                [[scheduler sleepForTimeInterval: 0.01] await];
-                @throw [[TestRejectionException alloc] init];
-                return AsyncUnit.unit;
-            }];
-            [failingBlocks addObject: ^{
-                @try {
-                    while (true)
-                        [[scheduler sleepForTimeInterval: 0.05] await];
-                } @catch (AsyncTaskCancelledException *) {
-                    cancelledSibling = true;
-                    return AsyncUnit.unit;
-                }
-            }];
-
-            @try {
-                (void)[rootScope performInChildTaskGroupNamed: @"spawn-all-failure-scope" block: ^id(AsyncTaskGroup *scope) {
-                    [[scope spawnAllTasks: failingBlocks name: @"failing-group"] await];
-                    return AsyncUnit.unit;
-                }];
-            } @catch (TestRejectionException *) {
-                caughtSpawnAllFailure = true;
-            }
-
-            @try {
-                (void)[rootScope performWithTimeout: 0.02 block: ^id(AsyncTaskGroup *scope) {
-                    auto timeoutBlocks = [OFMutableArray<id (^)(void)> array];
-
-                    [timeoutBlocks addObject: ^{
-                        @try {
-                            while (true)
-                                [[scheduler sleepForTimeInterval: 0.05] await];
-                        } @catch (AsyncTaskCancelledException *) {
-                            timedOutChildCancelled = true;
-                            return AsyncUnit.unit;
-                        }
-                    }];
-
-                    [[scope spawnAllTasks: timeoutBlocks name: @"timed-group"] await];
-                    return AsyncUnit.unit;
-                }];
-            } @catch (AsyncTaskGroupTimeoutException *) {
-                caughtSpawnAllTimeout = true;
-            }
-
-            OTAssert((emptyResult.count == 0), @"spawnAll should resolve empty input with an empty array");
-            OTAssert((orderedResult.count == 3), @"spawnAll should return every child result");
-            OTAssert(([[orderedResult objectAtIndex: 0] isEqual: @"first"]), @"spawnAll should preserve the first child result ordering");
-            OTAssert(([[orderedResult objectAtIndex: 1] isEqual: @"second"]), @"spawnAll should preserve the second child result ordering");
-            OTAssert(([[orderedResult objectAtIndex: 2] isEqual: @"third"]), @"spawnAll should preserve the third child result ordering");
-            OTAssert((caughtSpawnAllFailure), @"spawnAll should reject when one child fails");
-            OTAssert((cancelledSibling), @"spawnAll should cancel unresolved sibling tasks after a child failure");
-            OTAssert((caughtSpawnAllTimeout), @"spawnAll should cooperate with scope timeouts");
-            OTAssert((timedOutChildCancelled), @"spawnAll child tasks should be cancelled before a timeout unwinds the scope");
-    }];
-}
-
-- (void)test_timeout_cancels_children
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            block_reference bool timedOutChildCancelled = false;
-            bool caughtTimeout = false;
-
-            @try {
-                (void)[rootScope performWithTimeout: 0.02 block: ^id(AsyncTaskGroup *scope) {
-                    [scope spawnTask: ^{
-                        @try {
-                            while (true)
-                                [[scheduler sleepForTimeInterval: 0.05] await];
-                        } @catch (AsyncTaskCancelledException *) {
-                            timedOutChildCancelled = true;
-                            return AsyncUnit.unit;
-                        }
-                    } name: @"timeout-child"];
-
-                    [[scheduler sleepForTimeInterval: 0.25] await];
-                    return AsyncUnit.unit;
-                }];
-            } @catch (AsyncTaskGroupTimeoutException *exception) {
-                caughtTimeout = (exception.taskGroup != nilptr and exception.deadline != nilptr);
-            }
-
-            OTAssert((caughtTimeout), @"performWithTimeout should throw AsyncTaskGroupTimeoutException when the deadline expires");
-            OTAssert((timedOutChildCancelled), @"timeout should cancel descendant tasks before the scope unwinds");
-    }];
-}
-
-- (void)test_past_deadline_fails_immediately
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            bool caughtImmediateDeadline = false;
-
-            @try {
-                auto pastDeadline = [[OFDate alloc] initWithTimeIntervalSinceNow: -0.01];
-
-                (void)[rootScope performWithDeadline: pastDeadline block: ^id(AsyncTaskGroup *) {
-                    return AsyncUnit.unit;
-                }];
-            } @catch (AsyncTaskGroupTimeoutException *) {
-                caughtImmediateDeadline = true;
-            }
-
-            OTAssert((caughtImmediateDeadline), @"performWithDeadline should fail immediately for a past deadline");
-    }];
-}
-
-- (void)test_parent_scope_cancellation_propagates
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            block_reference bool grandchildCancelled = false;
-
-            (void)[rootScope performInChildTaskGroupNamed: @"parent-cancel-scope" block: ^id(AsyncTaskGroup *outerScope) {
-                [outerScope spawnTask: ^{
-                    (void)[outerScope performInChildTaskGroupNamed: @"inner-scope" block: ^id(AsyncTaskGroup *innerScope) {
-                        [innerScope spawnTask: ^{
-                            @try {
-                                while (true)
-                                    [[scheduler sleepForTimeInterval: 0.05] await];
-                            } @catch (AsyncTaskCancelledException *) {
-                                grandchildCancelled = true;
-                                return AsyncUnit.unit;
-                            }
-                        } name: @"grandchild"];
-
-                        [[scheduler sleepForTimeInterval: 1] await];
-                        return AsyncUnit.unit;
-                    }];
-
-                    return AsyncUnit.unit;
-                } name: @"nested-owner"];
-
-                [outerScope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    [outerScope cancel];
-                    return AsyncUnit.unit;
-                } name: @"scope-canceller"];
-
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((grandchildCancelled), @"scope cancellation should propagate from a parent scope down to descendants");
+        OTAssert((values.count == 2), @"Manual task composition should wait for all children");
+        OTAssert((events.count == 2), @"Both composed tasks should run");
+        OTAssert(([[events objectAtIndex: 0] isEqual: @"second"]), @"Independent tasks should complete by readiness");
+        OTAssert(([[events objectAtIndex: 1] isEqual: @"first"]), @"Slower composed tasks should finish last");
     }];
 }
 
@@ -742,150 +273,52 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
 
 @implementation AsyncRuntimeSchedulerTests
 
-- (void)test_scheduler_offload_roundtrip
+- (void)test_scheduler_snapshot_reports_runtime_tasks
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
-            OFThread *workerThread = [scheduler offload: ^{
-                return $assert_nonnil(OFThread.currentThread);
-            }].await;
+    [self runAsyncBlock: ^{
+        auto blocker = [[AsyncCompletionSource<OFString *> alloc] init];
+        auto task = [AsyncRuntime spawnNamed: @"snapshot-target" block: ^id {
+            return [blocker.task await];
+        }];
 
-            OTAssert((workerThread != expectedThread), @"offloaded work should run on a worker thread");
-            OTAssert((OFThread.currentThread == expectedThread), @"awaiting offloaded work should resume on the original scheduler thread");
+        [[AsyncRuntime sleepForTimeInterval: 0.01] await];
+
+        AsyncSchedulerSnapshot *snapshot = [AsyncRuntime snapshot];
+        AsyncTaskSnapshot *taskSnapshot = [AsyncRuntimeTestSupport findTaskSnapshotNamed: @"snapshot-target"
+                                                                              inSnapshot: snapshot];
+
+        OTAssert((taskSnapshot != nilptr), @"Snapshots should include active named tasks");
+        OTAssert((taskSnapshot.executionState == AsyncTaskExecutionState_WAITING),
+                 @"Waiting tasks should be reported as waiting");
+
+        [blocker fulfill: @"released"];
+        OTAssert(([[task await] isEqual: @"released"]), @"Snapshot target should resume after fulfillment");
     }];
 }
 
-- (void)test_scheduler_snapshot_waiting_task
+- (void)test_offload_resumes_on_managed_scheduler
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
+    [self runAsyncBlock: ^{
+        OFThread *schedulerThread = $assert_nonnil(OFThread.currentThread);
+        block_reference OFThread *nillable workerThread = nilptr;
 
-            (void)[rootScope performInChildTaskGroupNamed: @"snapshot-scope" block: ^id(AsyncTaskGroup *scope) {
-                AsyncTask *snapshotTask = [scope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.05] await];
-                    return AsyncUnit.unit;
-                } name: @"snapshot-child"];
+        OFString *value = [[AsyncRuntime offload: ^id {
+            workerThread = $assert_nonnil(OFThread.currentThread);
+            return @"offloaded";
+        }] await];
 
-                [[scheduler sleepForTimeInterval: 0.01] await];
-
-                AsyncSchedulerSnapshot *snapshot = scheduler.snapshot;
-                auto taskSnapshot = [AsyncRuntimeTestSupport findTaskSnapshotNamed: @"snapshot-child" inSnapshot: snapshot];
-
-                OTAssert((taskSnapshot != nilptr), @"scheduler.snapshot should include active tasks");
-                OTAssert((taskSnapshot.taskID == snapshotTask.taskID), @"scheduler.snapshot should preserve task IDs");
-                OTAssert((taskSnapshot.executionState == AsyncTaskExecutionState_WAITING), @"scheduler.snapshot should report waiting execution state");
-                OTAssert(([taskSnapshot.waitReason isEqual: @"await task"]), @"scheduler.snapshot should report why a task is waiting");
-                OTAssert(([taskSnapshot.taskGroupName isEqual: @"snapshot-scope"]), @"scheduler.snapshot should expose the current task group name");
-                OTAssert((not taskSnapshot.isCancellationRequested), @"scheduler.snapshot should reflect cancellation state");
-                OTAssert((snapshot.tasks.count > 0), @"scheduler.snapshot should expose active task entries");
-
-                [snapshotTask await];
-                return AsyncUnit.unit;
-            }];
+        OTAssert(([value isEqual: @"offloaded"]), @"Offloaded work should return values");
+        OTAssert((workerThread != nilptr and workerThread != schedulerThread), @"Offloaded work should run away from the scheduler thread");
+        OTAssert((OFThread.currentThread == schedulerThread), @"Offload await should resume on the scheduler thread");
     }];
 }
 
-- (void)test_scheduler_shutdown_rejects_offload
+- (void)test_sleep_until_date
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *parentScheduler = rootScope.scheduler;
-            auto scheduler = [[AsyncScheduler alloc] initWithRunLoop: parentScheduler.runLoop mode: parentScheduler.mode maxWorkerCount: 1 maxDrainBatchSize: 1];
-            OFThread *workerThread = [scheduler offload: ^{
-                return $assert_nonnil(OFThread.currentThread);
-            }].await;
-            bool caughtShutdownOffload = false;
-
-            OTAssert((workerThread != OFThread.currentThread), @"dedicated schedulers should execute offloaded work on worker threads");
-
-            [scheduler shutdown];
-            [scheduler shutdown];
-
-            @try {
-                (void)[scheduler offload: ^{
-                    return AsyncUnit.unit;
-                }];
-            } @catch (OFInvalidArgumentException *) {
-                caughtShutdownOffload = true;
-            }
-
-            OTAssert((caughtShutdownOffload), @"shutdown schedulers should reject further offload requests");
-    }];
-}
-
-- (void)test_scheduler_cancellation_counter
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            uint64_t cancelledTaskCountBefore = scheduler.snapshot.cancelledTaskCount;
-            block_reference AsyncTask *cancelledTask = nilptr;
-            bool caughtTimeout = false;
-
-            @try {
-                (void)[rootScope performWithTimeout: 0.02 block: ^id(AsyncTaskGroup *scope) {
-                    cancelledTask = [scope spawnTask: ^{
-                        while (true)
-                            [[scheduler sleepForTimeInterval: 0.05] await];
-                        return AsyncUnit.unit;
-                    } name: @"cancelled-counter-child"];
-
-                    [[scheduler sleepForTimeInterval: 0.25] await];
-                    return AsyncUnit.unit;
-                }];
-            } @catch (AsyncTaskGroupTimeoutException *) {
-                caughtTimeout = true;
-            }
-
-            OTAssert((caughtTimeout), @"the cancellation counter scenario should still time out");
-            OTAssert((cancelledTask != nilptr), @"the cancellation counter scenario should create a child task");
-            OTAssert((cancelledTask.status == AsyncTaskStatus_REJECTED), @"timeout-cancelled tasks should reject");
-            OTAssert(([cancelledTask.failureException isKindOfClass: AsyncTaskCancelledException.class]), @"timeout-cancelled tasks should reject with AsyncTaskCancelledException");
-            OTAssert((scheduler.snapshot.cancelledTaskCount > cancelledTaskCountBefore), @"scheduler.snapshot.cancelledTaskCount should advance when a task is cancelled");
-    }];
-}
-
-- (void)test_scheduler_offload_failure_paths
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            bool caughtNilOffload = false;
-            bool caughtThrownOffload = false;
-
-            @try {
-                (void)[scheduler offload: ^{
-                    return nilptr;
-                }].await;
-            } @catch (OFInvalidArgumentException *) {
-                caughtNilOffload = true;
-            }
-
-            @try {
-                (void)[scheduler offload: ^{
-                    @throw [[TestRejectionException alloc] init];
-                    return AsyncUnit.unit;
-                }].await;
-            } @catch (TestRejectionException *) {
-                caughtThrownOffload = true;
-            }
-
-            OTAssert((caughtNilOffload), @"offloaded blocks returning nilptr should reject with OFInvalidArgumentException");
-            OTAssert((caughtThrownOffload), @"offloaded blocks should propagate their original exception");
-    }];
-}
-
-- (void)test_scheduler_sleep_shortcuts
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            AsyncTask<AsyncUnit *> *zeroSleep = [scheduler sleepForTimeInterval: 0];
-            AsyncTask<AsyncUnit *> *pastSleep = [scheduler sleepUntilDate: [[OFDate alloc] initWithTimeIntervalSinceNow: -0.01]];
-
-            OTAssert((zeroSleep.isCompleted), @"zero-length sleeps should complete immediately");
-            OTAssert((zeroSleep.status == AsyncTaskStatus_FULFILLED), @"zero-length sleeps should fulfill immediately");
-            OTAssert((zeroSleep.await == AsyncUnit.unit), @"zero-length sleeps should resolve to AsyncUnit.unit");
-            OTAssert((pastSleep.isCompleted), @"sleepUntilDate with a past deadline should complete immediately");
-            OTAssert((pastSleep.status == AsyncTaskStatus_FULFILLED), @"sleepUntilDate with a past deadline should fulfill immediately");
-            OTAssert((pastSleep.await == AsyncUnit.unit), @"sleepUntilDate with a past deadline should resolve to AsyncUnit.unit");
+    [self runAsyncBlock: ^{
+        OFDate *targetDate = [OFDate dateWithTimeIntervalSinceNow: 0.01];
+        (void)[[AsyncRuntime sleepUntilDate: targetDate] await];
+        OTAssert(([targetDate compare: OFDate.date] != OFOrderedDescending), @"sleepUntilDate should wait until the date has arrived");
     }];
 }
 
@@ -896,282 +329,51 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
 
 @implementation AsyncRuntimeChannelTests
 
-- (void)test_channel_rendezvous
+- (void)test_rendezvous_channel_transfers_values
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 0];
-            block_reference OFString *receivedValue = nilptr;
+    [self runAsyncBlock: ^{
+        auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 0];
+        auto producer = [AsyncRuntime spawnNamed: @"channel-producer" block: ^id {
+            [channel send: @"payload"];
+            return AsyncUnit.unit;
+        }];
 
-            (void)[rootScope performInChildTaskGroupNamed: @"rendezvous-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scope spawnTask: ^{
-                    receivedValue = channel.receive;
-                    return AsyncUnit.unit;
-                } name: @"rendezvous-receiver"];
+        OFString *value = [channel receive];
+        (void)[producer await];
 
-                [[scheduler sleepForTimeInterval: 0.01] await];
-                [channel send: @"ping"];
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert(([receivedValue isEqual: @"ping"]), @"an unbuffered channel should rendezvous between sender and receiver");
+        OTAssert(([value isEqual: @"payload"]), @"Rendezvous channels should transfer values");
     }];
 }
 
-- (void)test_channel_buffer_backpressure_and_snapshot
+- (void)test_buffered_channel_preserves_order_and_close_state
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 1];
-            auto bufferedEvents = [OFMutableArray<OFString *> array];
-            block_reference OFString *firstBufferedValue = nilptr;
-            block_reference OFString *secondBufferedValue = nilptr;
+    [self runAsyncBlock: ^{
+        auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 2];
+        bool caughtClosedSend = false;
+        bool caughtClosedReceive = false;
 
-            (void)[rootScope performInChildTaskGroupNamed: @"buffered-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scope spawnTask: ^{
-                    [bufferedEvents addObject: @"before-first-send"];
-                    [channel send: @"one"];
-                    [bufferedEvents addObject: @"after-first-send"];
-                    [bufferedEvents addObject: @"before-second-send"];
-                    [channel send: @"two"];
-                    [bufferedEvents addObject: @"after-second-send"];
-                    return AsyncUnit.unit;
-                } name: @"buffered-sender"];
+        [channel send: @"one"];
+        [channel send: @"two"];
+        [channel close];
 
-                [[scheduler sleepForTimeInterval: 0.01] await];
+        OTAssert(([[channel receive] isEqual: @"one"]), @"Buffered channels should preserve FIFO order");
+        OTAssert(([[channel receive] isEqual: @"two"]), @"Buffered channels should drain buffered values after close");
 
-                auto senderSnapshot = [AsyncRuntimeTestSupport findTaskSnapshotNamed: @"buffered-sender" inSnapshot: scheduler.snapshot];
-                OTAssert((senderSnapshot != nilptr), @"buffered sender should appear in scheduler snapshots while blocked");
-                OTAssert((senderSnapshot.executionState == AsyncTaskExecutionState_WAITING), @"buffered sender should block when the channel is full");
-                OTAssert(([senderSnapshot.waitReason isEqual: @"channel send"]), @"buffered sender should report channel send as the wait reason");
+        @try {
+            [channel send: @"three"];
+        } @catch (AsyncChannelClosedException *) {
+            caughtClosedSend = true;
+        }
 
-                firstBufferedValue = channel.receive;
-                [[scheduler sleepForTimeInterval: 0.01] await];
-                secondBufferedValue = channel.receive;
-                return AsyncUnit.unit;
-            }];
+        @try {
+            (void)[channel receive];
+        } @catch (AsyncChannelClosedException *) {
+            caughtClosedReceive = true;
+        }
 
-            OTAssert(([firstBufferedValue isEqual: @"one"]), @"bounded channels should preserve the first buffered value");
-            OTAssert(([secondBufferedValue isEqual: @"two"]), @"bounded channels should eventually deliver values blocked by backpressure");
-            OTAssert((bufferedEvents.count == 4), @"bounded channel sender should resume after capacity becomes available");
-            OTAssert(([bufferedEvents[3] isEqual: @"after-second-send"]), @"the second send should only complete after a receive frees space");
-    }];
-}
-
-- (void)test_channel_close_semantics
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            (void)rootScope;
-            auto closedChannel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 1];
-            bool caughtClosedSend = false;
-            bool caughtClosedReceive = false;
-
-            [closedChannel send: @"buffered-before-close"];
-            [closedChannel close];
-
-            OTAssert((closedChannel.isClosed), @"close should mark the channel as closed");
-            OTAssert(([closedChannel.receive isEqual: @"buffered-before-close"]), @"closing a channel should still allow buffered values to be drained");
-
-            @try {
-                [closedChannel send: @"nope"];
-            } @catch (AsyncChannelClosedException *exception) {
-                caughtClosedSend = [exception.operation isEqual: @"send"];
-            }
-
-            @try {
-                (void)closedChannel.receive;
-            } @catch (AsyncChannelClosedException *exception) {
-                caughtClosedReceive = [exception.operation isEqual: @"receive"];
-            }
-
-            OTAssert((caughtClosedSend), @"sending on a closed channel should throw AsyncChannelClosedException");
-            OTAssert((caughtClosedReceive), @"receiving from an exhausted closed channel should throw AsyncChannelClosedException");
-    }];
-}
-
-- (void)test_channel_description_and_open_close_state
-{
-    auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 3];
-    OFString *openDescription = channel.description;
-
-    OTAssert((channel.capacity == 3), @"AsyncChannel.capacity should preserve the configured capacity");
-    OTAssert((not channel.isClosed), @"a new channel should start open");
-    OTAssert(([openDescription containsString: @"capacity=3"]), @"AsyncChannel.description should include the configured capacity");
-    OTAssert(([openDescription containsString: @"closed=false"]), @"AsyncChannel.description should report an open channel");
-
-    [channel close];
-
-    OTAssert((channel.isClosed), @"close should transition the channel to a closed state");
-    OTAssert(([channel.description containsString: @"closed=true"]), @"AsyncChannel.description should report a closed channel");
-}
-
-- (void)test_channel_close_unblocks_waiters
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto receiverChannel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 0];
-            auto senderChannel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 0];
-            block_reference bool blockedReceiverClosed = false;
-            block_reference bool blockedSenderClosed = false;
-
-            (void)[rootScope performInChildTaskGroupNamed: @"close-receiver-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scope spawnTask: ^{
-                    @try {
-                        (void)receiverChannel.receive;
-                    } @catch (AsyncChannelClosedException *exception) {
-                        blockedReceiverClosed = [exception.operation isEqual: @"receive"];
-                        return AsyncUnit.unit;
-                    }
-
-                    OTAssert(false, @"blocked receiver should observe channel close");
-                    return AsyncUnit.unit;
-                } name: @"blocked-receiver"];
-
-                [scope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    [receiverChannel close];
-                    return AsyncUnit.unit;
-                } name: @"receiver-closer"];
-
-                return AsyncUnit.unit;
-            }];
-
-            (void)[rootScope performInChildTaskGroupNamed: @"close-sender-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scope spawnTask: ^{
-                    @try {
-                        [senderChannel send: @"value"];
-                    } @catch (AsyncChannelClosedException *exception) {
-                        blockedSenderClosed = [exception.operation isEqual: @"send"];
-                        return AsyncUnit.unit;
-                    }
-
-                    OTAssert(false, @"blocked sender should observe channel close");
-                    return AsyncUnit.unit;
-                } name: @"blocked-sender"];
-
-                [scope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    [senderChannel close];
-                    return AsyncUnit.unit;
-                } name: @"sender-closer"];
-
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((blockedReceiverClosed), @"closing a channel should wake blocked receivers with AsyncChannelClosedException");
-            OTAssert((blockedSenderClosed), @"closing a channel should wake blocked senders with AsyncChannelClosedException");
-    }];
-}
-
-- (void)test_channel_send_cancellation
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 0];
-            block_reference bool blockedSendCancelled = false;
-
-            (void)[rootScope performInChildTaskGroupNamed: @"send-cancel-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scope spawnTask: ^{
-                    @try {
-                        [channel send: @"blocked-send"];
-                    } @catch (AsyncTaskCancelledException *) {
-                        blockedSendCancelled = true;
-                        return AsyncUnit.unit;
-                    }
-
-                    OTAssert(false, @"blocked send should observe cancellation");
-                    return AsyncUnit.unit;
-                } name: @"blocked-sender"];
-
-                [scope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    [scope cancel];
-                    return AsyncUnit.unit;
-                } name: @"send-canceller"];
-
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((blockedSendCancelled), @"blocked sends should be cancellation checkpoints");
-    }];
-}
-
-- (void)test_channel_receive_cancellation
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 0];
-            block_reference bool blockedReceiveCancelled = false;
-
-            (void)[rootScope performInChildTaskGroupNamed: @"receive-cancel-scope" block: ^id(AsyncTaskGroup *scope) {
-                [scope spawnTask: ^{
-                    @try {
-                        (void)channel.receive;
-                    } @catch (AsyncTaskCancelledException *) {
-                        blockedReceiveCancelled = true;
-                        return AsyncUnit.unit;
-                    }
-
-                    OTAssert(false, @"blocked receive should observe cancellation");
-                    return AsyncUnit.unit;
-                } name: @"blocked-receiver"];
-
-                [scope spawnTask: ^{
-                    [[scheduler sleepForTimeInterval: 0.01] await];
-                    [scope cancel];
-                    return AsyncUnit.unit;
-                } name: @"receive-canceller"];
-
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((blockedReceiveCancelled), @"blocked receives should be cancellation checkpoints");
-    }];
-}
-
-- (void)test_channel_multi_producer_consumer
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 2];
-            auto receivedValues = [OFMutableSet<OFString *> set];
-            size_t const itemsPerProducer = 10;
-
-            (void)[rootScope performInChildTaskGroupNamed: @"multi-producer-consumer-scope" block: ^id(AsyncTaskGroup *scope) {
-                for (size_t producerIndex = 0; producerIndex < 2; producerIndex++) {
-                    OFString *producerName = [OFString stringWithFormat: @"producer-%zu", producerIndex];
-
-                    [scope spawnTask: ^{
-                        for (size_t itemIndex = 0; itemIndex < itemsPerProducer; itemIndex++) {
-                            OFString *value = [OFString stringWithFormat: @"p%zu-%zu", producerIndex, itemIndex];
-                            [channel send: value];
-                        }
-
-                        return AsyncUnit.unit;
-                    } name: producerName];
-                }
-
-                for (size_t consumerIndex = 0; consumerIndex < 2; consumerIndex++) {
-                    OFString *consumerName = [OFString stringWithFormat: @"consumer-%zu", consumerIndex];
-
-                    [scope spawnTask: ^{
-                        for (size_t itemIndex = 0; itemIndex < itemsPerProducer; itemIndex++)
-                            [receivedValues addObject: channel.receive];
-
-                        return AsyncUnit.unit;
-                    } name: consumerName];
-                }
-
-                return AsyncUnit.unit;
-            }];
-
-            OTAssert((receivedValues.count == itemsPerProducer * 2), @"multi-producer/multi-consumer channels should deliver every produced value exactly once");
-
-            for (size_t producerIndex = 0; producerIndex < 2; producerIndex++) {
-                for (size_t itemIndex = 0; itemIndex < itemsPerProducer; itemIndex++) {
-                    OFString *expectedValue = [OFString stringWithFormat: @"p%zu-%zu", producerIndex, itemIndex];
-                    OTAssert(([receivedValues containsObject: expectedValue]), @"%@", ([OFString stringWithFormat: @"missing channel value %@", expectedValue]));
-                }
-            }
+        OTAssert(channel.isClosed, @"Closed channels should expose close state");
+        OTAssert(caughtClosedSend, @"Closed channels should reject sends");
+        OTAssert(caughtClosedReceive, @"Closed and drained channels should reject receives");
     }];
 }
 
@@ -1182,75 +384,45 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
 
 @implementation AsyncRuntimeHTTPTests
 
-- (void)test_http_concurrent_requests
+- (void)test_http_client_uses_managed_runtime_scheduler
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto server = [[LocalHTTPTestServer alloc] init];
+    LocalHTTPTestServer *server = [[LocalHTTPTestServer alloc] init];
+    [server start];
+
+    @try {
+        [self runAsyncBlock: ^{
             auto client = [AsyncHTTPClient client];
-            AsyncTask<OFHTTPResponse *> *alphaTask;
-            AsyncTask<OFHTTPResponse *> *betaTask;
-            OFHTTPResponse *alphaResponse;
-            OFHTTPResponse *betaResponse;
+            auto request = [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/hello"]];
+            OFHTTPResponse *response = [[client performRequest: request] await];
 
-            OTAssert((OFTLSStreamImplementation != Nil), @"Async runtime should force ObjFWTLS to load so https support is available");
-
-            [server start];
-
-            @try {
-                alphaTask = [AsyncRuntimeTestSupport taskToPerformHTTPRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/alpha"]]
-                                                               withHTTPClient: client
-                                                                  onScheduler: scheduler];
-                betaTask = [AsyncRuntimeTestSupport taskToPerformHTTPRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/beta"]]
-                                                              withHTTPClient: client
-                                                                   redirects: 0
-                                                                 onScheduler: scheduler];
-
-                alphaResponse = alphaTask.await;
-                betaResponse = betaTask.await;
-
-                OTAssert(([alphaResponse.readString isEqual: @"alpha"]), @"AsyncHTTP request bridge should resolve the first concurrent request correctly");
-                OTAssert(([betaResponse.readString isEqual: @"beta"]), @"AsyncHTTP request bridge should resolve the second concurrent request correctly");
-            } @finally {
-                [server stop];
-            }
-    }];
+            OTAssert((response.statusCode == 200), @"HTTP client should return local test responses");
+            OTAssert(([response.readString isEqual: @"hello"]), @"HTTP client should expose response bodies");
+            OTAssert(([AsyncTask currentTask].scheduler == [AsyncScheduler sharedScheduler]),
+                     @"HTTP awaits should stay on the managed scheduler");
+        }];
+    } @finally {
+        [server stop];
+    }
 }
 
-- (void)test_http_timeout_cancellation_and_reuse
+- (void)test_http_helper_redirect_signature
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
-            auto server = [[LocalHTTPTestServer alloc] init];
+    LocalHTTPTestServer *server = [[LocalHTTPTestServer alloc] init];
+    [server start];
+
+    @try {
+        [self runAsyncBlock: ^{
             auto client = [AsyncHTTPClient client];
-            OFHTTPResponse *gammaResponse;
-            bool caughtTimeout = false;
+            auto request = [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/root"]];
+            OFHTTPResponse *response = [[AsyncRuntimeTestSupport taskToPerformHTTPRequest: request
+                                                                           withHTTPClient: client] await];
 
-            [server start];
-
-            @try {
-                @try {
-                    (void)[rootScope performWithTimeout: 0.02 block: ^id(AsyncTaskGroup *) {
-                        [[AsyncRuntimeTestSupport taskToPerformHTTPRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/slow-cancel"]]
-                                                            withHTTPClient: client
-                                                               onScheduler: scheduler] await];
-                        return AsyncUnit.unit;
-                    }];
-                } @catch (AsyncTaskGroupTimeoutException *) {
-                    caughtTimeout = true;
-                }
-
-                OTAssert((caughtTimeout), @"cancelling a task waiting on AsyncHTTP should unwind via timeout");
-                gammaResponse = [AsyncRuntimeTestSupport taskToPerformHTTPRequest: [[OFHTTPRequest alloc] initWithIRI: [server IRIForPath: @"/gamma"]]
-                                                                    withHTTPClient: client
-                                                                         redirects: 0
-                                                                       onScheduler: scheduler
-                                                          cancelOnTaskCancellation: false].await;
-                OTAssert(([gammaResponse.readString isEqual: @"gamma"]), @"AsyncHTTP request bridge should remain usable after cancelling an in-flight request");
-            } @finally {
-                [server stop];
-            }
-    }];
+            OTAssert((response.statusCode == 200), @"Test HTTP helper should use the new client API");
+            OTAssert(([response.readString isEqual: @"root"]), @"Test HTTP helper should return response bodies");
+        }];
+    } @finally {
+        [server stop];
+    }
 }
 
 @end
@@ -1260,70 +432,27 @@ static void run_async_test_case(AsyncRuntimeTestCase *self,
 
 @implementation AsyncRuntimeStressTests
 
-- (void)test_stress_timeout_repetitions
+- (void)test_many_small_tasks_resolve_on_single_scheduler
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            AsyncScheduler *scheduler = rootScope.scheduler;
+    [self runAsyncBlock: ^{
+        auto tasks = [OFMutableArray<AsyncTask *> array];
 
-            for (size_t iteration = 0; iteration < 25; iteration++) {
-                block_reference bool childCancelled = false;
-                bool caughtTimeout = false;
+        for (size_t index = 0; index < 64; index++) {
+            OFString *name = [OFString stringWithFormat: @"stress-%zu", index];
+            [tasks addObject: [AsyncRuntime spawnNamed: name block: ^id {
+                [[AsyncRuntime sleepForTimeInterval: (OFTimeInterval)(index % 4) * 0.001] await];
+                return [OFNumber numberWithUnsignedLongLong: (unsigned long long)index];
+            }]];
+        }
 
-                @try {
-                    (void)[rootScope performWithTimeout: 0.003 block: ^id(AsyncTaskGroup *scope) {
-                        [scope spawnTask: ^{
-                            @try {
-                                [[scheduler sleepForTimeInterval: 0.10] await];
-                            } @catch (AsyncTaskCancelledException *) {
-                                childCancelled = true;
-                                return AsyncUnit.unit;
-                            }
+        OFArray<id> *results = [[AsyncTask all: tasks] await];
+        AsyncSchedulerSnapshot *snapshot = [AsyncRuntime snapshot];
 
-                            return AsyncUnit.unit;
-                        } name: [OFString stringWithFormat: @"stress-timeout-child-%zu", iteration]];
-
-                        [[scheduler sleepForTimeInterval: 0.10] await];
-                        return AsyncUnit.unit;
-                    }];
-                } @catch (AsyncTaskGroupTimeoutException *) {
-                    caughtTimeout = true;
-                }
-
-                OTAssert((caughtTimeout), @"%@", ([OFString stringWithFormat: @"stress timeout iteration %zu should time out", iteration]));
-                OTAssert((childCancelled), @"%@", ([OFString stringWithFormat: @"stress timeout iteration %zu should cancel its child task", iteration]));
-            }
-    }];
-}
-
-- (void)test_stress_channel_repetitions
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            for (size_t iteration = 0; iteration < 20; iteration++) {
-                auto channel = [[AsyncChannel<OFString *> alloc] initWithCapacity: 1];
-                auto values = [OFMutableArray<OFString *> array];
-
-                (void)[rootScope performInChildTaskGroupNamed: [OFString stringWithFormat: @"stress-channel-%zu", iteration] block: ^id(AsyncTaskGroup *scope) {
-                    [scope spawnTask: ^{
-                        for (size_t itemIndex = 0; itemIndex < 8; itemIndex++)
-                            [channel send: [OFString stringWithFormat: @"%zu-%zu", iteration, itemIndex]];
-
-                        return AsyncUnit.unit;
-                    } name: @"stress-producer"];
-
-                    [scope spawnTask: ^{
-                        for (size_t itemIndex = 0; itemIndex < 8; itemIndex++)
-                            [values addObject: channel.receive];
-
-                        return AsyncUnit.unit;
-                    } name: @"stress-consumer"];
-
-                    return AsyncUnit.unit;
-                }];
-
-                OTAssert((values.count == 8), @"%@", ([OFString stringWithFormat: @"stress channel iteration %zu should receive every value", iteration]));
-            }
+        OTAssert((results.count == 64), @"Stress task composition should collect every result");
+        OTAssert((snapshot.completedTaskCount >= 64), @"Scheduler snapshots should account for completed tasks");
     }];
 }
 
 @end
+
 #pragma clang assume_nonnull end

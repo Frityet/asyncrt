@@ -1,5 +1,6 @@
 #import <TestSupport/TestSupport.h>
 #import <AsyncRT/Application/UI/Surface/Web/Web.h>
+#import <AsyncRT/Application/UI/Surface/Web/Internal/Component+Private.h>
 
 #pragma clang assume_nonnull begin
 
@@ -69,20 +70,56 @@
 @end
 
 [[subclassing_restricted]]
+@interface AsyncWebUINestedTestComponent : AsyncWebUIComponent
+
+- (AsyncWebUIStatefulTestComponent *)childComponent;
+
+@end
+
+@implementation AsyncWebUINestedTestComponent {
+    AsyncWebUIStatefulTestComponent *_detail;
+}
+
+- (instancetype)init
+{
+    self = [super init];
+    _detail = [[AsyncWebUIStatefulTestComponent alloc] init];
+    return self;
+}
+
+- (AsyncWebUIStatefulTestComponent *)childComponent
+{
+    return _detail;
+}
+
++ (OFString *)layout
+{
+    return @$raw(
+        <section class="nested">
+            <h2>Nested host</h2>
+            <slot name="detail"></slot>
+        </section>
+    );
+}
+
+@end
+
+[[subclassing_restricted]]
 @interface AsyncWebUITestView : AsyncWebUIView
 
 @property(readonly, nonatomic) OFMutableArray<OFString *> *evaluatedJavaScripts;
+@property(retain, nonatomic) id nillable nextJavaScriptValue;
 
 @end
 
 @implementation AsyncWebUITestView {
     OFMutableArray<OFString *> *_evaluatedJavaScripts;
+    id nillable _nextJavaScriptValue;
 }
 
 - (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration
-                            scheduler: (AsyncScheduler *)scheduler
 {
-    self = [super initWithConfiguration: configuration scheduler: scheduler];
+    self = [super initWithConfiguration: configuration];
     _evaluatedJavaScripts = [OFMutableArray array];
     return self;
 }
@@ -92,10 +129,22 @@
     return _evaluatedJavaScripts;
 }
 
-- (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript
+- (id nillable)nextJavaScriptValue
+{
+    return _nextJavaScriptValue;
+}
+
+- (void)setNextJavaScriptValue: (id nillable)nextJavaScriptValue
+{
+    _nextJavaScriptValue = nextJavaScriptValue;
+}
+
+- (AsyncTask<id> *)taskToEvaluateJavaScriptReturningValue: (OFString *)javaScript
 {
     [_evaluatedJavaScripts addObject: javaScript];
-    return [AsyncTask resolved: AsyncUnit.unit];
+    id nillable value = _nextJavaScriptValue;
+    _nextJavaScriptValue = nilptr;
+    return [AsyncTask resolved: (value != nilptr ? $assert_nonnil(value) : (id)OFNull.null)];
 }
 
 @end
@@ -123,18 +172,17 @@
              @"Web windows should not inherit immediate content auto-resizing");
     OTAssert((not webApplication.shouldTerminateAfterLaunchTaskCompletes),
              @"Web applications should stay alive while their root component is mounted");
-    OTAssert(([webApplication.rootComponentClass isSubclassOfClass: AsyncWebUIComponent.class]),
-             @"Web applications should provide a root component class");
+    OTAssert(([webApplication.createRootComponent isKindOfClass: AsyncWebUIComponent.class]),
+             @"Web applications should provide a root component instance");
 }
 
 - (void)test_web_view_copies_configuration_and_tracks_loaded_content
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
+    [self runAsyncBlock: ^{
         auto configuration = [AsyncUIWindowConfiguration withTitle: @"Original"
                                                             width: 640
                                                            height: 480];
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: configuration
-                                                            scheduler: rootTaskGroup.scheduler];
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: configuration];
 
         configuration.title = @"Mutated";
         OTAssert(([view.configuration.title isEqual: @"Original"]),
@@ -155,28 +203,27 @@
 {
     OTAssert(([AsyncWebUITestComponent.identifier isEqual: @"awuic-asyncwebuitestcomponent"]),
              @"Component identifiers should be lowercase custom element names");
-    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"const tagName = \"awuic-asyncwebuitestcomponent\""]),
+    OFString *definitionJavaScript = [AsyncWebUITestComponent _asyncWebUIDefinitionJavaScript];
+
+    OTAssert(([definitionJavaScript containsString: @"const tagName = \"awuic-asyncwebuitestcomponent\""]),
              @"Component definitions should embed the lowercase identifier");
-    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"customElements.define(tagName, Component)"]),
+    OTAssert(([definitionJavaScript containsString: @"customElements.define(tagName, Component)"]),
              @"Component definitions should register the lowercase identifier");
-    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"const styleText = \".primary { color: \\\"red\\\"; }\""]),
+    OTAssert(([definitionJavaScript containsString: @"const styleText = \".primary { color: \\\"red\\\"; }\""]),
              @"Component styling should be JSON-escaped before entering JavaScript");
-    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"const layoutHTML = \"<button class=\\\"primary\\\" onclick=\\\"[self onPress:]\\\">Press {{message}}</button>\""]),
+    OTAssert(([definitionJavaScript containsString: @"const layoutHTML = \"<button class=\\\"primary\\\" onclick=\\\"[self onPress:]\\\">Press {{message}}</button>\""]),
              @"Component layout should be JSON-escaped before entering JavaScript");
-    OTAssert(([AsyncWebUITestComponent.definitionJavaScript containsString: @"window.AsyncRT.invoke(invokeActionName"]),
+    OTAssert(([definitionJavaScript containsString: @"window.AsyncRT.invoke(nativeInvokeAction"]),
              @"Generated components should call through the AsyncRT browser bridge");
-    OTAssert((not [AsyncWebUITestComponent.definitionJavaScript containsString: @"globalThis.AsyncWebUI"]),
-             @"Generated components should not depend on the old placeholder global");
 }
 
 - (void)test_web_component_state_mounting_and_element_html
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
 
-        [component mountToWebView: view componentID: @"root"];
+        [component _asyncWebUIMountToWebView: view componentID: @"root"];
 
         OTAssert((component.webView == view), @"Mounted components should retain their web view");
         OTAssert(([component.componentID isEqual: @"root"]), @"Mounted components should retain their component ID");
@@ -192,32 +239,53 @@
         OTAssert((((OFNumber *)[state objectForKey: @"counter"]).intValue == 2),
                  @"Component state should include boxed scalar property values");
 
-        OFString *elementHTML = component.elementHTML;
-        OTAssert(([elementHTML containsString: @"<awuic-asyncwebuistatefultestcomponent"]),
+        OFString *renderedHTML = [component _asyncWebUIElementHTMLWithSlotName: nilptr];
+        OTAssert(([renderedHTML containsString: @"<awuic-asyncwebuistatefultestcomponent"]),
                  @"Mounted components should render their custom element tag");
-        OTAssert(([elementHTML containsString: @"data-async-webui-id=\"root\""]),
+        OTAssert(([renderedHTML containsString: @"data-async-webui-id=\"root\""]),
                  @"Mounted component HTML should include the component ID");
-        OTAssert(([elementHTML containsString: @"&quot;message&quot;"]),
+        OTAssert(([renderedHTML containsString: @"&quot;message&quot;"]),
                  @"Mounted component HTML should XML-escape JSON state for attributes");
-        OTAssert(([elementHTML containsString: @"Hello &amp; &lt;AsyncRT&gt;"]),
+        OTAssert(([renderedHTML containsString: @"Hello &amp; &lt;AsyncRT&gt;"]),
                  @"Mounted component HTML should XML-escape state values for attributes");
+    }];
+}
+
+- (void)test_web_component_nested_children_render_as_slotted_light_dom
+{
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
+        auto parent = [[AsyncWebUINestedTestComponent alloc] init];
+        auto child = parent.childComponent;
+
+        [parent _asyncWebUIMountToWebView: view componentID: @"root"];
+        [child _asyncWebUIMountToWebView: view componentID: @"root-detail-0"];
+
+        auto childEntries = parent._asyncWebUIChildComponentEntries;
+        OFString *parentHTML = [parent _asyncWebUIElementHTMLWithSlotName: nilptr];
+        OTAssert(([[AsyncWebUINestedTestComponent _asyncWebUIDefinitionJavaScript] containsString: @"<slot name=\\\"detail\\\"></slot>"]),
+                 @"Nested parent definitions should keep named slots in their shadow layout");
+        OTAssert((childEntries.count == 1), @"Nested components should be discovered from component ivars");
+        OTAssert(([((AsyncWebUIComponentChildEntry *)[childEntries objectAtIndex: 0]).slotName isEqual: @"detail"]),
+                 @"Discovered child slots should come from the ivar name");
+        OTAssert(([parentHTML containsString: @"<awuic-asyncwebuinestedtestcomponent"]),
+                 @"Nested parent HTML should start with the parent component");
+        OTAssert(([parentHTML containsString: @"<awuic-asyncwebuistatefultestcomponent slot=\"detail\""]),
+                 @"Child component HTML should be rendered as slotted light DOM");
+        OTAssert(([parentHTML containsString: @"data-async-webui-id=\"root-detail-0\""]),
+                 @"Nested child HTML should include its mounted component ID");
     }];
 }
 
 - (void)test_web_component_action_dispatch_updates_state
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
-        [component mountToWebView: view componentID: @"root"];
+        [component _asyncWebUIMountToWebView: view componentID: @"root"];
 
-        AsyncWebUIRequest request = (AsyncWebUIRequest){
-            .action = AsyncWebUIComponent.invokeActionName,
-            .payloadJSON = @"{\"componentID\":\"root\",\"selector\":\"onIncrementClick:\",\"event\":{\"type\":\"click\"}}",
-            .requestID = @"component-action"
-        };
-        OFString *responseJSON = [component taskToHandleActionRequest: request].await;
+        auto payload = (OFDictionary<OFString *, id> *)@"{\"componentID\":\"root\",\"selector\":\"onIncrementClick:\",\"event\":{\"type\":\"click\"}}".objectByParsingJSON;
+        OFString *responseJSON = [component _asyncWebUIHandleActionPayload: payload].await;
         auto response = (OFDictionary<OFString *, id> *)responseJSON.objectByParsingJSON;
         auto state = (OFDictionary<OFString *, id> *)[response objectForKey: @"state"];
 
@@ -231,12 +299,8 @@
                  @"Action responses should include updated component state");
 
         @try {
-            AsyncWebUIRequest invalidRequest = (AsyncWebUIRequest){
-                .action = AsyncWebUIComponent.invokeActionName,
-                .payloadJSON = @"{\"componentID\":\"root\",\"selector\":\"missingAction:\"}",
-                .requestID = @"component-action-invalid"
-            };
-            (void)[component taskToHandleActionRequest: invalidRequest].await;
+            auto invalidPayload = (OFDictionary<OFString *, id> *)@"{\"componentID\":\"root\",\"selector\":\"missingAction:\"}".objectByParsingJSON;
+            (void)[component _asyncWebUIHandleActionPayload: invalidPayload].await;
             OTAssert(false, @"Invalid component selectors should reject the action task");
         } @catch (AsyncWebUIComponentException *exception) {
             OTAssert(([exception.description containsString: @"does not respond"]),
@@ -247,18 +311,17 @@
 
 - (void)test_web_component_render_task_emits_component_update
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
-        [component mountToWebView: view componentID: @"root"];
+        [component _asyncWebUIMountToWebView: view componentID: @"root"];
 
         component.counter = 9;
         (void)[component taskToRender].await;
 
         OTAssert((view.evaluatedJavaScripts.count == 1), @"Rendering should evaluate one browser update event");
         OFString *javaScript = [view.evaluatedJavaScripts objectAtIndex: 0];
-        OTAssert(([javaScript containsString: AsyncWebUIComponent.updateEventName]),
+        OTAssert(([javaScript containsString: [AsyncWebUIComponent _asyncWebUIUpdateEventName]]),
                  @"Render tasks should emit the component update event");
         OTAssert(([javaScript containsString: @"\"componentID\":\"root\""]),
                  @"Render tasks should include the mounted component ID");
@@ -269,9 +332,8 @@
 
 - (void)test_web_view_event_javascript_is_escaped_and_evaluated
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         OFString *javaScript = [AsyncWebUIView javaScriptToDispatchEventNamed: @"state:ready\"quoted"
                                                                   payloadJSON: @"{\"ok\":true}"];
 
@@ -287,11 +349,48 @@
     }];
 }
 
+- (void)test_web_dom_wrappers_batch_mutations_and_return_values
+{
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
+        auto document = view.document;
+        auto gauge = [document elementMatchingSelector: @".gauge"];
+
+        view.nextJavaScriptValue = [OFArray arrayWithObjects:
+            [OFNumber numberWithBool: true],
+            [OFNumber numberWithBool: true],
+            [OFNumber numberWithBool: true],
+            nil];
+
+        auto mutations = [OFArray arrayWithObjects:
+            [AsyncWebUIDOMMutation setText: @"42%" selector: @".gauge"],
+            [AsyncWebUIDOMMutation setStyleProperty: @"--load" value: @"0.42" selector: @".gauge"],
+            [AsyncWebUIDOMMutation toggleClass: @"hot" enabled: true selector: @".gauge"],
+            nil];
+        OFArray<id> *result = [gauge taskToApplyMutations: mutations].await;
+
+        OTAssert((result.count == 3), @"DOM mutation batches should return one result per operation");
+        OTAssert((view.evaluatedJavaScripts.count == 1), @"DOM mutation batches should evaluate one JavaScript snippet");
+        OFString *script = [view.evaluatedJavaScripts objectAtIndex: 0];
+        OTAssert(([script containsString: @"document.querySelector(\".gauge\")"]),
+                 @"DOM mutations should target the escaped selector");
+        OTAssert(([script containsString: @"el.textContent = \"42%\""]),
+                 @"DOM mutations should set text through generated JavaScript");
+        OTAssert(([script containsString: @"el.style.setProperty(\"--load\", \"0.42\")"]),
+                 @"DOM mutations should support CSS custom property updates");
+        OTAssert(([script containsString: @"el.classList.toggle(\"hot\", true)"]),
+                 @"DOM mutations should support explicit class toggles");
+
+        view.nextJavaScriptValue = @"ready";
+        OTAssert(([[gauge taskToReadText].await isEqual: @"ready"]),
+                 @"DOM elements should expose async text reads");
+    }];
+}
+
 - (void)test_web_view_action_dispatch_and_unbind
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         block_reference AsyncWebUIRequest observedRequest = (AsyncWebUIRequest){0};
 
         [view bindAction: @"save" toHandler: ^AsyncTask<OFString *> *(AsyncWebUIRequest request) {
@@ -319,34 +418,10 @@
     }];
 }
 
-- (void)test_web_view_sync_json_action_handler
-{
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
-
-        [view bindAction: @"sync" toJSONHandler: ^OFString *(AsyncWebUIRequest request) {
-            return [OFString stringWithFormat: @"{\"action\":%@,\"payload\":%@}",
-                                            request.action.JSONRepresentation,
-                                            request.payloadJSON ?: @"null"];
-        }];
-
-        AsyncWebUIRequest request = (AsyncWebUIRequest){
-            .action = @"sync",
-            .payloadJSON = @"{\"value\":7}",
-            .requestID = @"request-sync"
-        };
-
-        OTAssert(([[view taskToHandleRequest: request].await isEqual: @"{\"action\":\"sync\",\"payload\":{\"value\":7}}"]),
-                 @"Synchronous JSON handlers should be wrapped in resolved tasks");
-    }];
-}
-
 - (void)test_web_view_response_javascript_and_close_state
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootTaskGroup) {
-        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults
-                                                            scheduler: rootTaskGroup.scheduler];
+    [self runAsyncBlock: ^{
+        auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         OFString *javaScript = [AsyncWebUIView javaScriptToResolveRequestID: @"abc"
                                                                responseJSON: @"{\"ok\":true}"];
 

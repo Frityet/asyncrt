@@ -135,23 +135,14 @@ static void GelbooruEnsureObjFWJSONParsingLoaded(void)
 
 - (AsyncTask<OFArray<OFString *> *> *)fetchAllTags
 {
-    AsyncTaskGroup *nillable taskGroup = AsyncTaskGroup.currentTaskGroup;
-
-    if (taskGroup == nilptr)
-        return [AsyncTask rejected: [[GelbooruAPIException alloc] initWithReason: @"fetchAllTags requires an active AsyncTaskGroup"
-                                                        underlyingException: nilptr]];
-
-    AsyncTaskGroup *activeTaskGroup = $assert_nonnil(taskGroup);
-
-    return (AsyncTask<OFArray<OFString *> *> *)[activeTaskGroup spawnTask: ^id {
+    return (AsyncTask<OFArray<OFString *> *> *)[AsyncRuntime spawnNamed: @"Gelbooru.fetchAllTags" block: ^id {
         auto tagNames = [OFMutableArray<OFString *> array];
         unsigned long long afterID = 0;
 
         while (true) {
             [AsyncTask checkCancellation];
 
-            id JSONObject = [[self _fetchJSONAtIRI: [self _tagListIRIAfterID: afterID]
-                                       onScheduler: activeTaskGroup.scheduler] await];
+            id JSONObject = [[self _fetchJSONAtIRI: [self _tagListIRIAfterID: afterID]] await];
             OFArray<id> *tags = [GelbooruJSON collectionNamed: @"tag" inJSONObject: JSONObject];
             bool advanced = false;
 
@@ -181,7 +172,7 @@ static void GelbooruEnsureObjFWJSONParsingLoaded(void)
         }
 
         return [tagNames copy];
-    } name: @"Gelbooru.fetchAllTags"];
+    }];
 }
 
 - (AsyncTask<Optional<BooruPage *> *> *)fetchPage: (int)pageNumber forSearchWithTags: (OFArray<OFString *> *)tags
@@ -193,35 +184,29 @@ static void GelbooruEnsureObjFWJSONParsingLoaded(void)
                            forSearchWithTags: (OFArray<OFString *> *)tags
                                excludingTags: (OFArray<OFString *> *)excludedTags
 {
-    AsyncTaskGroup *nillable taskGroup = AsyncTaskGroup.currentTaskGroup;
     OFArray<OFString *> *searchTags;
     OFArray<OFString *> *searchExcludedTags;
 
     if (pageNumber < 0)
         @throw [OFInvalidArgumentException exception];
-    if (taskGroup == nilptr)
-        return [AsyncTask rejected: [[GelbooruAPIException alloc] initWithReason: @"fetchPage requires an active AsyncTaskGroup"
-                                                        underlyingException: nilptr]];
 
-    AsyncTaskGroup *activeTaskGroup = $assert_nonnil(taskGroup);
     searchTags = [tags copy];
     searchExcludedTags = [excludedTags copy];
 
-    return [activeTaskGroup spawnTask: ^id {
+    return [AsyncRuntime spawnNamed: @"Gelbooru.fetchPage" block: ^id {
         id JSONObject = [[self _fetchJSONAtIRI: [self _postSearchIRIForPage: pageNumber
                                                                         tags: searchTags
-                                                                excludedTags: searchExcludedTags]
-                                   onScheduler: activeTaskGroup.scheduler] await];
+                                                                excludedTags: searchExcludedTags]] await];
         return [self _pageFromJSONObject: JSONObject pageNumber: pageNumber];
-    } name: @"Gelbooru.fetchPage"];
+    }];
 }
 
-- (AsyncTask<id> *)_fetchJSONAtIRI: (OFIRI *)IRI onScheduler: (AsyncScheduler *)scheduler [[direct]]
+- (AsyncTask<id> *)_fetchJSONAtIRI: (OFIRI *)IRI [[direct]]
 {
     auto request = [[OFHTTPRequest alloc] initWithIRI: IRI];
     request.headers = [OFDictionary dictionaryWithObject: @"BooruAggr/1.0" forKey: @"User-Agent"];
 
-    return [[_httpClient performRequest: request onScheduler: scheduler] mapOnScheduler: scheduler transform: ^id(OFHTTPResponse *response) {
+    return [[_httpClient performRequest: request] map: ^id(OFHTTPResponse *response) {
         return response.readString.objectByParsingJSON;
     }];
 }

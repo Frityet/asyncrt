@@ -229,30 +229,24 @@ static void RealbooruEnsureObjFWXMLUnescapingLoaded(void)
                            forSearchWithTags: (OFArray<OFString *> *)tags
                                excludingTags: (OFArray<OFString *> *)excludedTags
 {
-    AsyncTaskGroup *nillable taskGroup = AsyncTaskGroup.currentTaskGroup;
     OFArray<OFString *> *searchTags;
     OFArray<OFString *> *searchExcludedTags;
 
     if (pageNumber < 0)
         @throw [OFInvalidArgumentException exception];
-    if (taskGroup == nilptr)
-        return [AsyncTask rejected: [[RealbooruAPIException alloc] initWithReason: @"fetchPage requires an active AsyncTaskGroup"
-                                                         underlyingException: nilptr]];
 
-    AsyncTaskGroup *activeTaskGroup = $assert_nonnil(taskGroup);
     searchTags = [tags copy];
     searchExcludedTags = [excludedTags copy];
 
-    return [activeTaskGroup spawnTask: ^id {
+    return [AsyncRuntime spawnNamed: @"Realbooru.fetchPage" block: ^id {
         OFString *HTML = [[self _fetchHTMLAtIRI: [self _postSearchIRIForPage: pageNumber
                                                                          tags: searchTags
-                                                                 excludedTags: searchExcludedTags]
-                                    onScheduler: activeTaskGroup.scheduler] await];
+                                                                 excludedTags: searchExcludedTags]] await];
         return [self _pageFromHTML: HTML pageNumber: pageNumber];
-    } name: @"Realbooru.fetchPage"];
+    }];
 }
 
-- (AsyncTask<OFString *> *)_fetchHTMLAtIRI: (OFIRI *)IRI onScheduler: (AsyncScheduler *)scheduler [[direct]]
+- (AsyncTask<OFString *> *)_fetchHTMLAtIRI: (OFIRI *)IRI [[direct]]
 {
     auto request = [[OFHTTPRequest alloc] initWithIRI: IRI];
     request.headers = [OFDictionary dictionaryWithKeysAndObjects:
@@ -260,7 +254,7 @@ static void RealbooruEnsureObjFWXMLUnescapingLoaded(void)
         @"User-Agent", @"BooruAggr/1.0",
         nil];
 
-    return [[_httpClient performRequest: request onScheduler: scheduler] mapOnScheduler: scheduler transform: ^OFString *(OFHTTPResponse *response) {
+    return [[_httpClient performRequest: request] map: ^OFString *(OFHTTPResponse *response) {
         if (response.statusCode < 200 or response.statusCode >= 300)
             @throw [[RealbooruAPIException alloc] initWithReason: [OFString stringWithFormat: @"Realbooru returned AsyncHTTP status %hd", response.statusCode]
                                              underlyingException: nilptr];

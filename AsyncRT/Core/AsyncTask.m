@@ -42,7 +42,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     AsyncCompletionSource<id> *_resultCompletionSource;
     AsyncTaskState<id> *nillable _wrappedTaskState;
     AsyncScheduler *_scheduler;
-    AsyncTaskGroup *nillable _taskGroup;
     AsyncCoroutine<id> *_coroutine;
     id (^_block)(void);
     OFString *nillable _name;
@@ -53,8 +52,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     AsyncTaskWaitRegistration *nillable _waitRegistration;
     bool _cancellationRequested;
     bool _isReadyQueued;
-    size_t _cancellationSuppressionDepth;
-    unretained AsyncTaskGroup *nillable _currentExecutionTaskGroup;
 }
 
 + (AsyncTask *nillable)currentTask
@@ -130,28 +127,13 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     return [_resultCompletionSource _internalTaskState];
 }
 
-- (AsyncTaskGroup *nillable)taskGroup
-{
-    AsyncTaskGroup *nillable taskGroup;
-
-    [_stateLock lock];
-    @try {
-        taskGroup = _taskGroup;
-    } @finally {
-        [_stateLock unlock];
-    }
-
-    return taskGroup;
-}
-
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler taskGroup: (AsyncTaskGroup *nillable)taskGroup name: (OFString *nillable)name block: (id (^)(void))block
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler name: (OFString *nillable)name block: (id (^)(void))block
 {
     self = [super init];
     _resultCompletionSource = [[AsyncCompletionSource<id> alloc] init];
     [[_resultCompletionSource _internalTaskState] _setAssociatedTask: self];
     [[_resultCompletionSource _internalTaskState] _setProducingTask: self];
     _scheduler = scheduler;
-    _taskGroup = taskGroup;
     _block = [block copy];
     _name = [name copy];
     _taskID = atomic_fetch_add_explicit(&async_next_task_id, 1, memory_order_relaxed);
@@ -159,8 +141,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     _executionState = AsyncTaskExecutionState_READY;
     _cancellationRequested = false;
     _isReadyQueued = false;
-    _cancellationSuppressionDepth = 0;
-    _currentExecutionTaskGroup = taskGroup;
 
     unretained AsyncTask *unsafeSelf = self;
     _coroutine = [[AsyncCoroutine alloc] initWithBlock: ^id(unretained AsyncCoroutine *co) {
@@ -168,8 +148,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
         return [unsafeSelf _completionForBlockExecution];
     } stackSize: AsyncTask.defaultStackSize];
 
-    if (taskGroup != nilptr)
-        [taskGroup _registerChildTask: self];
     [_scheduler _enqueueTask: self];
     return self;
 }
@@ -183,8 +161,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     _executionState = (promise.isCompleted ? AsyncTaskExecutionState_RESOLVED : AsyncTaskExecutionState_WAITING);
     _cancellationRequested = false;
     _isReadyQueued = false;
-    _cancellationSuppressionDepth = 0;
-    _currentExecutionTaskGroup = nilptr;
     [promise _setAssociatedTask: self];
     return self;
 }
@@ -209,19 +185,9 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     return [AsyncTask _taskWrappingPromise: [self._internalTaskState map: transform]];
 }
 
-- (AsyncTask<id> *)mapOnScheduler: (AsyncScheduler *)scheduler transform: (id (^)(id value))transform
-{
-    return [AsyncTask _taskWrappingPromise: [self._internalTaskState mapOnScheduler: scheduler transform: transform]];
-}
-
 - (AsyncTask<id> *)flatMap: (AsyncTask * (^)(id value))transform
 {
     return [AsyncTask _taskWrappingPromise: [self._internalTaskState flatMapTask: transform]];
-}
-
-- (AsyncTask<id> *)flatMapOnScheduler: (AsyncScheduler *)scheduler transform: (AsyncTask * (^)(id value))transform
-{
-    return [AsyncTask _taskWrappingPromise: [self._internalTaskState flatMapTaskOnScheduler: scheduler transform: transform]];
 }
 
 - (AsyncTask<id> *)recover: (id (^)(OFException *exception))handler
@@ -229,29 +195,14 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     return [AsyncTask _taskWrappingPromise: [self._internalTaskState recover: handler]];
 }
 
-- (AsyncTask<id> *)recoverOnScheduler: (AsyncScheduler *)scheduler handler: (id (^)(OFException *exception))handler
-{
-    return [AsyncTask _taskWrappingPromise: [self._internalTaskState recoverOnScheduler: scheduler handler: handler]];
-}
-
 - (AsyncTask<id> *)flatRecover: (AsyncTask * (^)(OFException *exception))handler
 {
     return [AsyncTask _taskWrappingPromise: [self._internalTaskState flatRecoverTask: handler]];
 }
 
-- (AsyncTask<id> *)flatRecoverOnScheduler: (AsyncScheduler *)scheduler handler: (AsyncTask * (^)(OFException *exception))handler
-{
-    return [AsyncTask _taskWrappingPromise: [self._internalTaskState flatRecoverTaskOnScheduler: scheduler handler: handler]];
-}
-
 - (AsyncTask<id> *)ensure: (void (^)(void))block
 {
     return [AsyncTask _taskWrappingPromise: [self._internalTaskState ensure: block]];
-}
-
-- (AsyncTask<id> *)ensureOnScheduler: (AsyncScheduler *)scheduler block: (void (^)(void))block
-{
-    return [AsyncTask _taskWrappingPromise: [self._internalTaskState ensureOnScheduler: scheduler block: block]];
 }
 
 - (id)await
@@ -289,16 +240,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     }
 
     [self _requestCancellation];
-}
-
-- (void)_setTaskGroup: (AsyncTaskGroup *nillable)taskGroup
-{
-    [_stateLock lock];
-    @try {
-        _taskGroup = taskGroup;
-    } @finally {
-        [_stateLock unlock];
-    }
 }
 
 - (enum AsyncTaskExecutionState)executionState
@@ -347,30 +288,15 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 - (bool)_shouldDeliverCancellationCheckpoint
 {
-    AsyncTaskGroup *taskGroup = async_current_task_group;
-
     [_stateLock lock];
     bool taskCancellationRequested = false;
-    bool cancellationSuppressed = false;
     @try {
         taskCancellationRequested = _cancellationRequested;
-        cancellationSuppressed = (_cancellationSuppressionDepth > 0);
     } @finally {
         [_stateLock unlock];
     }
 
-    if (cancellationSuppressed)
-        return false;
-    if (taskCancellationRequested)
-        return true;
-
-    while (taskGroup != nilptr) {
-        if (taskGroup.isCancellationRequested)
-            return true;
-        taskGroup = taskGroup.parentTaskGroup;
-    }
-
-    return false;
+    return taskCancellationRequested;
 }
 
 - (bool)_isCancellationRequested
@@ -408,7 +334,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 {
     AsyncTaskWaitRegistration *waitRegistration = nilptr;
     bool shouldCancelWait = false;
-    bool cancellationSuppressed = false;
 
     [_stateLock lock];
     @try {
@@ -416,10 +341,9 @@ static atomic_t(uint64_t) async_next_task_id = 1;
             return;
 
         _cancellationRequested = true;
-        cancellationSuppressed = (_cancellationSuppressionDepth > 0);
         if (_executionState == AsyncTaskExecutionState_WAITING and _waitRegistration != nilptr) {
             waitRegistration = _waitRegistration;
-            shouldCancelWait = not cancellationSuppressed;
+            shouldCancelWait = true;
         }
     } @finally {
         [_stateLock unlock];
@@ -429,53 +353,8 @@ static atomic_t(uint64_t) async_next_task_id = 1;
         [waitRegistration cancel];
 }
 
-- (void)_interruptForScopeCancellation
-{
-    AsyncTaskWaitRegistration *waitRegistration = nilptr;
-    bool cancellationSuppressed = false;
-
-    [_stateLock lock];
-    @try {
-        if (self._internalTaskState.isCompleted)
-            return;
-
-        cancellationSuppressed = (_cancellationSuppressionDepth > 0);
-        if (_executionState == AsyncTaskExecutionState_WAITING)
-            waitRegistration = _waitRegistration;
-    } @finally {
-        [_stateLock unlock];
-    }
-
-    if (waitRegistration != nilptr and not cancellationSuppressed)
-        [waitRegistration cancel];
-}
-
-- (void)_pushCancellationSuppression
-{
-    [_stateLock lock];
-    @try {
-        _cancellationSuppressionDepth++;
-    } @finally {
-        [_stateLock unlock];
-    }
-}
-
-- (void)_popCancellationSuppression
-{
-    [_stateLock lock];
-    @try {
-        if (_cancellationSuppressionDepth == 0)
-            @throw [OFOutOfRangeException exception];
-        _cancellationSuppressionDepth--;
-    } @finally {
-        [_stateLock unlock];
-    }
-}
-
 - (void)_yieldWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason
 {
-    [self _captureCurrentScopeContext];
-
     [_stateLock lock];
     @try {
         _executionState = AsyncTaskExecutionState_WAITING;
@@ -507,30 +386,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
     return didResume;
 }
 
-- (AsyncTaskGroup *nillable)_resumeTaskGroupContext
-{
-    AsyncTaskGroup *nillable taskGroup;
-
-    [_stateLock lock];
-    @try {
-        taskGroup = _currentExecutionTaskGroup;
-    } @finally {
-        [_stateLock unlock];
-    }
-
-    return taskGroup;
-}
-
-- (void)_captureCurrentScopeContext
-{
-    [_stateLock lock];
-    @try {
-        _currentExecutionTaskGroup = async_current_task_group;
-    } @finally {
-        [_stateLock unlock];
-    }
-}
-
 - (void)_setExecutionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason
 {
     [_stateLock lock];
@@ -553,7 +408,6 @@ static atomic_t(uint64_t) async_next_task_id = 1;
         _coroutine = nilptr;
         _waitReason = nilptr;
         _waitRegistration = nilptr;
-        _currentExecutionTaskGroup = nilptr;
     } @finally {
         [_stateLock unlock];
     }
@@ -566,24 +420,16 @@ static atomic_t(uint64_t) async_next_task_id = 1;
 
 - (void)_fulfillTaskWithValue: (id)value
 {
-    AsyncTaskGroup *taskGroup = self.taskGroup;
-
     [self _setExecutionState: AsyncTaskExecutionState_RESOLVED waitReason: nilptr];
     [_resultCompletionSource fulfill: value];
-    if (taskGroup != nilptr)
-        [taskGroup _task: self didCompleteWithException: nilptr];
     [self _cleanupResolvedState];
     [self.scheduler _recordTaskResolutionForTask: self];
 }
 
 - (void)_rejectTaskWithException: (OFException *)exception
 {
-    AsyncTaskGroup *taskGroup = self.taskGroup;
-
     [self _setExecutionState: AsyncTaskExecutionState_RESOLVED waitReason: nilptr];
     [_resultCompletionSource reject: exception];
-    if (taskGroup != nilptr)
-        [taskGroup _task: self didCompleteWithException: exception];
     [self _cleanupResolvedState];
     [self.scheduler _recordTaskResolutionForTask: self];
 }

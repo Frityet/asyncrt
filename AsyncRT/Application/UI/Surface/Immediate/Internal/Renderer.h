@@ -18,8 +18,7 @@
 
 - (instancetype)initWithApplication: (AsyncUIApplication *)application [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
-- (void)attachRootContent: (id<AsyncUIContent>)rootContent
-                taskGroup: (AsyncTaskGroup *nillable)taskGroup;
+- (void)attachRootContent: (id<AsyncUIContent>)rootContent;
 - (void)detachRootContent;
 - (void)enqueuePostRenderEffect: (void (^nonnil)(void))effectBlock;
 - (Clay_RenderCommandArray)buildRenderCommandsWithViewportSize: (AsyncUISize)viewportSize

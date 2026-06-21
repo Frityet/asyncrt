@@ -22,22 +22,14 @@
     (void)OTTestSkippedException.class;
 }
 
-- (void)runAsyncBlock: (void (^)(AsyncTaskGroup *rootTaskGroup))block
+- (void)runAsyncBlock: (void (^)(void))block
 {
-    auto scheduler = AsyncScheduler.defaultScheduler;
-    auto task = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *rootTaskGroup) {
-        block(rootTaskGroup);
+    auto task = [AsyncRuntime run: ^id {
+        block();
         return AsyncUnit.unit;
     }];
 
-    while (not task.isCompleted) {
-        [scheduler _drainReadyQueue];
-        if (task.isCompleted)
-            break;
-
-        auto deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: 0.01];
-        [scheduler.runLoop runMode: scheduler.mode beforeDate: deadline];
-    }
+    [AsyncRuntime runUntilTaskCompletes: task];
 
     if (task.status == AsyncTaskStatus_REJECTED)
         @throw task.failureException;
@@ -45,7 +37,7 @@
 
 - (void)tearDown
 {
-    [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
+    [AsyncRuntime shutdown];
     [super tearDown];
 }
 

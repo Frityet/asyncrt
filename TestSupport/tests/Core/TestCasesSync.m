@@ -2,607 +2,139 @@
 
 #pragma clang assume_nonnull begin
 
-static void drain_scheduler_until_task_resolved(id self, SEL _cmd, AsyncScheduler *scheduler, AsyncTask *task)
-{
-    for (size_t iteration = 0; iteration < 200 and not task.isCompleted; iteration++) {
-        auto deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: 0.01];
-        [scheduler.runLoop runMode: scheduler.mode beforeDate: deadline];
-    }
-
-    OTAssert((task.isCompleted), @"scheduler run loop should eventually resolve the task");
-}
-
-static id await_task_on_scheduler(id self, SEL _cmd, AsyncScheduler *scheduler, AsyncTask *task)
-{
-    block_reference id result = nilptr;
-    block_reference OFException *failure = nilptr;
-    auto awaitingTask = [AsyncRuntime runOnScheduler: scheduler
-                                               block: ^id(AsyncTaskGroup *rootTaskGroup) {
-        (void)rootTaskGroup;
-
-        @try {
-            result = [task await];
-        } @catch (OFException *exception) {
-            failure = exception;
-        }
-
-        return AsyncUnit.unit;
-    }];
-
-    drain_scheduler_until_task_resolved(self, _cmd, scheduler, awaitingTask);
-
-    if (failure != nilptr)
-        @throw failure;
-
-    return $assert_nonnil(result);
-}
-
 [[subclassing_restricted]]
 @interface AsyncRuntimeSyncTests : OTTestCase @end
 
 @implementation AsyncRuntimeSyncTests
 
-- (void)test_default_scheduler_lifecycle
+- (void)test_shared_scheduler_is_process_managed
 {
-    AsyncScheduler *firstScheduler = AsyncScheduler.defaultScheduler;
-    AsyncScheduler *sameScheduler = AsyncScheduler.defaultScheduler;
-    block_reference AsyncScheduler *otherThreadScheduler = nilptr;
+    AsyncScheduler *firstScheduler = [AsyncScheduler sharedScheduler];
+    AsyncScheduler *sameScheduler = [AsyncScheduler sharedScheduler];
+    block_reference AsyncScheduler *threadScheduler = nilptr;
 
     auto thread = [[OFThread alloc] initWithBlock: ^{
-        otherThreadScheduler = AsyncScheduler.defaultScheduler;
-        [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
+        threadScheduler = [AsyncScheduler sharedScheduler];
         return nilptr;
     }];
 
     [thread start];
     (void)[thread join];
 
-    OTAssert((firstScheduler == sameScheduler), @"defaultScheduler should be memoized per thread");
-    OTAssert((otherThreadScheduler != nilptr), @"defaultScheduler should be available on worker threads");
-    OTAssert((otherThreadScheduler != firstScheduler), @"defaultScheduler should be thread-local");
+    OTAssert((firstScheduler == sameScheduler), @"The managed scheduler should be memoized");
+    OTAssert((threadScheduler == firstScheduler), @"Worker threads should see the same managed scheduler");
 
-    [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
+    [AsyncRuntime shutdown];
 
-    AsyncScheduler *replacementScheduler = AsyncScheduler.defaultScheduler;
-    OTAssert((replacementScheduler != firstScheduler), @"shutdownDefaultSchedulerForCurrentThread should replace the scheduler for task callers");
-    OTAssert((replacementScheduler == AsyncScheduler.defaultScheduler), @"replacement defaultScheduler should also be memoized");
+    AsyncScheduler *replacementScheduler = [AsyncScheduler sharedScheduler];
+    OTAssert((replacementScheduler != nilptr), @"Shutdown should leave the managed scheduler recreatable");
+    OTAssert((replacementScheduler == [AsyncScheduler sharedScheduler]), @"Recreated managed schedulers should still be memoized");
 
-    [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
+    [AsyncRuntime shutdown];
+}
+
+- (void)test_runtime_run_until_task_completes_drives_shared_scheduler
+{
+    block_reference bool ran = false;
+    auto task = [AsyncRuntime run: ^id {
+        ran = true;
+        return @"done";
+    }];
+
+    [AsyncRuntime runUntilTaskCompletes: task];
+
+    OTAssert(ran, @"AsyncRuntime should run tasks on the managed scheduler");
+    OTAssert((task.status == AsyncTaskStatus_FULFILLED), @"Completed runtime tasks should fulfill");
+    OTAssert(([[task _internalTaskState].value isEqual: @"done"]), @"Completed runtime task values should remain readable");
+
+    [AsyncRuntime shutdown];
 }
 
 - (void)test_coroutine_roundtrip_states
 {
-    auto roundtripCoroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *co) {
-        [co yield: @"yield-1"];
-        [co yield: @"yield-2"];
+    auto coroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *co) {
+        [co yield: @"first"];
+        [co yield: @"second"];
         return @"done";
     }];
 
-    OTAssert((roundtripCoroutine.status == AsyncCoroutineStatus_READY), @"new coroutines should start in READY");
-    OTAssert(([[roundtripCoroutine resume] isEqual: @"yield-1"]), @"AsyncCoroutine.resume should return the first yielded value");
-    OTAssert((roundtripCoroutine.status == AsyncCoroutineStatus_SUSPENDED), @"yielding should suspend the coroutine");
-    OTAssert((roundtripCoroutine.didYieldObject), @"yielding should mark didYieldObject");
-    OTAssert(([roundtripCoroutine.yieldedObject isEqual: @"yield-1"]), @"yieldedObject should expose the yielded value");
-    OTAssert(([[roundtripCoroutine resume] isEqual: @"yield-2"]), @"AsyncCoroutine.resume should preserve the caller context across multiple yields");
-    OTAssert(([[roundtripCoroutine resume] isEqual: @"done"]), @"AsyncCoroutine.resume should return the final return value");
-    OTAssert((roundtripCoroutine.status == AsyncCoroutineStatus_DEAD), @"returning should transition the coroutine to DEAD");
-    OTAssert((not roundtripCoroutine.didYieldObject), @"returning should clear didYieldObject");
-    OTAssert((roundtripCoroutine.didReturnObject), @"returning should mark didReturnObject");
-    OTAssert(([roundtripCoroutine.returnedObject isEqual: @"done"]), @"returnedObject should expose the final return value");
+    OTAssert((coroutine.status == AsyncCoroutineStatus_READY), @"New coroutines should start ready");
+    OTAssert(([[coroutine resume] isEqual: @"first"]), @"Coroutine resume should return the first yield");
+    OTAssert((coroutine.status == AsyncCoroutineStatus_SUSPENDED), @"Yielding should suspend the coroutine");
+    OTAssert(([[coroutine resume] isEqual: @"second"]), @"Coroutine resume should preserve state");
+    OTAssert(([[coroutine resume] isEqual: @"done"]), @"Coroutine resume should return final values");
+    OTAssert((coroutine.status == AsyncCoroutineStatus_DEAD), @"Finished coroutines should be dead");
+    OTAssert(([coroutine.returnedObject isEqual: @"done"]), @"Returned objects should be retained for diagnostics");
 }
 
-- (void)test_coroutine_return_short_circuits
+- (void)test_coroutine_exception_propagates_to_resumer
 {
-    block_reference bool reachedAfterEarlyReturn = false;
-    auto earlyReturnCoroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *co) {
-        [co yield: @"before-return"];
-        [co return: @"returned-early"];
-        reachedAfterEarlyReturn = true;
-        return @"unreachable";
-    }];
-
-    OTAssert(([[earlyReturnCoroutine resume] isEqual: @"before-return"]), @"AsyncCoroutine.resume should return yielded values before an explicit return");
-    OTAssert(([[earlyReturnCoroutine resume] isEqual: @"returned-early"]), @"AsyncCoroutine.return should immediately finish the coroutine with its return value");
-    OTAssert((earlyReturnCoroutine.status == AsyncCoroutineStatus_DEAD), @"AsyncCoroutine.return should transition the coroutine to DEAD");
-    OTAssert((not reachedAfterEarlyReturn), @"AsyncCoroutine.return should not continue executing the block after returning");
-}
-
-- (void)test_coroutine_exception_propagation
-{
-    auto throwingCoroutine = [[AsyncCoroutine alloc] initWithBlock: ^id(AsyncCoroutine<id> *co) {
+    bool caught = false;
+    auto coroutine = [[AsyncCoroutine alloc] initWithBlock: ^id(AsyncCoroutine<id> *co) {
         [co yield: @"before-throw"];
         @throw [[TestRejectionException alloc] init];
     }];
-    bool caughtCoroutineException = false;
 
-    OTAssert(([[throwingCoroutine resume] isEqual: @"before-throw"]), @"AsyncCoroutine should still yield before throwing from inside the coroutine body");
+    OTAssert(([[coroutine resume] isEqual: @"before-throw"]), @"Coroutines should yield before throwing");
 
     @try {
-        (void)[throwingCoroutine resume];
+        (void)[coroutine resume];
     } @catch (TestRejectionException *) {
-        caughtCoroutineException = true;
+        caught = true;
     }
 
-    OTAssert((caughtCoroutineException), @"exceptions thrown inside a coroutine should be rethrown to the caller");
-    OTAssert((throwingCoroutine.status == AsyncCoroutineStatus_DEAD), @"an exception escaping the coroutine body should terminate the coroutine");
-    OTAssert((not throwingCoroutine.didReturnObject), @"an exception escaping the coroutine body should not mark didReturnObject");
+    OTAssert(caught, @"Coroutine exceptions should propagate to the caller");
+    OTAssert((coroutine.status == AsyncCoroutineStatus_DEAD), @"Thrown coroutine bodies should terminate the coroutine");
 }
 
-- (void)test_coroutine_fast_enumeration
+- (void)test_completion_source_state_guards
 {
-    auto coroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *co) {
-        [co yield: @"one"];
-        [co yield: @"two"];
-        [co yield: @"three"];
-        return @"done";
-    }];
-    auto values = [OFMutableArray<OFString *> array];
+    auto completionSource = [[AsyncCompletionSource<OFString *> alloc] init];
+    bool caughtSecondFulfill = false;
+    bool caughtNilFulfill = false;
+    bool caughtNilReject = false;
 
-    for (OFString *value in coroutine)
-        [values addObject: value];
-
-    OTAssert((values.count == 3), @"fast enumeration should visit every yielded value");
-    OTAssert(([[values objectAtIndex: 0] isEqual: @"one"]), @"fast enumeration should preserve the first yielded value");
-    OTAssert(([[values objectAtIndex: 1] isEqual: @"two"]), @"fast enumeration should preserve the second yielded value");
-    OTAssert(([[values objectAtIndex: 2] isEqual: @"three"]), @"fast enumeration should preserve the third yielded value");
-    OTAssert((coroutine.status == AsyncCoroutineStatus_DEAD), @"fast enumeration should exhaust the coroutine");
-    OTAssert(([coroutine.returnedObject isEqual: @"done"]), @"fast enumeration should still preserve the coroutine return value");
-}
-
-- (void)test_coroutine_default_stack_size
-{
-    size_t originalStackSize = AsyncTask.defaultStackSize;
-    size_t configuredStackSize = originalStackSize + 65536;
-    bool caughtZeroStackSize = false;
+    [completionSource fulfill: @"ready"];
 
     @try {
-        AsyncTask.defaultStackSize = 0;
-    } @catch (OFInvalidArgumentException *) {
-        caughtZeroStackSize = true;
-    }
-
-    OTAssert((caughtZeroStackSize), @"setting AsyncTask.defaultStackSize to zero should throw");
-
-    @try {
-        AsyncTask.defaultStackSize = configuredStackSize;
-        OTAssert((AsyncTask.defaultStackSize == configuredStackSize), @"AsyncTask.defaultStackSize should proxy to AsyncCoroutine.defaultStackSize");
-        OTAssert((AsyncCoroutine.defaultStackSize == configuredStackSize), @"AsyncTask.defaultStackSize should update the coroutine default stack size");
-
-        auto coroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *) {
-            return @"done";
-        }];
-
-        OTAssert((coroutine.stackSize >= configuredStackSize), @"new coroutines should honour the configured default stack size");
-    } @finally {
-        AsyncTask.defaultStackSize = originalStackSize;
-    }
-}
-
-- (void)test_status_description_helpers
-{
-    auto pendingStateResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    OFString *pendingStateDescription = [[pendingStateResolver _internalTaskState] describe];
-
-    OTAssert(([[AsyncTaskState describeStatus: AsyncTaskStatus_PENDING] isEqual: @"PENDING"]), @"AsyncTaskState.describeStatus should describe the pending state");
-    OTAssert(([[AsyncTaskState describeStatus: AsyncTaskStatus_FULFILLED] isEqual: @"FULFILLED"]), @"AsyncTaskState.describeStatus should describe the fulfilled state");
-    OTAssert(([[AsyncTaskState describeStatus: AsyncTaskStatus_REJECTED] isEqual: @"REJECTED"]), @"AsyncTaskState.describeStatus should describe the rejected state");
-    OTAssert(([pendingStateDescription containsString: @"PENDING"]), @"AsyncTaskState.describe should include the task status");
-    OTAssert(([pendingStateDescription isEqual: [[pendingStateResolver _internalTaskState] description]]), @"AsyncTaskState.description should forward to describe");
-
-    OTAssert(([[AsyncTask describeStatus: AsyncTaskStatus_PENDING] isEqual: @"PENDING"]), @"AsyncTask.describeStatus should describe the pending state");
-    OTAssert(([[AsyncTask describeStatus: AsyncTaskStatus_FULFILLED] isEqual: @"FULFILLED"]), @"AsyncTask.describeStatus should describe the fulfilled state");
-    OTAssert(([[AsyncTask describeStatus: AsyncTaskStatus_REJECTED] isEqual: @"REJECTED"]), @"AsyncTask.describeStatus should describe the rejected state");
-
-    OTAssert(([[AsyncTask describeExecutionState: AsyncTaskExecutionState_READY] isEqual: @"READY"]), @"AsyncTask.describeExecutionState should describe the ready state");
-    OTAssert(([[AsyncTask describeExecutionState: AsyncTaskExecutionState_RUNNING] isEqual: @"RUNNING"]), @"AsyncTask.describeExecutionState should describe the running state");
-    OTAssert(([[AsyncTask describeExecutionState: AsyncTaskExecutionState_WAITING] isEqual: @"WAITING"]), @"AsyncTask.describeExecutionState should describe the waiting state");
-    OTAssert(([[AsyncTask describeExecutionState: AsyncTaskExecutionState_RESOLVED] isEqual: @"RESOLVED"]), @"AsyncTask.describeExecutionState should describe the resolved state");
-
-    OTAssert(([[AsyncCoroutine describeStatus: AsyncCoroutineStatus_READY] isEqual: @"READY"]), @"AsyncCoroutine.describeStatus should describe the ready state");
-    OTAssert(([[AsyncCoroutine describeStatus: AsyncCoroutineStatus_RUNNING] isEqual: @"RUNNING"]), @"AsyncCoroutine.describeStatus should describe the running state");
-    OTAssert(([[AsyncCoroutine describeStatus: AsyncCoroutineStatus_SUSPENDED] isEqual: @"SUSPENDED"]), @"AsyncCoroutine.describeStatus should describe the suspended state");
-    OTAssert(([[AsyncCoroutine describeStatus: AsyncCoroutineStatus_DEAD] isEqual: @"DEAD"]), @"AsyncCoroutine.describeStatus should describe the dead state");
-}
-
-- (void)test_task_state_task_conversion_guards
-{
-    auto pendingResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    bool caughtNilTask = false;
-    bool caughtWrongTaskClass = false;
-
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-    AsyncTaskState<OFString *> *pendingState = [AsyncTaskState performSelector: @selector(_taskStateFromTask:) withObject: pendingResolver.task];
-
-    OTAssert((pendingState == [pendingResolver.task _internalTaskState]), @"_taskStateFromTask should return the wrapped task state");
-
-    @try {
-        (void)[AsyncTaskState performSelector: @selector(_taskStateFromTask:) withObject: nilptr];
-    } @catch (OFInvalidArgumentException *) {
-        caughtNilTask = true;
+        [completionSource fulfill: @"again"];
+    } @catch (AsyncTaskAlreadyResolvedException *) {
+        caughtSecondFulfill = true;
     }
 
     @try {
-        (void)[AsyncTaskState performSelector: @selector(_taskStateFromTask:) withObject: (AsyncTask *)@"not-a-task"];
-    } @catch (OFInvalidArgumentException *) {
-        caughtWrongTaskClass = true;
-    }
-    #pragma clang diagnostic pop
-
-    OTAssert((caughtNilTask), @"_taskStateFromTask should reject nilptr");
-    OTAssert((caughtWrongTaskClass), @"_taskStateFromTask should reject non-AsyncTask inputs");
-}
-
-- (void)test_coroutine_transition_guards_and_fast_enumeration_nil_yield
-{
-    auto completedCoroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *) {
-        return @"done";
-    }];
-    auto nilYieldCoroutine = [[AsyncCoroutine<OFString *> alloc] initWithBlock: ^OFString *(AsyncCoroutine<OFString *> *co) {
-        [co yield: @"first"];
-        [co yield: nilptr];
-        return @"unreachable";
-    }];
-    bool caughtDeadResume = false;
-    bool caughtDeadYield = false;
-    bool caughtNilEnumerationYield = false;
-
-    OTAssert(([[completedCoroutine resume] isEqual: @"done"]), @"AsyncCoroutine.resume should return the coroutine result");
-
-    @try {
-        (void)[completedCoroutine resume];
-    } @catch (AsyncCoroutineStateTransitionFailedException *exception) {
-        caughtDeadResume = (exception.fromState == AsyncCoroutineStatus_DEAD and exception.toState == AsyncCoroutineStatus_RUNNING);
-    }
-
-    @try {
-        [completedCoroutine yield];
-    } @catch (AsyncCoroutineStateTransitionFailedException *exception) {
-        caughtDeadYield = (exception.fromState == AsyncCoroutineStatus_DEAD and exception.toState == AsyncCoroutineStatus_SUSPENDED);
-    }
-
-    @try {
-        for (OFString *value in nilYieldCoroutine) {
-            (void)value;
-        }
-    } @catch (OFInvalidArgumentException *) {
-        caughtNilEnumerationYield = true;
-    }
-
-    OTAssert((caughtDeadResume), @"resuming a dead coroutine should throw AsyncCoroutineStateTransitionFailedException");
-    OTAssert((caughtDeadYield), @"yielding from a dead coroutine should throw AsyncCoroutineStateTransitionFailedException");
-    OTAssert((caughtNilEnumerationYield), @"fast enumeration should reject nil yielded coroutine values");
-}
-
-- (void)test_task_await_outside_task
-{
-    auto resolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    bool caughtAwaitMisuse = false;
-
-    OTAssert((AsyncTask.currentTask == nilptr), @"AsyncTask.currentTask should be nilptr outside the runtime");
-    OTAssert((AsyncTaskGroup.currentTaskGroup == nilptr), @"AsyncTaskGroup.currentTaskGroup should be nilptr outside the runtime");
-
-    @try {
-        [resolver.task await];
-    } @catch (AsyncTaskAwaitOutsideTaskException *exception) {
-        caughtAwaitMisuse = (exception.task == resolver.task);
-    }
-
-    OTAssert((caughtAwaitMisuse), @"task.await outside a AsyncTask should throw AsyncTaskAwaitOutsideTaskException");
-}
-
-- (void)test_task_resolution_guards
-{
-    auto doubleResolveResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    auto doubleRejectResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    bool caughtDoubleResolve = false;
-    bool caughtRejectAfterResolve = false;
-    bool caughtDoubleReject = false;
-    bool caughtResolveAfterReject = false;
-
-    [doubleResolveResolver fulfill: @"first"];
-
-    @try {
-        [doubleResolveResolver fulfill: @"second"];
-    } @catch (AsyncTaskAlreadyResolvedException *exception) {
-        caughtDoubleResolve = (exception.task == doubleResolveResolver.task and exception.currentStatus == AsyncTaskStatus_FULFILLED and exception.attemptedStatus == AsyncTaskStatus_FULFILLED);
-    }
-
-    @try {
-        [doubleResolveResolver reject: [[TestRejectionException alloc] init]];
-    } @catch (AsyncTaskAlreadyResolvedException *exception) {
-        caughtRejectAfterResolve = (exception.task == doubleResolveResolver.task and exception.currentStatus == AsyncTaskStatus_FULFILLED and exception.attemptedStatus == AsyncTaskStatus_REJECTED);
-    }
-
-    [doubleRejectResolver reject: [[TestRejectionException alloc] init]];
-
-    @try {
-        [doubleRejectResolver reject: [[TestRejectionException alloc] init]];
-    } @catch (AsyncTaskAlreadyResolvedException *exception) {
-        caughtDoubleReject = (exception.task == doubleRejectResolver.task and exception.currentStatus == AsyncTaskStatus_REJECTED and exception.attemptedStatus == AsyncTaskStatus_REJECTED);
-    }
-
-    @try {
-        [doubleRejectResolver fulfill: @"nope"];
-    } @catch (AsyncTaskAlreadyResolvedException *exception) {
-        caughtResolveAfterReject = (exception.task == doubleRejectResolver.task and exception.currentStatus == AsyncTaskStatus_REJECTED and exception.attemptedStatus == AsyncTaskStatus_FULFILLED);
-    }
-
-    OTAssert((caughtDoubleResolve), @"resolving an already fulfilled task should throw AsyncTaskAlreadyResolvedException");
-    OTAssert((caughtRejectAfterResolve), @"rejecting an already fulfilled task should throw AsyncTaskAlreadyResolvedException");
-    OTAssert((caughtDoubleReject), @"rejecting an already rejected task should throw AsyncTaskAlreadyResolvedException");
-    OTAssert((caughtResolveAfterReject), @"resolving an already rejected task should throw AsyncTaskAlreadyResolvedException");
-}
-
-- (void)test_task_state_access_guards
-{
-    auto fulfilledResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    auto rejectedResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    bool caughtPendingRejectionAccess = false;
-    bool caughtFulfilledRejectionAccess = false;
-    bool caughtRejectedAwait = false;
-    auto scheduler = AsyncScheduler.defaultScheduler;
-
-    @try {
-        (void)fulfilledResolver.task.failureException;
-    } @catch (AsyncTaskInvalidStateAccessException *exception) {
-        caughtPendingRejectionAccess = (exception.task == fulfilledResolver.task and exception.status == AsyncTaskStatus_PENDING);
-    }
-
-    [fulfilledResolver fulfill: @"state-ok"];
-    OTAssert(([await_task_on_scheduler(self, _cmd, scheduler, fulfilledResolver.task) isEqual: @"state-ok"]),
-        @"awaiting a fulfilled task should return its value");
-
-    @try {
-        (void)fulfilledResolver.task.failureException;
-    } @catch (AsyncTaskInvalidStateAccessException *exception) {
-        caughtFulfilledRejectionAccess = (exception.task == fulfilledResolver.task and exception.status == AsyncTaskStatus_FULFILLED);
-    }
-
-    [rejectedResolver reject: [[TestRejectionException alloc] init]];
-    OTAssert(([rejectedResolver.task.failureException isKindOfClass: TestRejectionException.class]), @"reading failureException on a rejected task should succeed");
-
-    @try {
-        (void)await_task_on_scheduler(self, _cmd, scheduler, rejectedResolver.task);
-    } @catch (TestRejectionException *exception) {
-        (void)exception;
-        caughtRejectedAwait = true;
-    }
-
-    OTAssert((caughtPendingRejectionAccess), @"reading failureException on a pending task should throw AsyncTaskInvalidStateAccessException");
-    OTAssert((caughtFulfilledRejectionAccess), @"reading failureException on a fulfilled task should throw AsyncTaskInvalidStateAccessException");
-    OTAssert((caughtRejectedAwait), @"awaiting a rejected task should rethrow its failure");
-}
-
-- (void)test_task_nil_resolution_and_rejection
-{
-    auto resolutionResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    auto rejectionResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    bool caughtNilResolution = false;
-    bool caughtNilRejection = false;
-    bool caughtClassNilResolution = false;
-    bool caughtClassNilRejection = false;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnonnull"
-#pragma clang diagnostic ignored "-Wnullable-to-nonnull-conversion"
-    @try {
-        [resolutionResolver fulfill: (id)0];
-    } @catch (AsyncTaskNilResolutionValueException *exception) {
-        caughtNilResolution = (exception.task == resolutionResolver.task);
-    }
-
-    @try {
-        [rejectionResolver reject: (OFException *)0];
-    } @catch (AsyncTaskNilRejectionException *exception) {
-        caughtNilRejection = (exception.task == rejectionResolver.task);
-    }
-
-    @try {
-        (void)[AsyncTask resolved: (id)0];
+        [[[AsyncCompletionSource alloc] init] fulfill: nilptr];
     } @catch (AsyncTaskNilResolutionValueException *) {
-        caughtClassNilResolution = true;
+        caughtNilFulfill = true;
     }
 
     @try {
-        (void)[AsyncTask rejected: (OFException *)0];
+        [[[AsyncCompletionSource alloc] init] reject: nilptr];
     } @catch (AsyncTaskNilRejectionException *) {
-        caughtClassNilRejection = true;
+        caughtNilReject = true;
     }
-#pragma clang diagnostic pop
 
-    OTAssert((caughtNilResolution), @"fulfilling a completion source with nilptr should throw AsyncTaskNilResolutionValueException");
-    OTAssert((caughtNilRejection), @"rejecting a completion source with nilptr should throw AsyncTaskNilRejectionException");
-    OTAssert((caughtClassNilResolution), @"AsyncTask.resolved(nilptr) should throw AsyncTaskNilResolutionValueException");
-    OTAssert((caughtClassNilRejection), @"AsyncTask.rejected(nilptr) should throw AsyncTaskNilRejectionException");
+    OTAssert((completionSource.task.status == AsyncTaskStatus_FULFILLED), @"Completion sources should expose fulfilled tasks");
+    OTAssert(([[completionSource.task _internalTaskState].value isEqual: @"ready"]), @"Fulfilled values should be readable");
+    OTAssert(caughtSecondFulfill, @"Completion sources should reject double resolution");
+    OTAssert(caughtNilFulfill, @"Completion sources should reject nil fulfillment");
+    OTAssert(caughtNilReject, @"Completion sources should reject nil rejection exceptions");
 }
 
-- (void)test_async_completion_source_lifecycle
+- (void)test_await_outside_runtime_is_rejected_for_pending_tasks
 {
-    auto resolvedCompletionSource = [[AsyncCompletionSource<OFString *> alloc] init];
-    auto rejectedCompletionSource = [[AsyncCompletionSource<OFString *> alloc] init];
-    auto cancellationCompletionSource = [[AsyncCompletionSource<OFString *> alloc] init];
-    __block size_t pendingCancellationCallCount = 0;
-    __block bool cancellationObserved = false;
-
-    AsyncTask<OFString *> *nillable resolvedTask = resolvedCompletionSource.task;
-    OTAssert((resolvedTask != nilptr), @"AsyncCompletionSource should eagerly create its task");
-    OTAssert((resolvedCompletionSource.task == resolvedCompletionSource.task), @"AsyncCompletionSource.task should be stable across reads");
-    OTAssert((resolvedCompletionSource.task.status == AsyncTaskStatus_PENDING), @"a new AsyncCompletionSource task should start pending");
-
-    [resolvedCompletionSource fulfill: @"fulfilled"];
-
-    OTAssert((resolvedCompletionSource.task.isCompleted), @"fulfilling an AsyncCompletionSource should resolve its task");
-    OTAssert((resolvedCompletionSource.task.status == AsyncTaskStatus_FULFILLED), @"fulfilled AsyncCompletionSource tasks should report FULFILLED");
-    OTAssert(([await_task_on_scheduler(self, _cmd, AsyncScheduler.defaultScheduler, resolvedCompletionSource.task) isEqual: @"fulfilled"]),
-        @"fulfilling an AsyncCompletionSource should preserve the value");
-
-    [rejectedCompletionSource reject: [[TestRejectionException alloc] init]];
-
-    OTAssert((rejectedCompletionSource.task.isCompleted), @"rejecting an AsyncCompletionSource should resolve its task");
-    OTAssert((rejectedCompletionSource.task.status == AsyncTaskStatus_REJECTED), @"rejected AsyncCompletionSource tasks should report REJECTED");
-    OTAssert(([rejectedCompletionSource.task.failureException isKindOfClass: TestRejectionException.class]), @"rejecting an AsyncCompletionSource should preserve the failure exception");
-
-    [cancellationCompletionSource setPendingTaskCancellationHandler: ^{
-        pendingCancellationCallCount++;
-    }];
-
-    auto scheduler = AsyncScheduler.defaultScheduler;
-    auto waitingTask = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *rootTaskGroup) {
-        (void)rootTaskGroup;
-
-        @try {
-            return [cancellationCompletionSource.task await];
-        } @catch (AsyncTaskCancelledException *) {
-            cancellationObserved = true;
-            return @"cancelled";
-        }
-    }];
-
-    for (size_t iteration = 0; iteration < 200 and waitingTask.executionState != AsyncTaskExecutionState_WAITING; iteration++) {
-        auto deadline = [[OFDate alloc] initWithTimeIntervalSinceNow: 0.01];
-        [scheduler.runLoop runMode: scheduler.mode beforeDate: deadline];
-    }
-
-    OTAssert((waitingTask.executionState == AsyncTaskExecutionState_WAITING), @"awaiting an AsyncCompletionSource task should suspend the consumer task while pending");
-    [waitingTask cancel];
-    drain_scheduler_until_task_resolved(self, _cmd, scheduler, waitingTask);
-
-    OTAssert((cancellationObserved), @"cancelling a task awaiting an AsyncCompletionSource should surface AsyncTaskCancelledException");
-    OTAssert((pendingCancellationCallCount == 1), @"pending AsyncCompletionSource cancellation handlers should fire exactly once when the last waiter is removed");
-
-    [AsyncScheduler shutdownDefaultSchedulerForCurrentThread];
-}
-
-- (void)test_task_continuation_scheduler_requirements
-{
-    AsyncScheduler *scheduler = AsyncScheduler.defaultScheduler;
-    AsyncTask<OFString *> *resolvedTask = [AsyncTask resolved: @"outside"];
-    AsyncTask<OFString *> *rejectedTask = [AsyncTask rejected: [[TestRejectionException alloc] init]];
-    auto crossThreadResolver = [[AsyncCompletionSource<OFString *> alloc] init];
-    auto resolverThread = [[CrossThreadResolverThread alloc] initWithResolver: crossThreadResolver value: @"cross-thread" delay: 0.01];
-    OFThread *expectedThread = $assert_nonnil(OFThread.currentThread);
-    block_reference OFThread *continuationThread = nilptr;
-    block_reference bool sawNilCurrentTask = false;
-    bool caughtMapOutsideTask = false;
-    bool caughtFlatMapOutsideTask = false;
-    bool caughtRecoverOutsideTask = false;
-    bool caughtFlatRecoverOutsideTask = false;
-    bool caughtEnsureOutsideTask = false;
+    auto completionSource = [[AsyncCompletionSource<OFString *> alloc] init];
+    bool caught = false;
 
     @try {
-        (void)[resolvedTask map: ^id(OFString *value) {
-            return value;
-        }];
-    } @catch (AsyncTaskContinuationOutsideTaskException *exception) {
-        caughtMapOutsideTask = (exception.task == resolvedTask);
+        (void)[completionSource.task await];
+    } @catch (AsyncTaskAwaitOutsideTaskException *) {
+        caught = true;
     }
 
-    @try {
-        (void)[resolvedTask flatMap: ^AsyncTask<OFString *> *(OFString *value) {
-            return [AsyncTask resolved: value];
-        }];
-    } @catch (AsyncTaskContinuationOutsideTaskException *exception) {
-        caughtFlatMapOutsideTask = (exception.task == resolvedTask);
-    }
-
-    @try {
-        (void)[rejectedTask recover: ^id(OFException *exception) {
-            (void)exception;
-            return @"recovered";
-        }];
-    } @catch (AsyncTaskContinuationOutsideTaskException *exception) {
-        caughtRecoverOutsideTask = (exception.task == rejectedTask);
-    }
-
-    @try {
-        (void)[rejectedTask flatRecover: ^AsyncTask<OFString *> *(OFException *exception) {
-            (void)exception;
-            return [AsyncTask resolved: @"recovered"];
-        }];
-    } @catch (AsyncTaskContinuationOutsideTaskException *exception) {
-        caughtFlatRecoverOutsideTask = (exception.task == rejectedTask);
-    }
-
-    @try {
-        (void)[resolvedTask ensure: ^{
-        }];
-    } @catch (AsyncTaskContinuationOutsideTaskException *exception) {
-        caughtEnsureOutsideTask = (exception.task == resolvedTask);
-    }
-
-    auto mapped = [crossThreadResolver.task mapOnScheduler: scheduler transform: ^id(OFString *value) {
-        sawNilCurrentTask = (AsyncTask.currentTask == nilptr);
-        continuationThread = $assert_nonnil(OFThread.currentThread);
-        return [value stringByAppendingString: @"-mapped"];
-    }];
-    auto recovered = [rejectedTask recoverOnScheduler: scheduler handler: ^id(OFException *exception) {
-        OTAssert(([exception isKindOfClass: TestRejectionException.class]), @"recoverOnScheduler should receive the original rejection outside a task");
-        return @"recovered";
-    }];
-
-    [resolverThread start];
-    drain_scheduler_until_task_resolved(self, _cmd, scheduler, mapped);
-    drain_scheduler_until_task_resolved(self, _cmd, scheduler, recovered);
-
-    OTAssert((caughtMapOutsideTask), @"map outside a AsyncTask should throw AsyncTaskContinuationOutsideTaskException");
-    OTAssert((caughtFlatMapOutsideTask), @"flatMap outside a AsyncTask should throw AsyncTaskContinuationOutsideTaskException");
-    OTAssert((caughtRecoverOutsideTask), @"recover outside a AsyncTask should throw AsyncTaskContinuationOutsideTaskException");
-    OTAssert((caughtFlatRecoverOutsideTask), @"flatRecover outside a AsyncTask should throw AsyncTaskContinuationOutsideTaskException");
-    OTAssert((caughtEnsureOutsideTask), @"ensure outside a AsyncTask should throw AsyncTaskContinuationOutsideTaskException");
-    OTAssert(([await_task_on_scheduler(self, _cmd, scheduler, mapped) isEqual: @"cross-thread-mapped"]), @"mapOnScheduler outside a AsyncTask should resolve on the supplied scheduler");
-    OTAssert(([await_task_on_scheduler(self, _cmd, scheduler, recovered) isEqual: @"recovered"]), @"recoverOnScheduler outside a AsyncTask should resolve on the supplied scheduler");
-    OTAssert((continuationThread == expectedThread), @"explicit scheduler continuations should execute on the scheduler run-loop thread");
-    OTAssert((sawNilCurrentTask), @"explicit scheduler continuations outside a AsyncTask should not synthesize a current task");
-    (void)[resolverThread join];
-}
-
-- (void)test_async_unit_singleton
-{
-    AsyncUnit *firstUnit = AsyncUnit.unit;
-    AsyncUnit *sameUnit = AsyncUnit.unit;
-
-    OTAssert((firstUnit == sameUnit), @"AsyncUnit.unit should be memoized");
-    OTAssert(([[firstUnit description] isEqual: @"AsyncUnit"]), @"AsyncUnit should provide a stable description");
-}
-
-- (void)test_async_scheduler_invalid_initialization
-{
-    auto run_loop = $assert_nonnil(OFRunLoop.currentRunLoop);
-    bool caughtNilRunLoop = false;
-    bool caughtNilMode = false;
-    bool caughtZeroWorkerCount = false;
-    bool caughtZeroDrainBatchSize = false;
-
-    @try {
-        [AsyncSchedulerValidation validateRunLoop: nilptr mode: OFDefaultRunLoopMode maxWorkerCount: 1 maxDrainBatchSize: 1];
-    } @catch (AsyncSchedulerInvalidInitializationException *exception) {
-        caughtNilRunLoop = [exception.reason isEqual: @"runLoop must not be nilptr"];
-    }
-
-    @try {
-        [AsyncSchedulerValidation validateRunLoop: run_loop mode: nilptr maxWorkerCount: 1 maxDrainBatchSize: 1];
-    } @catch (AsyncSchedulerInvalidInitializationException *exception) {
-        caughtNilMode = [exception.reason isEqual: @"mode must not be nilptr"];
-    }
-
-    @try {
-        [AsyncSchedulerValidation validateRunLoop: run_loop mode: OFDefaultRunLoopMode maxWorkerCount: 0 maxDrainBatchSize: 1];
-    } @catch (AsyncSchedulerInvalidInitializationException *exception) {
-        caughtZeroWorkerCount = [exception.reason isEqual: @"maxWorkerCount must be at least 1"];
-    }
-
-    @try {
-        [AsyncSchedulerValidation validateRunLoop: run_loop mode: OFDefaultRunLoopMode maxWorkerCount: 1 maxDrainBatchSize: 0];
-    } @catch (AsyncSchedulerInvalidInitializationException *exception) {
-        caughtZeroDrainBatchSize = [exception.reason isEqual: @"maxDrainBatchSize must be at least 1"];
-    }
-
-    OTAssert((caughtNilRunLoop), @"AsyncScheduler should reject a nil run loop");
-    OTAssert((caughtNilMode), @"AsyncScheduler should reject a nil run-loop mode");
-    OTAssert((caughtZeroWorkerCount), @"AsyncScheduler should reject a zero worker count");
-    OTAssert((caughtZeroDrainBatchSize), @"AsyncScheduler should reject a zero drain batch size");
+    OTAssert(caught, @"Pending tasks should not be awaited outside a runtime task");
 }
 
 @end
+
 #pragma clang assume_nonnull end

@@ -79,7 +79,7 @@
 @namespace(AsyncCLITypeInspector)
 
 + (Class nillable)propertyClassForProperty: (objc_property_t)property
-                                    onClass: (Class)class_
+                                    onClass: (Class)cls
                                propertyName: (OFString *)propertyName;
 @end
 
@@ -269,11 +269,11 @@
     }
 }
 
-+ (Class nillable)_classFromIvarsOnClass: (Class)class_
++ (Class nillable)_classFromIvarsOnClass: (Class)cls
                             propertyName: (OFString *)propertyName
 {
     unsigned int ivarCount = 0;
-    Ivar *ivars = class_copyIvarList(class_, &ivarCount);
+    Ivar *ivars = class_copyIvarList(cls, &ivarCount);
     Class inferredClass = nullptr;
     auto underscoredPropertyName = [OFString stringWithFormat: @"_%@", propertyName];
 
@@ -296,7 +296,7 @@
 }
 
 + (Class nillable)propertyClassForProperty: (objc_property_t)property
-                                    onClass: (Class)class_
+                                    onClass: (Class)cls
                                propertyName: (OFString *)propertyName
 {
     char *typeEncoding = property_copyAttributeValue(property, "T");
@@ -311,7 +311,7 @@
     if (propertyClass != nullptr)
         return propertyClass;
 
-    return [self _classFromIvarsOnClass: class_ propertyName: propertyName];
+    return [self _classFromIvarsOnClass: cls propertyName: propertyName];
 }
 
 @end

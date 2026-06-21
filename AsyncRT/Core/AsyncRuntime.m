@@ -5,26 +5,66 @@
 [[direct_members]]
 @implementation AsyncRuntime
 
-+ (AsyncTask<id> *)run: (id (^)(AsyncTaskGroup *taskGroup))block
++ (AsyncScheduler *)_scheduler
 {
-    return [self runOnScheduler: AsyncScheduler.defaultScheduler block: block];
+    return AsyncScheduler.sharedScheduler;
 }
 
-+ (AsyncTask<id> *)runOnScheduler: (AsyncScheduler *)scheduler block: (id (^)(AsyncTaskGroup *taskGroup))block
++ (AsyncTask<id> *)run: (id (^)(void))block
 {
-    block_reference AsyncTask *rootTask = nilptr;
-    block_reference AsyncTaskGroup *rootTaskGroup = nilptr;
+    return [self spawnNamed: @"root" block: block];
+}
 
-    rootTask = [[AsyncTask alloc] initWithScheduler: scheduler taskGroup: nilptr name: @"root" block: ^{
-        if (rootTaskGroup == nilptr) {
-            rootTaskGroup = [[AsyncTaskGroup alloc] initWithScheduler: scheduler ownerTask: rootTask parentTaskGroup: nilptr name: @"root" deadline: nilptr];
-            [rootTask _setTaskGroup: rootTaskGroup];
-        }
++ (AsyncTask<id> *)spawn: (id (^)(void))block
+{
+    return [self spawnNamed: nilptr block: block];
+}
 
-        return [rootTaskGroup _runTaskGroupBody: block];
-    }];
++ (AsyncTask<id> *)spawnNamed: (OFString *nillable)name block: (id (^)(void))block
+{
+    auto scheduler = [self _scheduler];
+    auto task = [[AsyncTask alloc] initWithScheduler: scheduler name: name block: block];
+    return task;
+}
 
-    return rootTask;
++ (AsyncTask<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval
+{
+    return [[self _scheduler] sleepForTimeInterval: timeInterval];
+}
+
++ (AsyncTask<AsyncUnit *> *)sleepUntilDate: (OFDate *)date
+{
+    return [[self _scheduler] sleepUntilDate: date];
+}
+
++ (AsyncTask<id> *)offload: (id (^)(void))block
+{
+    return [[self _scheduler] offload: block];
+}
+
++ (void)runUntilTaskCompletes: (AsyncTask *)task
+{
+    [[self _scheduler] runUntilTaskCompletes: task];
+}
+
++ (bool)runUntilTaskCompletes: (AsyncTask *)task timeout: (OFTimeInterval)timeout
+{
+    return [[self _scheduler] runUntilTaskCompletes: task timeout: timeout];
+}
+
++ (void)runUntilIdle
+{
+    [[self _scheduler] runUntilIdle];
+}
+
++ (AsyncSchedulerSnapshot *)snapshot
+{
+    return [[self _scheduler] snapshot];
+}
+
++ (void)shutdown
+{
+    [AsyncScheduler shutdownSharedScheduler];
 }
 
 @end

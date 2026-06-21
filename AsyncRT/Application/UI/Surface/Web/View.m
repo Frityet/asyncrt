@@ -1,4 +1,5 @@
 #import <AsyncRT/Application/UI/Surface/Web/View.h>
+#import <AsyncRT/Application/UI/Surface/Web/DOM.h>
 
 #if defined(__APPLE__)
 #import <AsyncRT/Application/UI/Surface/Web/Platform/WKWebKit/View.h>
@@ -7,8 +8,8 @@
 #pragma clang assume_nonnull begin
 
 @implementation AsyncWebUIView {
-    AsyncScheduler *_scheduler;
     AsyncUIWindowConfiguration *_configuration;
+    AsyncWebUIDocument *_document;
     OFMutableDictionary<OFString *, AsyncWebUIActionHandler> *_actionHandlers;
     OFString *nillable _loadedHTML;
     OFIRI *nillable _loadedIRI;
@@ -43,11 +44,10 @@
 }
 
 - (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration
-                            scheduler: (AsyncScheduler *)scheduler
 {
     self = [super init];
     _configuration = [configuration copy];
-    _scheduler = scheduler;
+    _document = [[AsyncWebUIDocument alloc] initWithWebView: self];
     _actionHandlers = [OFMutableDictionary dictionary];
     _loadedHTML = nilptr;
     _loadedIRI = nilptr;
@@ -55,14 +55,14 @@
     return self;
 }
 
-- (AsyncScheduler *)scheduler
-{
-    return _scheduler;
-}
-
 - (AsyncUIWindowConfiguration *)configuration
 {
     return _configuration;
+}
+
+- (AsyncWebUIDocument *)document
+{
+    return _document;
 }
 
 - (OFString *nillable)loadedHTML
@@ -97,13 +97,6 @@
     [_actionHandlers setObject: [handler copy] forKey: name];
 }
 
-- (void)bindAction: (OFString *)name toJSONHandler: (AsyncWebUIJSONActionHandler)handler
-{
-    [self bindAction: name toHandler: ^AsyncTask<OFString *> *(AsyncWebUIRequest request) {
-        return [AsyncTask resolved: handler(request)];
-    }];
-}
-
 - (void)unbindActionNamed: (OFString *)name
 {
     [_actionHandlers removeObjectForKey: name];
@@ -121,9 +114,16 @@
     return handler(request);
 }
 
-- (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript
+- (AsyncTask<id> *)taskToEvaluateJavaScriptReturningValue: (OFString *)javaScript
 {
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
+}
+
+- (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript
+{
+    return (AsyncTask<AsyncUnit *> *)[[self taskToEvaluateJavaScriptReturningValue: javaScript] map: ^id(id) {
+        return AsyncUnit.unit;
+    }];
 }
 
 - (void)emitEvent: (OFString *)name withJSONPayload: (OFString *nillable)payloadJSON

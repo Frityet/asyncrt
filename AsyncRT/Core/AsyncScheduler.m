@@ -7,9 +7,11 @@
 
 @class AsyncWorkerPool;
 
-static OFString * const async_default_scheduler_key = @"AsyncScheduler.defaultScheduler";
 static size_t const async_default_drain_batch_size = 64;
 static OFTimeInterval const async_scheduler_run_interval = 0.01;
+static OFOnceControl async_shared_scheduler_state_once = OFOnceControlInitValue;
+static OFMutex *nillable async_shared_scheduler_lock;
+static AsyncScheduler *nillable async_shared_scheduler;
 static OFOnceControl async_shared_worker_pool_once = OFOnceControlInitValue;
 static OFMutex *nillable async_shared_worker_pool_lock;
 static AsyncWorkerPool *nillable async_shared_worker_pool;
@@ -25,7 +27,7 @@ static AsyncWorkerPool *nillable async_shared_worker_pool;
 
 @protocol AsyncSchedulerRunnable
 
-- (void)runOnScheduler: (AsyncScheduler *)scheduler;
+- (void)runWithScheduler: (AsyncScheduler *)scheduler;
 
 @end
 
@@ -82,6 +84,11 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     async_shared_worker_pool_lock = [OFMutex mutex];
 }
 
+static void AsyncSchedulerInitialiseSharedSchedulerState(void)
+{
+    async_shared_scheduler_lock = [OFMutex mutex];
+}
+
 @namespace_implementation(AsyncSchedulerValidation)
 
 + (void)validateRunLoop: (OFRunLoop *nillable)runLoop
@@ -104,7 +111,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
 [[direct_members]]
 @implementation AsyncTaskSnapshot
 
-- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested taskGroupName: (OFString *nillable)taskGroupName
+- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested
 {
     self = [super init];
     _taskID = taskID;
@@ -112,7 +119,6 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     _executionState = executionState;
     _waitReason = [waitReason copy];
     _isCancellationRequested = cancellationRequested;
-    _taskGroupName = [taskGroupName copy];
     return self;
 }
 
@@ -203,21 +209,23 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     uint64_t _cancelledTaskCount;
 }
 
-+ (AsyncScheduler *)defaultScheduler
++ (AsyncScheduler *)sharedScheduler
 {
-    OFMutableDictionary<OFString *, AsyncScheduler *> *threadDictionary = OFThread.threadDictionary;
-    AsyncScheduler *scheduler;
+    AsyncScheduler *nillable scheduler;
 
-    if (threadDictionary == nilptr)
-        return [[self alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
+    OFOnce(&async_shared_scheduler_state_once, AsyncSchedulerInitialiseSharedSchedulerState);
 
-    scheduler = threadDictionary[async_default_scheduler_key];
-    if (scheduler == nilptr) {
-        scheduler = [[self alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
-        threadDictionary[async_default_scheduler_key] = scheduler;
+    [$assert_nonnil(async_shared_scheduler_lock) lock];
+    @try {
+        if (async_shared_scheduler == nilptr)
+            async_shared_scheduler = [[AsyncScheduler alloc] initWithRunLoop: $assert_nonnil(OFRunLoop.currentRunLoop)];
+
+        scheduler = async_shared_scheduler;
+    } @finally {
+        [$assert_nonnil(async_shared_scheduler_lock) unlock];
     }
 
-    return scheduler;
+    return $assert_nonnil(scheduler);
 }
 
 + (size_t)_defaultWorkerCount
@@ -230,15 +238,24 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     return (size_t)(cpuCount - 1);
 }
 
-+ (void)shutdownDefaultSchedulerForCurrentThread
++ (void)shutdownSharedScheduler
 {
-    OFMutableDictionary<OFString *, AsyncScheduler *> *threadDictionary = OFThread.threadDictionary;
-    AsyncScheduler *scheduler = threadDictionary[async_default_scheduler_key];
+    AsyncScheduler *nillable scheduler;
+
+    OFOnce(&async_shared_scheduler_state_once, AsyncSchedulerInitialiseSharedSchedulerState);
+
+    [$assert_nonnil(async_shared_scheduler_lock) lock];
+    @try {
+        scheduler = async_shared_scheduler;
+        async_shared_scheduler = nilptr;
+    } @finally {
+        [$assert_nonnil(async_shared_scheduler_lock) unlock];
+    }
+
     if (scheduler == nilptr)
         return;
 
-    [threadDictionary removeObjectForKey: async_default_scheduler_key];
-    [scheduler shutdown];
+    [$assert_nonnil(scheduler) _shutdown];
 }
 
 - (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode maxWorkerCount: (size_t)maxWorkerCount maxDrainBatchSize: (size_t)maxDrainBatchSize
@@ -526,10 +543,8 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     enum AsyncCoroutineStatus coroutineStatus = AsyncCoroutineStatus_READY;
     AsyncTask *previousTask = async_current_task;
     AsyncScheduler *previousScheduler = async_current_scheduler;
-    AsyncTaskGroup *previousTaskGroup = async_current_task_group;
     async_current_task = task;
     async_current_scheduler = self;
-    async_current_task_group = [task _resumeTaskGroupContext];
 
     [_lock lock];
     @try {
@@ -553,17 +568,14 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
             returnedObject = coroutine.returnedObject;
         }
     } @catch (id exception) {
-        [task _captureCurrentScopeContext];
         if ([$assert_nonnil(exception) isKindOfClass: OFException.class])
             [task _rejectTaskWithException: (OFException *)$assert_nonnil(exception)];
         else
             [task _rejectTaskWithException: [OFInvalidArgumentException exception]];
         return;
     } @finally {
-        [task _captureCurrentScopeContext];
         async_current_task = previousTask;
         async_current_scheduler = previousScheduler;
-        async_current_task_group = previousTaskGroup;
 
         [_lock lock];
         @try {
@@ -600,7 +612,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
         return false;
 
     for (id<AsyncSchedulerRunnable> runnable in batch)
-        [runnable runOnScheduler: self];
+        [runnable runWithScheduler: self];
 
     return true;
 }
@@ -700,7 +712,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
         ;
 }
 
-- (void)shutdown
+- (void)_shutdown
 {
     OFFile *nillable wakeReadFile = nilptr;
     int wakeWriteFileDescriptor = -1;
@@ -742,7 +754,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
 
 - (void)dealloc
 {
-    [self shutdown];
+    [self _shutdown];
 }
 
 - (AsyncSchedulerSnapshot *)snapshot
@@ -770,8 +782,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
                                                                        name: task.name
                                                              executionState: task.executionState
                                                                  waitReason: task.waitReason
-                                                      cancellationRequested: task.isCancellationRequested
-                                                              taskGroupName: task.taskGroup._taskGroupNameForSnapshots]];
+                                                      cancellationRequested: task.isCancellationRequested]];
     }
 
     return [[AsyncSchedulerSnapshot alloc] initWithQueuedTaskCount: queuedTaskCount runningTaskCount: runningTaskCount completedTaskCount: completedTaskCount cancelledTaskCount: cancelledTaskCount tasks: taskSnapshots];
@@ -799,7 +810,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     return self;
 }
 
-- (void)runOnScheduler: (AsyncScheduler *)scheduler
+- (void)runWithScheduler: (AsyncScheduler *)scheduler
 {
     [self.task _clearReadyQueued];
     [scheduler _resumeTask: self.task];
@@ -817,7 +828,7 @@ static void AsyncSchedulerInitialiseSharedWorkerPoolState(void)
     return self;
 }
 
-- (void)runOnScheduler: (AsyncScheduler *)scheduler
+- (void)runWithScheduler: (AsyncScheduler *)scheduler
 {
     (void)scheduler;
     self.block();

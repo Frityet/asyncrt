@@ -29,8 +29,7 @@ typedef enum TerminalGraphicsProtocol: unsigned char {
                                         usingClient: (AsyncHTTPClient *)client
                                          refererIRI: (OFIRI *)refererIRI
                                        maxPixelEdge: (size_t)maxPixelEdge
-                                        jpegQuality: (double)jpegQuality
-                                        onScheduler: (AsyncScheduler *)scheduler;
+                                        jpegQuality: (double)jpegQuality;
 + (OFString *)displayWidthForColumns: (size_t)columns
                                 scale: (double)scale;
 + (OFString *)displayWidthForImageCount: (size_t)imageCount

@@ -1017,7 +1017,6 @@
                                         refererIRI: (OFIRI *)refererIRI
                                        maxPixelEdge: (size_t)maxPixelEdge
                                         jpegQuality: (double)jpegQuality
-                                        onScheduler: (AsyncScheduler *)scheduler
 {
     auto request = [[OFHTTPRequest alloc] initWithIRI: iri];
     request.headers = [OFDictionary dictionaryWithKeysAndObjects:
@@ -1026,7 +1025,7 @@
         @"User-Agent", @"BooruAggr/1.0",
         nil];
 
-    return [[client performRequest: request onScheduler: scheduler] mapOnScheduler: scheduler transform: ^ITerm2InlineImage *(OFHTTPResponse *response) {
+    return [[client performRequest: request] map: ^ITerm2InlineImage *(OFHTTPResponse *response) {
         auto originalData = [response readDataUntilEndOfStream];
         auto imageData = [ITerm2ImageGallerySupport imageDataByDownscalingImageData: originalData
                                                                        maxPixelEdge: maxPixelEdge

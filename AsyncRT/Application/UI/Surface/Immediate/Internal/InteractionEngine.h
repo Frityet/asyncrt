@@ -10,7 +10,6 @@
 @interface AsyncUIInteractionEngine : OFObject
 
 @property(readonly, nonatomic) AsyncUIContextMenu *nillable activeContextMenu;
-@property(readonly, nonatomic) AsyncTaskGroup *nillable activeContextMenuTaskGroup;
 @property(readonly, nonatomic) float activeContextMenuX;
 @property(readonly, nonatomic) float activeContextMenuY;
 

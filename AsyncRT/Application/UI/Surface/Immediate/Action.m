@@ -20,27 +20,23 @@
     return action;
 }
 
-- (void)invokeWithTaskGroup: (AsyncTaskGroup *nillable)taskGroup
+- (void)invoke
 {
-    AsyncTaskGroup *effectiveTaskGroup = (taskGroup ?: AsyncTaskGroup.currentTaskGroup);
-
     if (self.handler != nilptr)
         self.handler();
 
-    if (self.asyncHandler != nilptr and effectiveTaskGroup != nilptr) {
-        AsyncTaskGroup *nonnil launchTaskGroup =
-            (AsyncTaskGroup *nonnil)effectiveTaskGroup;
+    if (self.asyncHandler != nilptr) {
         auto action = self;
 
-        [launchTaskGroup spawnTask: ^{
+        (void)[AsyncRuntime spawnNamed: self.name block: ^{
             AsyncUIAsyncActionHandler asyncHandler = action.asyncHandler;
 
             if (asyncHandler == nilptr)
                 return (id)AsyncUnit.unit;
 
-            return [launchTaskGroup performInChildTaskGroupNamed: action.name
-                                                           block: asyncHandler];
-        } name: self.name];
+            id nillable result = asyncHandler();
+            return (result != nilptr ? $assert_nonnil(result) : (id)AsyncUnit.unit);
+        }];
     }
 }
 

@@ -85,8 +85,6 @@
         destination.cursorStyle = source.cursorStyle;
     if (source.activationAction != nilptr)
         destination.activationAction = source.activationAction;
-    if (source.taskGroup != nilptr)
-        destination.taskGroup = source.taskGroup;
     if (source.textChangeHandler != nilptr)
         destination.textChangeHandler = source.textChangeHandler;
     if (source.submitHandler != nilptr)
@@ -102,7 +100,6 @@
     OFString *nillable _pressedIdentifier;
     OFString *nillable _focusedIdentifier;
     AsyncUIContextMenu *nillable _activeContextMenu;
-    AsyncTaskGroup *nillable _activeContextMenuTaskGroup;
     float _activeContextMenuX;
     float _activeContextMenuY;
 }
@@ -205,7 +202,6 @@
         if (_activeContextMenu != nilptr and
             (topHoveredRegistration == nilptr or not [$assert_nonnil(topHoveredRegistration).identifier hasPrefix: @"context-menu"])) {
             _activeContextMenu = nilptr;
-            _activeContextMenuTaskGroup = nilptr;
             shouldScheduleRender = true;
         }
 
@@ -232,13 +228,12 @@
                 AsyncUIInteractionRegistration *registration = registrations[registrationIndex];
 
                 if (registration.isEnabled and [hoveredIdentifiers containsObject: releasedIdentifier] and registration.activationAction != nilptr)
-                    [registration.activationAction invokeWithTaskGroup: registration.taskGroup];
+                    [registration.activationAction invoke];
             }
         }
 
         if (releasedIdentifier != nilptr and [$assert_nonnil(releasedIdentifier) hasPrefix: @"context-menu"] and _activeContextMenu != nilptr) {
             _activeContextMenu = nilptr;
-            _activeContextMenuTaskGroup = nilptr;
             shouldScheduleRender = true;
         }
 
@@ -250,13 +245,11 @@
     if (inputState.secondaryButtonReleasedThisFrame) {
         if (topHoveredRegistration != nilptr and topHoveredRegistration.contextMenu != nilptr) {
             _activeContextMenu = topHoveredRegistration.contextMenu;
-            _activeContextMenuTaskGroup = topHoveredRegistration.taskGroup;
             _activeContextMenuX = inputState.pointerX;
             _activeContextMenuY = inputState.pointerY;
             shouldScheduleRender = true;
         } else if (_activeContextMenu != nilptr) {
             _activeContextMenu = nilptr;
-            _activeContextMenuTaskGroup = nilptr;
             shouldScheduleRender = true;
         }
     }
@@ -319,7 +312,6 @@
     _pressedIdentifier = nilptr;
     _focusedIdentifier = nilptr;
     _activeContextMenu = nilptr;
-    _activeContextMenuTaskGroup = nilptr;
     _activeContextMenuX = 0;
     _activeContextMenuY = 0;
 }

@@ -151,7 +151,13 @@ if has_config("asyncrt-webui") then
 
         add_deps("AsyncRTApplicationUIBase", "AsyncRTNetworkingHTTP", { public = true })
         add_includedirs("../../..", { public = true })
-        add_headerfiles("Surface/Web/(**.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/(Application.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/(Component.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/(DOM.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/(Request.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/(View.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/(Web.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
+        add_headerfiles("Surface/Web/Platform/WKWebKit/(View.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web/Platform/WKWebKit" })
         add_extrafiles("Surface/Web/Component.js")
         add_files("Surface/Web/*.m", "Surface/Web/Platform/WKWebKit/View.m")
 

@@ -23,8 +23,7 @@
 - (instancetype)initWithApplication: (AsyncImmediateUIApplication *)application [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (id)runWithWindow: (AsyncUIWindow *)window
-          rootContent: (id<AsyncUIContent>)rootContent
-            taskGroup: (AsyncTaskGroup *)taskGroup;
+          rootContent: (id<AsyncUIContent>)rootContent;
 - (void)setNeedsRender;
 - (Clay_RenderCommandArray)buildRenderCommandsWithViewportSize: (AsyncUISize)viewportSize
                                                      deltaTime: (float)deltaTime;

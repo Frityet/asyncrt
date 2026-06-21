@@ -5,7 +5,7 @@
 #pragma clang assume_nonnull begin
 
 typedef void (^AsyncUIActionHandler)(void);
-typedef id nillable (^AsyncUIAsyncActionHandler)(AsyncTaskGroup *taskGroup);
+typedef id nillable (^AsyncUIAsyncActionHandler)(void);
 
 [[subclassing_restricted]]
 @interface AsyncUIAction : OFObject
@@ -17,7 +17,7 @@ typedef id nillable (^AsyncUIAsyncActionHandler)(AsyncTaskGroup *taskGroup);
 + (instancetype)withHandler: (AsyncUIActionHandler nillable)handler;
 + (instancetype)withName: (OFString *nillable)name
             asyncHandler: (AsyncUIAsyncActionHandler nillable)handler;
-- (void)invokeWithTaskGroup: (AsyncTaskGroup *nillable)taskGroup;
+- (void)invoke;
 
 @end
 

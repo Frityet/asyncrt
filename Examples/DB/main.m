@@ -326,22 +326,6 @@
 // }
 // */
 
-// @implementation AsyncDBExampleApplication
-
-// - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
-//                                taskGroup: (AsyncTaskGroup *)taskGroup
-// {
-//     auto sem = [[Semaphore alloc] initWithValue: 0];
-
-
-//     return AsyncUnit.unit;
-// }
-
-// @end
-
-// OF_APPLICATION_DELEGATE(AsyncDBExampleApplication)
-
-// #pragma clang assume_nonnull end
 
 int main()
 {}

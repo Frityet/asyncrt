@@ -31,11 +31,9 @@
 @property(weak, nonatomic) OFObject<OFHTTPClientDelegate> *nillable delegate;
 
 + (instancetype)client;
+- (AsyncTask<OFHTTPResponse *> *)performRequest: (OFHTTPRequest *)request;
 - (AsyncTask<OFHTTPResponse *> *)performRequest: (OFHTTPRequest *)request
-                                    onScheduler: (AsyncScheduler *)scheduler;
-- (AsyncTask<OFHTTPResponse *> *)performRequest: (OFHTTPRequest *)request
-                                      redirects: (unsigned int)redirects
-                                    onScheduler: (AsyncScheduler *)scheduler;
+                                      redirects: (unsigned int)redirects;
 
 @end
 

@@ -15,7 +15,6 @@ typedef AsyncUIEffectCleanupHandler _Nullable (^AsyncUIEffectHandler)(void);
 
 @property(readonly, nonatomic) AsyncUIApplication *nillable application;
 @property(readonly, nonatomic) AsyncUIComponent *nillable parentComponent;
-@property(readonly, nonatomic) AsyncTaskGroup *nillable mountedTaskGroup;
 @property(readonly, nonatomic) bool isMounted;
 
 - (id<AsyncUIContent>)renderContent;
@@ -25,10 +24,10 @@ typedef AsyncUIEffectCleanupHandler _Nullable (^AsyncUIEffectHandler)(void);
 - (AsyncUIState *)useState: (id nillable)initialValue;
 - (void)useEffect: (AsyncUIEffectHandler nillable)effectHandler
       dependencies: (OFArray<id> *nillable)dependencies;
-- (AsyncTask<id> *nillable)useTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)useTask: (id (^nillable)(void))launchBlock
                  dependencies: (OFArray<id> *nillable)dependencies
                          name: (OFString *nillable)name;
-- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(void))launchBlock
                                   name: (OFString *nillable)name;
 
 @end

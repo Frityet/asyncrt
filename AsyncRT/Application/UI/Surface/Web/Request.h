@@ -11,6 +11,5 @@ typedef struct AsyncWebUIRequest {
 } AsyncWebUIRequest;
 
 typedef AsyncTask<OFString *> *nonnil (^AsyncWebUIActionHandler)(AsyncWebUIRequest request);
-typedef OFString *nonnil (^AsyncWebUIJSONActionHandler)(AsyncWebUIRequest request);
 
 #pragma clang assume_nonnull end

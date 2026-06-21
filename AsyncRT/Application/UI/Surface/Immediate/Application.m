@@ -32,7 +32,6 @@
 }
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
-                               taskGroup: (AsyncTaskGroup *)taskGroup
 {
     (void)notification;
 
@@ -40,17 +39,14 @@
     if (rootContent == nilptr)
         @throw [[AsyncUIInitializationException alloc] initWithReason: @"Applications must return nonnil root content"];
 
-    AsyncUIWindowConfiguration *nillable configuration = [self windowConfiguration];
-    if (configuration == nilptr)
-        configuration = AsyncUIWindowConfiguration.defaults;
-
-    AsyncUIWindow *window = [self _makeWindowWithConfiguration: $assert_nonnil(configuration)];
+    AsyncUIWindowConfiguration *configuration = [self windowConfiguration];
+    AsyncUIWindow *window = [self _makeWindowWithConfiguration: configuration];
     if (window == nilptr)
         @throw [[AsyncUIInitializationException alloc] initWithReason: @"Failed to create a window for the application"];
 
-    [self applicationDidStartWithTaskGroup: taskGroup];
+    [self applicationDidStart];
 
-    return [_runtime runWithWindow: window rootContent: $assert_nonnil(rootContent) taskGroup: taskGroup];
+    return [_runtime runWithWindow: window rootContent: $assert_nonnil(rootContent)];
 }
 
 - (id<AsyncUIContent>)rootContent
@@ -58,15 +54,13 @@
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 }
 
-- (AsyncUIWindowConfiguration *nillable)windowConfiguration
+- (AsyncUIWindowConfiguration *)windowConfiguration
 {
     return AsyncUIWindowConfiguration.defaults;
 }
 
-- (void)applicationDidStartWithTaskGroup: (AsyncTaskGroup *)taskGroup
-{
-    (void)taskGroup;
-}
+- (void)applicationDidStart
+{}
 
 - (void)setNeedsRender
 {

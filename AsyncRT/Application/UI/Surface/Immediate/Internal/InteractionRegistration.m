@@ -23,7 +23,6 @@
     _cursorStyle = AsyncUICursorStyleDefault;
     _contextMenu = nilptr;
     _activationAction = nilptr;
-    _taskGroup = nilptr;
     return self;
 }
 

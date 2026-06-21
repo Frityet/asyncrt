@@ -5,7 +5,6 @@
 #pragma clang assume_nonnull begin
 
 @class AsyncScheduler;
-@class AsyncTaskGroup;
 @class AsyncTask;
 
 enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
@@ -42,7 +41,6 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
 @property(readonly, nonatomic) bool isCompleted;
 @property(readonly, nonatomic) OFException *failureException;
 @property(readonly, nonatomic) AsyncScheduler *scheduler;
-@property(readonly, nonatomic) AsyncTaskGroup *nillable taskGroup;
 @property(readonly, nonatomic) uint64_t taskID;
 @property(readonly, nonatomic) OFString *nillable name;
 @property(readonly, nonatomic) enum AsyncTaskExecutionState executionState;
@@ -59,15 +57,10 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskExecutionState {
 + (OFString *)describeStatus: (enum AsyncTaskStatus)status;
 + (OFString *)describeExecutionState: (enum AsyncTaskExecutionState)state;
 - (AsyncTask<id> *)map: (id (^)(T value))transform;
-- (AsyncTask<id> *)mapOnScheduler: (AsyncScheduler *)scheduler transform: (id (^)(T value))transform;
 - (AsyncTask<id> *)flatMap: (AsyncTask * (^)(T value))transform;
-- (AsyncTask<id> *)flatMapOnScheduler: (AsyncScheduler *)scheduler transform: (AsyncTask * (^)(T value))transform;
 - (AsyncTask<id> *)recover: (id (^)(OFException *exception))handler;
-- (AsyncTask<id> *)recoverOnScheduler: (AsyncScheduler *)scheduler handler: (id (^)(OFException *exception))handler;
 - (AsyncTask<id> *)flatRecover: (AsyncTask * (^)(OFException *exception))handler;
-- (AsyncTask<id> *)flatRecoverOnScheduler: (AsyncScheduler *)scheduler handler: (AsyncTask * (^)(OFException *exception))handler;
 - (AsyncTask<T> *)ensure: (void (^)(void))block;
-- (AsyncTask<T> *)ensureOnScheduler: (AsyncScheduler *)scheduler block: (void (^)(void))block;
 - (T)await;
 - (void)cancel;
 - (instancetype)init OF_UNAVAILABLE;

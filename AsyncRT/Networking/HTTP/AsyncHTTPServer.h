@@ -37,13 +37,11 @@ typedef AsyncTask<AsyncHTTPResponse *> *_Nonnull (^AsyncHTTPRouteHandler)(AsyncH
 @property(readonly, nonatomic) OFDictionary<OFString *, id> *queryParameters;
 @property(readonly, nonatomic) OFArray<OFString *> *pathParameters;
 @property(readonly, nonatomic) OFDictionary<OFString *, OFString *> *pathParametersByName;
-@property(readonly, nonatomic) AsyncScheduler *scheduler;
 
 - (instancetype)initWithHTTPRequest: (OFHTTPRequest *)rawHTTPRequest
                           bodyStream: (OFStream *nillable)bodyStream
                       pathParameters: (OFArray<OFString *> *)pathParameters
-                pathParametersByName: (OFDictionary<OFString *, OFString *> *)pathParametersByName
-                            scheduler: (AsyncScheduler *)scheduler [[designated_initailiser]];
+                pathParametersByName: (OFDictionary<OFString *, OFString *> *)pathParametersByName [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (OFString *)methodString;
 - (AsyncTask<OFData *> *)taskToReadBodyWithMaximumLength: (size_t)maximumLength;
@@ -129,6 +127,16 @@ typedef AsyncTask<AsyncHTTPResponse *> *_Nonnull (^AsyncHTTPRouteHandler)(AsyncH
 
 + (instancetype)exceptionWithResponse: (AsyncHTTPResponse *)response;
 - (instancetype)initWithResponse: (AsyncHTTPResponse *)response [[designated_initailiser]];
+- (instancetype)init OF_UNAVAILABLE;
+
+@end
+
+[[subclassing_restricted, direct_members]]
+@interface AsyncHTTPRequestTimeoutException : OFException
+
+@property(readonly, nonatomic) OFTimeInterval timeout;
+
+- (instancetype)initWithTimeout: (OFTimeInterval)timeout [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

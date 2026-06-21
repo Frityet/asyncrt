@@ -5,10 +5,12 @@
 
 #pragma clang assume_nonnull begin
 
+@class AsyncWebUIDocument;
+
 @interface AsyncWebUIView : OFObject
 
-@property(readonly, nonatomic) AsyncScheduler *scheduler;
 @property(readonly, nonatomic) AsyncUIWindowConfiguration *configuration;
+@property(readonly, nonatomic) AsyncWebUIDocument *document;
 @property(readonly, nonatomic) OFString *nillable loadedHTML;
 @property(readonly, nonatomic) OFIRI *nillable loadedIRI;
 @property(readonly, nonatomic) bool isClosed;
@@ -16,15 +18,15 @@
 + (OFString *)javaScriptToDispatchEventNamed: (OFString *)name payloadJSON: (OFString *nillable)payloadJSON;
 + (OFString *)javaScriptToResolveRequestID: (OFString *)requestID responseJSON: (OFString *nillable)responseJSON;
 
-- (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration scheduler: (AsyncScheduler *)scheduler [[designated_initailiser]];
+- (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 - (void)loadHTML: (OFString *)html;
 - (void)loadIRI: (OFIRI *)IRI;
 - (void)bindAction: (OFString *)name toHandler: (AsyncWebUIActionHandler)handler;
-- (void)bindAction: (OFString *)name toJSONHandler: (AsyncWebUIJSONActionHandler)handler;
 - (void)unbindActionNamed: (OFString *)name;
 - (AsyncTask<OFString *> *)taskToHandleRequest: (AsyncWebUIRequest)request;
+- (AsyncTask<id> *)taskToEvaluateJavaScriptReturningValue: (OFString *)javaScript;
 - (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript;
 - (void)emitEvent: (OFString *)name withJSONPayload: (OFString *nillable)payloadJSON;
 - (void)pollEvents;

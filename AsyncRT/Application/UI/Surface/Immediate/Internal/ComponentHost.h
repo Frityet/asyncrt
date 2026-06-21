@@ -12,16 +12,14 @@
 @property(readonly, nonatomic) AsyncUIComponent *nillable owner;
 @property(readonly, nonatomic) AsyncUIApplication *nillable application;
 @property(readonly, nonatomic) AsyncUIComponentHost *nillable parentHost;
-@property(readonly, nonatomic) AsyncTaskGroup *nillable mountedTaskGroup;
 @property(readonly, nonatomic) bool isMounted;
 
 - (instancetype)initWithOwner: (AsyncUIComponent *nillable)owner [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 - (void)attachToApplication: (AsyncUIApplication *nillable)application
-                  parentHost: (AsyncUIComponentHost *nillable)parentHost
-                   taskGroup: (AsyncTaskGroup *nillable)taskGroup;
+                  parentHost: (AsyncUIComponentHost *nillable)parentHost;
 - (void)detachFromApplication;
-- (void)ensureMountedInTaskGroup: (AsyncTaskGroup *nonnil)taskGroup;
+- (void)ensureMounted;
 - (void)unmountRecursively;
 - (void)beginContentTraversal;
 - (void)endContentTraversalWithRenderer: (AsyncUIRenderer *nonnil)renderer;
@@ -32,10 +30,10 @@
 - (AsyncUIState *)useState: (id nillable)initialValue;
 - (void)useEffect: (AsyncUIEffectHandler nillable)effectHandler
       dependencies: (OFArray<id> *nillable)dependencies;
-- (AsyncTask<id> *nillable)useTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)useTask: (id (^nillable)(void))launchBlock
                  dependencies: (OFArray<id> *nillable)dependencies
                          name: (OFString *nillable)name;
-- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(void))launchBlock
                                   name: (OFString *nillable)name;
 
 @end

@@ -11,7 +11,6 @@
 
 @class AsyncUIAction;
 @class AsyncUIContextMenu;
-@class AsyncTaskGroup;
 
 [[subclassing_restricted, direct_members]]
 @interface AsyncUIInteractionRegistration : OFObject
@@ -24,7 +23,6 @@
 @property(nonatomic) AsyncUICursorStyle cursorStyle;
 @property(retain, nonatomic) AsyncUIContextMenu *nillable contextMenu;
 @property(retain, nonatomic) AsyncUIAction *nillable activationAction;
-@property(retain, nonatomic) AsyncTaskGroup *nillable taskGroup;
 @property(copy, nonatomic) AsyncUITextChangeHandler nillable textChangeHandler;
 @property(copy, nonatomic) AsyncUITextSubmitHandler nillable submitHandler;
 

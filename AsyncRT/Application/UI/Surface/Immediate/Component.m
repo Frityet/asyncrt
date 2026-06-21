@@ -32,11 +32,6 @@
     return _componentHost.parentHost.owner;
 }
 
-- (AsyncTaskGroup *nillable)mountedTaskGroup
-{
-    return _componentHost.mountedTaskGroup;
-}
-
 - (bool)isMounted
 {
     return _componentHost.isMounted;
@@ -71,14 +66,14 @@
     [_componentHost useEffect: effectHandler dependencies: dependencies];
 }
 
-- (AsyncTask<id> *nillable)useTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)useTask: (id (^nillable)(void))launchBlock
                  dependencies: (OFArray<id> *nillable)dependencies
                          name: (OFString *nillable)name
 {
     return [_componentHost useTask: launchBlock dependencies: dependencies name: name];
 }
 
-- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(AsyncTaskGroup *taskGroup))launchBlock
+- (AsyncTask<id> *nillable)launchTask: (id (^nillable)(void))launchBlock
                                   name: (OFString *nillable)name
 {
     return [_componentHost launchTask: launchBlock name: name];

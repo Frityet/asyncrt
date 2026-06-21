@@ -7,7 +7,6 @@
 
 extern thread_local unretained AsyncTask *nillable async_current_task;
 extern thread_local unretained AsyncScheduler *nillable async_current_scheduler;
-extern thread_local unretained AsyncTaskGroup *nillable async_current_task_group;
 
 void AsyncRetainForTSAN(id nillable object);
 
@@ -54,15 +53,10 @@ void AsyncRetainForTSAN(id nillable object);
 + (AsyncTaskState *)raceTasks: (OFArray<AsyncTask *> *)tasks;
 + (OFString *)describeStatus: (enum AsyncTaskStatus)status;
 - (AsyncTaskState<id> *)map: (id (^)(id value))transform;
-- (AsyncTaskState<id> *)mapOnScheduler: (AsyncScheduler *)scheduler transform: (id (^)(id value))transform;
 - (AsyncTaskState<id> *)flatMapTask: (AsyncTask * (^)(id value))transform;
-- (AsyncTaskState<id> *)flatMapTaskOnScheduler: (AsyncScheduler *)scheduler transform: (AsyncTask * (^)(id value))transform;
 - (AsyncTaskState<id> *)recover: (id (^)(OFException *exception))handler;
-- (AsyncTaskState<id> *)recoverOnScheduler: (AsyncScheduler *)scheduler handler: (id (^)(OFException *exception))handler;
 - (AsyncTaskState<id> *)flatRecoverTask: (AsyncTask * (^)(OFException *exception))handler;
-- (AsyncTaskState<id> *)flatRecoverTaskOnScheduler: (AsyncScheduler *)scheduler handler: (AsyncTask * (^)(OFException *exception))handler;
 - (AsyncTaskState<id> *)ensure: (void (^)(void))block;
-- (AsyncTaskState<id> *)ensureOnScheduler: (AsyncScheduler *)scheduler block: (void (^)(void))block;
 - (OFString *)describe;
 - (id)await;
 - (instancetype)init OF_UNAVAILABLE;
@@ -142,48 +136,35 @@ void AsyncRetainForTSAN(id nillable object);
 [[direct_members]]
 @interface AsyncScheduler ()
 
+- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode maxWorkerCount: (size_t)maxWorkerCount maxDrainBatchSize: (size_t)maxDrainBatchSize [[designated_initailiser]];
+- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode;
+- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop;
 - (void)_enqueueTask: (AsyncTask *)task;
 - (void)_enqueueBlock: (void (^)(void))block;
 - (bool)_tryEnqueueBlock: (void (^)(void))block;
 - (void)_recordTaskResolutionForTask: (AsyncTask *)task;
+- (void)_shutdown;
 
 @end
 
 [[direct_members]]
-@interface AsyncTaskGroup ()
-
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler ownerTask: (AsyncTask *)ownerTask parentTaskGroup: (AsyncTaskGroup *nillable)parentTaskGroup name: (OFString *nillable)name deadline: (OFDate *nillable)deadline [[designated_initailiser]];
-- (id)_runTaskGroupBody: (id (^)(AsyncTaskGroup *taskGroup))block;
-- (void)_registerChildTask: (AsyncTask *)task;
-- (void)_task: (AsyncTask *)task didCompleteWithException: (OFException *nillable)exception;
-- (void)_cancelFromTimeoutWithDeadline: (OFDate *)deadline;
-- (OFString *nillable)_taskGroupNameForSnapshots;
-
-@end
-
 [[direct_members]]
 @interface AsyncTask ()
 
 - (instancetype)initWithTaskState: (AsyncTaskState *)promise [[designated_initailiser]] [[direct]];
 - (AsyncTaskState *)_internalTaskState [[direct]];
-- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler taskGroup: (AsyncTaskGroup *nillable)taskGroup name: (OFString *nillable)name block: (id (^)(void))block [[designated_initailiser]] [[direct]];
+- (instancetype)initWithScheduler: (AsyncScheduler *)scheduler name: (OFString *nillable)name block: (id (^)(void))block [[designated_initailiser]] [[direct]];
 - (void)_yieldWithRegistration: (AsyncTaskWaitRegistration *)registration waitReason: (OFString *)waitReason [[direct]];
 - (bool)_resumeFromWaitRegistration: (AsyncTaskWaitRegistration *)registration [[direct]];
 - (bool)_markReadyQueued [[direct]];
 - (void)_clearReadyQueued [[direct]];
 - (void)_setExecutionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason;
-- (void)_setTaskGroup: (AsyncTaskGroup *nillable)taskGroup [[direct]];
-- (AsyncTaskGroup *nillable)_resumeTaskGroupContext;
-- (void)_captureCurrentScopeContext;
 - (AsyncCoroutine<id> *)_coroutineObject;
 - (void)_resolveFromCompletion: (AsyncTaskExecutionCompletion *)completion;
 - (void)_fulfillTaskWithValue: (id)value [[direct]];
 - (void)_rejectTaskWithException: (OFException *)exception;
 - (bool)_isCancellationRequested [[direct]];
 - (void)_requestCancellation [[direct]];
-- (void)_interruptForScopeCancellation;
-- (void)_pushCancellationSuppression;
-- (void)_popCancellationSuppression;
 
 @end
 

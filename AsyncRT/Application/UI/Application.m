@@ -9,10 +9,8 @@
     return AsyncUIWindowConfiguration.defaults;
 }
 
-- (void)applicationDidStartWithTaskGroup: (AsyncTaskGroup *)taskGroup
-{
-    (void)taskGroup;
-}
+- (void)applicationDidStart
+{}
 
 - (void)setNeedsRender
 {

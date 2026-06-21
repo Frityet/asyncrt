@@ -46,6 +46,7 @@
 + (NSApplication *)ensureSharedApplication;
 + (void)pollEventsForWindow: (NSWindow *nillable)window;
 + (OFString *)responseJSONForException: (OFException *)exception;
++ (id)objectFromJavaScriptResult: (id _Nullable)result;
 
 @end
 
@@ -201,6 +202,41 @@
     return response.JSONRepresentation;
 }
 
++ (id)objectFromJavaScriptResult: (id _Nullable)result
+{
+    if (result == nilptr or result == (id)NSNull.null)
+        return OFNull.null;
+
+    if ([result isKindOfClass: NSString.class])
+        return ((NSString *)result).OFObject;
+    if ([result isKindOfClass: NSNumber.class])
+        return ((NSNumber *)result).OFObject;
+    if ([result isKindOfClass: NSArray.class]) {
+        auto array = [OFMutableArray<id> arrayWithCapacity: ((NSArray *)result).count];
+        for (id value in (NSArray *)result)
+            [array addObject: [self objectFromJavaScriptResult: value]];
+
+        [array makeImmutable];
+        return array;
+    }
+    if ([result isKindOfClass: NSDictionary.class]) {
+        auto dictionary = [OFMutableDictionary<OFString *, id> dictionaryWithCapacity: ((NSDictionary *)result).count];
+        for (id key in (NSDictionary *)result) {
+            id value = [(NSDictionary *)result objectForKey: key];
+            OFString *OFKey = ([key isKindOfClass: NSString.class]
+                ? ((NSString *)key).OFObject
+                : ((NSObject *)key).description.OFObject);
+
+            [dictionary setObject: [self objectFromJavaScriptResult: value] forKey: OFKey];
+        }
+
+        [dictionary makeImmutable];
+        return dictionary;
+    }
+
+    return ((NSObject *)result).description.OFObject;
+}
+
 @end
 
 @implementation AsyncWKWebKitView {
@@ -211,9 +247,8 @@
 }
 
 - (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration
-                            scheduler: (AsyncScheduler *)scheduler
 {
-    self = [super initWithConfiguration: configuration scheduler: scheduler];
+    self = [super initWithConfiguration: configuration];
 
     NSApplication *sharedApplication = [AsyncWKWebKitApplicationSupport ensureSharedApplication];
     auto windowRect = NSMakeRect(0.0, 0.0, (CGFloat)configuration.initialWidth, (CGFloat)configuration.initialHeight);
@@ -267,18 +302,16 @@
     [$assert_nonnil(_webView) loadRequest: [NSURLRequest requestWithURL: $assert_nonnil(URL)]];
 }
 
-- (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript
+- (AsyncTask<id> *)taskToEvaluateJavaScriptReturningValue: (OFString *)javaScript
 {
-    auto completionSource = [[AsyncCompletionSource<AsyncUnit *> alloc] init];
+    auto completionSource = [[AsyncCompletionSource<id> alloc] init];
     [$assert_nonnil(_webView) evaluateJavaScript: javaScript.NSObject
                                completionHandler: ^(id _Nullable result, NSError * _Nullable error) {
-        (void)result;
-
         if (error != nilptr)
             [completionSource reject: [[AsyncWKWebKitJavaScriptEvaluationException alloc] initWithError: $assert_nonnil(error)
                                                                                             javaScript: javaScript]];
         else
-            [completionSource fulfill: AsyncUnit.unit];
+            [completionSource fulfill: [AsyncWKWebKitApplicationSupport objectFromJavaScriptResult: result]];
     }];
     return completionSource.task;
 }
@@ -350,11 +383,10 @@
         .requestID = requestID
     };
 
-    AsyncTask<id> *task = [[self taskToHandleRequest: request] recoverOnScheduler: self.scheduler
-                                                                          handler: ^id(OFException *exception) {
+    AsyncTask<id> *task = [[self taskToHandleRequest: request] recover: ^id(OFException *exception) {
         return [AsyncWKWebKitApplicationSupport responseJSONForException: exception];
     }];
-    (void)[task mapOnScheduler: self.scheduler transform: ^id(OFString *responseJSON) {
+    (void)[task map: ^id(OFString *responseJSON) {
         OFString *javaScript = [AsyncWebUIView javaScriptToResolveRequestID: requestID
                                                                responseJSON: responseJSON];
         (void)[self taskToEvaluateJavaScript: javaScript];

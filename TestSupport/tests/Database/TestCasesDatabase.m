@@ -208,9 +208,7 @@
         if ([fileManager fileExistsAtPath: databasePath])
             [fileManager removeItemAtPath: databasePath];
 
-        [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-            (void)rootScope;
-
+        [self runAsyncBlock: ^{
             auto registry = [AsyncDBProviderRegistry registryWithProviderClass: AsyncDBSQLiteConnection.class];
             auto options = [AsyncDBSQLiteConnectionOptions optionsWithReadOnly: false
                                                                createsIfNeeded: true];
@@ -267,9 +265,7 @@
 
 - (void)test_asyncdb_orm_crud_transactions_and_joined_selects
 {
-    [self runAsyncBlock: ^(AsyncTaskGroup *rootScope) {
-        (void)rootScope;
-
+    [self runAsyncBlock: ^{
         auto connection = [AsyncDBSQLiteConnection dbConnectionWithIRI: [OFIRI IRIWithString: @"sqlite:///:memory:"]
                                                                options: [AsyncDBSQLiteConnectionOptions options]];
         [[connection open] await];

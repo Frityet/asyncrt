@@ -15,33 +15,28 @@
 
 @interface AsyncRuntimeTestCase : OTTestCase
 
-- (void)runAsyncBlock: (void (^)(AsyncTaskGroup *rootTaskGroup))block;
+- (void)runAsyncBlock: (void (^)(void))block;
 
 @end
 
 @namespace(AsyncRuntimeTestSupport)
 
-+ (AsyncTask<OFString *> *)timerResolvedStringForScheduler: (AsyncScheduler *)scheduler
-                                              seconds: (OFTimeInterval)seconds
++ (AsyncTask<OFString *> *)timerResolvedStringAfter: (OFTimeInterval)seconds
                                                 value: (OFString *)value;
 
-+ (AsyncTask<OFString *> *)timerRejectedStringForScheduler: (AsyncScheduler *)scheduler
-                                              seconds: (OFTimeInterval)seconds
++ (AsyncTask<OFString *> *)timerRejectedStringAfter: (OFTimeInterval)seconds
                                             exception: (OFException *)exception;
 
 + (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
+                                      withHTTPClient: (AsyncHTTPClient *)client;
+
++ (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (AsyncHTTPClient *)client
-                                         onScheduler: (AsyncScheduler *)scheduler;
+                                           redirects: (unsigned int)redirects;
 
 + (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
                                       withHTTPClient: (AsyncHTTPClient *)client
                                            redirects: (unsigned int)redirects
-                                         onScheduler: (AsyncScheduler *)scheduler;
-
-+ (AsyncTask<OFHTTPResponse *> *)taskToPerformHTTPRequest: (OFHTTPRequest *)request
-                                      withHTTPClient: (AsyncHTTPClient *)client
-                                           redirects: (unsigned int)redirects
-                                         onScheduler: (AsyncScheduler *)scheduler
                             cancelOnTaskCancellation: (bool)cancelOnTaskCancellation;
                             
 + (AsyncTaskSnapshot *nillable)findTaskSnapshotNamed: (OFString *)name inSnapshot: (AsyncSchedulerSnapshot *)snapshot;

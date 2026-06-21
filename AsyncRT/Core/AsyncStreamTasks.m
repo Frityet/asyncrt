@@ -270,14 +270,13 @@ void AsyncRTLinkAsyncStreamTasks(void)
 @implementation OFStream (AsyncStreamTasks)
 
 - (AsyncTask<OFData *> *)taskToReadAtMost: (size_t)length
-                          onScheduler: (AsyncScheduler *)scheduler
 {
     if (length == 0)
         return [AsyncTask resolved: [OFData data]];
 
     auto completionSource = [[AsyncCompletionSource<OFData *> alloc] init];
     auto bridge = [[AsyncStreamReadAtMostBridge alloc] initWithStream: self
-                                                            scheduler: scheduler
+                                                            scheduler: AsyncScheduler.sharedScheduler
                                                                 length: length
                                                       completionSource: completionSource];
     [completionSource setPendingTaskCancellationHandler: ^{ [bridge cancel]; }];
@@ -286,11 +285,10 @@ void AsyncRTLinkAsyncStreamTasks(void)
 }
 
 - (AsyncTask<OFData *> *)taskToReadUntilEndWithMaximumLength: (size_t)maximumLength
-                                            onScheduler: (AsyncScheduler *)scheduler
 {
     auto completionSource = [[AsyncCompletionSource<OFData *> alloc] init];
     auto bridge = [[AsyncStreamReadUntilEndBridge alloc] initWithStream: self
-                                                              scheduler: scheduler
+                                                              scheduler: AsyncScheduler.sharedScheduler
                                                           maximumLength: maximumLength
                                                         completionSource: completionSource];
     [completionSource setPendingTaskCancellationHandler: ^{ [bridge cancel]; }];
@@ -299,14 +297,13 @@ void AsyncRTLinkAsyncStreamTasks(void)
 }
 
 - (AsyncTask<AsyncUnit *> *)taskToWriteData: (OFData *)data
-                            onScheduler: (AsyncScheduler *)scheduler
 {
     if (data.count == 0)
         return [AsyncTask resolved: AsyncUnit.unit];
 
     auto completionSource = [[AsyncCompletionSource<AsyncUnit *> alloc] init];
     auto bridge = [[AsyncStreamWriteBridge alloc] initWithStream: self
-                                                       scheduler: scheduler
+                                                       scheduler: AsyncScheduler.sharedScheduler
                                                             data: data
                                                 completionSource: completionSource];
     [completionSource setPendingTaskCancellationHandler: ^{ [bridge cancel]; }];

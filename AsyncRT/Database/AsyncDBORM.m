@@ -991,15 +991,8 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
     if (!shouldLoadPrimaryKey)
         return insertTask;
 
-    AsyncTask *currentTask = AsyncTask.currentTask;
-    if (currentTask == nilptr)
-        return [AsyncTask rejected: [OFInvalidArgumentException exception]];
-
-    AsyncScheduler *scheduler = currentTask.scheduler;
-    return (AsyncTask<AsyncDBWriteResult *> *)[insertTask flatMapOnScheduler: scheduler
-                                                                    transform: ^AsyncTask *(AsyncDBWriteResult *result) {
-        return [[connection lastInsertRowID] mapOnScheduler: scheduler
-                                                  transform: ^id(OFNumber *rowID) {
+    return (AsyncTask<AsyncDBWriteResult *> *)[insertTask flatMap: ^AsyncTask *(AsyncDBWriteResult *result) {
+        return [[connection lastInsertRowID] map: ^id(OFNumber *rowID) {
             [self _asyncdb_setValue: rowID
                   forColumnProperty: primaryKey.propertyName];
             return result;

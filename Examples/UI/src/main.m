@@ -572,8 +572,7 @@ static void BooruCLIEnsureObjFWCryptographicHashingLoaded(void)
                                 booru: (id<Booru>)booru
                               command: (BooruFetchCommand *)command
                                 cache: (BooruImageCache *)cache
-                        manifestEntry: (OFPair<OFString *, OFString *> *nillable *)manifestEntry
-                            scheduler: (AsyncScheduler *)scheduler [[direct]]
+                        manifestEntry: (OFPair<OFString *, OFString *> *nillable *)manifestEntry [[direct]]
 {
     OFIRI *displayIRI = [self _displayIRIForPost: post];
     size_t maxPixelEdge = [self _effectiveMaxPixelEdgeForCommand: command];
@@ -597,8 +596,7 @@ static void BooruCLIEnsureObjFWCryptographicHashingLoaded(void)
                                                 usingClient: booru.httpClient
                                                  refererIRI: booru.baseIRI
                                                 maxPixelEdge: maxPixelEdge
-                                                 jpegQuality: command.jpegQuality.value.doubleValue
-                                                 onScheduler: scheduler] await];
+                                                 jpegQuality: command.jpegQuality.value.doubleValue] await];
 
     @try {
         [cache storeImage: image
@@ -632,7 +630,7 @@ static void BooruCLIEnsureObjFWCryptographicHashingLoaded(void)
                                   postsPerPage: command.limit.value.unsignedLongValue];
 }
 
-- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification taskGroup: (AsyncTaskGroup *)taskGroup
+- (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
 {
     (void)notification;
 
@@ -713,8 +711,7 @@ static void BooruCLIEnsureObjFWCryptographicHashingLoaded(void)
                                         booru: booru
                                       command: command
                                         cache: cache
-                                manifestEntry: &manifestEntry
-                                    scheduler: taskGroup.scheduler];
+                                manifestEntry: &manifestEntry];
             [images addObject: image];
             if (manifestEntry != nilptr)
                 [manifestEntries addObject: $assert_nonnil(manifestEntry)];

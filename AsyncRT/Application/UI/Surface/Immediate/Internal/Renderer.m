@@ -326,14 +326,12 @@
 }
 
 - (void)attachRootContent: (id<AsyncUIContent>)rootContent
-                taskGroup: (AsyncTaskGroup *nillable)taskGroup
 {
     [self detachRootContent];
     _rootContent = rootContent;
     _rootHost = [[AsyncUIComponentHost alloc] initWithOwner: nilptr];
-    [_rootHost attachToApplication: _application parentHost: nilptr taskGroup: taskGroup];
-    if (taskGroup != nilptr)
-        [_rootHost ensureMountedInTaskGroup: $assert_nonnil(taskGroup)];
+    [_rootHost attachToApplication: _application parentHost: nilptr];
+    [_rootHost ensureMounted];
 }
 
 - (void)detachRootContent
@@ -612,7 +610,6 @@
             ? box.interaction.contextMenu
             : parentContextMenu);
         registration.activationAction = box.interaction.activationAction;
-        registration.taskGroup = currentHost.mountedTaskGroup;
         childContextMenu = registration.contextMenu;
         [interactionEngine registerInteraction: $assert_nonnil(registration)];
     }
@@ -668,7 +665,6 @@
     registration.cursorStyle = AsyncUICursorStylePointer;
     registration.contextMenu = parentContextMenu;
     registration.activationAction = button.action;
-    registration.taskGroup = currentHost.mountedTaskGroup;
     [interactionEngine registerInteraction: registration];
 
     [AsyncUIClayRuntime openElementWithID: elementID declaration: declaration];
@@ -748,7 +744,6 @@
     registration.text = (text ?: @"");
     registration.cursorStyle = AsyncUICursorStyleText;
     registration.contextMenu = contextMenu;
-    registration.taskGroup = currentHost.mountedTaskGroup;
     registration.textChangeHandler = changeHandler;
     registration.submitHandler = submitHandler;
     [interactionEngine registerInteraction: registration];
@@ -815,7 +810,6 @@
             registration.isEnabled = item.isEnabled;
             registration.cursorStyle = AsyncUICursorStylePointer;
             registration.activationAction = item.action;
-            registration.taskGroup = interactionEngine.activeContextMenuTaskGroup;
             [interactionEngine registerInteraction: registration];
 
             [AsyncUIClayRuntime openElementWithID: itemID declaration: itemDeclaration];

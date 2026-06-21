@@ -53,7 +53,6 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
                           bodyStream: (OFStream *nillable)bodyStream
                       pathParameters: (OFArray<OFString *> *)pathParameters
                 pathParametersByName: (OFDictionary<OFString *, OFString *> *)pathParametersByName
-                            scheduler: (AsyncScheduler *)scheduler
 {
     self = [super init];
     _rawHTTPRequest = rawHTTPRequest;
@@ -65,7 +64,6 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
     _queryParameters = [[self _queryParametersFromIRI: _IRI] copy];
     _pathParameters = [pathParameters copy];
     _pathParametersByName = [pathParametersByName copy];
-    _scheduler = scheduler;
     return self;
 }
 
@@ -108,8 +106,7 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
         return [AsyncTask resolved: [OFData data]];
 
     AsyncRTLinkAsyncStreamTasks();
-    return [$assert_nonnil(self.bodyStream) taskToReadUntilEndWithMaximumLength: maximumLength
-                                                                    onScheduler: self.scheduler];
+    return [$assert_nonnil(self.bodyStream) taskToReadUntilEndWithMaximumLength: maximumLength];
 }
 
 @end
@@ -486,6 +483,22 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
 
 @end
 
+@implementation AsyncHTTPRequestTimeoutException
+
+- (instancetype)initWithTimeout: (OFTimeInterval)timeout
+{
+    self = [super init];
+    _timeout = timeout;
+    return self;
+}
+
+- (OFString *)description
+{
+    return [OFString stringWithFormat: @"AsyncHTTPRequestTimeoutException: request exceeded %.3fs", self.timeout];
+}
+
+@end
+
 @implementation AsyncHTTPServer {
     OFHTTPServer *_HTTPServer;
     OFMutex *_routesLock;
@@ -673,7 +686,7 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
     if ([exception isKindOfClass: AsyncHTTPStatusException.class])
         return ((AsyncHTTPStatusException *)exception).response;
 
-    if ([exception isKindOfClass: AsyncTaskGroupTimeoutException.class]) {
+    if ([exception isKindOfClass: AsyncHTTPRequestTimeoutException.class]) {
         return [AsyncHTTPResponse from: @"request timed out\n" statusCode: 504 extraHeaders: [OFDictionary dictionary]];
     }
 
@@ -719,43 +732,46 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
 - (void)_writeResponse: (AsyncHTTPResponse *)response
             forRequest: (AsyncHTTPRequest *)request
           AsyncHTTPResponse: (OFHTTPResponse *)rawHTTPResponse
-           onScheduler: (AsyncScheduler *)scheduler
 {
-    auto task = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *taskGroup) {
-        (void)taskGroup;
+    auto task = [AsyncRuntime run: ^id {
         return [response _taskToWriteToHTTPResponse: rawHTTPResponse forRequest: request].await;
     }];
 
-    [scheduler runUntilTaskCompletes: task];
+    [AsyncRuntime runUntilTaskCompletes: task];
 }
 
 - (void)_serveRequest: (AsyncHTTPRequest *)request
                 match: (AsyncHTTPRouteMatch *nillable)match
          AsyncHTTPResponse: (OFHTTPResponse *)rawHTTPResponse
-          onScheduler: (AsyncScheduler *)scheduler
 {
     OFTimeInterval requestTimeout = self.requestTimeout;
-    auto task = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *rootTaskGroup) {
+    auto task = [AsyncRuntime run: ^id {
         if (match == nilptr) {
             AsyncHTTPResponse *response = [self _unhandledResponseForRequest: request];
             return [response _taskToWriteToHTTPResponse: rawHTTPResponse
                                              forRequest: request].await;
         }
 
-        id (^serveMatchedRoute)(AsyncTaskGroup *) = ^id(AsyncTaskGroup *) {
+        id (^serveMatchedRoute)(void) = ^id {
             AsyncHTTPResponse *response = [self _responseForRouteMatch: $assert_nonnil(match)
                                                           request: request];
             return [response _taskToWriteToHTTPResponse: rawHTTPResponse
                                              forRequest: request].await;
         };
 
-        if (requestTimeout > 0)
-            return [rootTaskGroup performWithTimeout: requestTimeout block: serveMatchedRoute];
+        if (requestTimeout > 0) {
+            auto serveTask = [AsyncRuntime spawnNamed: @"http-request" block: serveMatchedRoute];
+            auto timeoutTask = [[AsyncRuntime sleepForTimeInterval: requestTimeout] flatMap: ^AsyncTask *(AsyncUnit *) {
+                return [AsyncTask rejected: [[AsyncHTTPRequestTimeoutException alloc] initWithTimeout: requestTimeout]];
+            }];
 
-        return serveMatchedRoute(rootTaskGroup);
+            return [AsyncTask race: [OFArray arrayWithObjects: serveTask, timeoutTask, nil]].await;
+        }
+
+        return serveMatchedRoute();
     }];
 
-    [scheduler runUntilTaskCompletes: task];
+    [AsyncRuntime runUntilTaskCompletes: task];
 
     if (task.status != AsyncTaskStatus_REJECTED)
         return;
@@ -763,11 +779,10 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
     AsyncHTTPResponse *exceptionResponse = [self _exceptionResponseForRequest: request
                                                                exception: task.failureException];
 
-    auto exceptionTask = [AsyncRuntime runOnScheduler: scheduler block: ^id(AsyncTaskGroup *taskGroup) {
-        (void)taskGroup;
+    auto exceptionTask = [AsyncRuntime run: ^id {
         return [exceptionResponse _taskToWriteToHTTPResponse: rawHTTPResponse forRequest: request].await;
     }];
-    [scheduler runUntilTaskCompletes: exceptionTask];
+    [AsyncRuntime runUntilTaskCompletes: exceptionTask];
 }
 
 -      (void)server: (OFHTTPServer *)server
@@ -777,7 +792,6 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
 {
     (void)server;
 
-    auto scheduler = AsyncScheduler.defaultScheduler;
     OFString *path = (rawHTTPRequest.IRI.path.length > 0 ? rawHTTPRequest.IRI.path : @"/");
     OFString *methodString = [self _stringForMethod: rawHTTPRequest.method];
     AsyncHTTPRouteMatch *nillable match = [self _routeMatchForRequestPath: path
@@ -785,13 +799,11 @@ static OFTimeInterval const AsyncHTTPServerDefaultRequestTimeout = 30;
     auto request = [[AsyncHTTPRequest alloc] initWithHTTPRequest: rawHTTPRequest
                                              bodyStream: requestBody
                                              pathParameters: (match != nilptr ? match.pathParameters : [OFArray array])
-                                       pathParametersByName: (match != nilptr ? match.pathParametersByName : [OFDictionary dictionary])
-                                                   scheduler: scheduler];
+                                       pathParametersByName: (match != nilptr ? match.pathParametersByName : [OFDictionary dictionary])];
 
     [self _serveRequest: request
                   match: match
-           AsyncHTTPResponse: rawHTTPResponse
-            onScheduler: scheduler];
+           AsyncHTTPResponse: rawHTTPResponse];
 }
 
 -       (void)server: (OFHTTPServer *)server

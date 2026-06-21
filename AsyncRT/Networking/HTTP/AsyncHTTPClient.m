@@ -322,16 +322,13 @@ static void AsyncHTTPClientInitialiseState(void)
 }
 
 - (AsyncTask<OFHTTPResponse *> *)performRequest: (OFHTTPRequest *)request
-                                    onScheduler: (AsyncScheduler *)scheduler
 {
     return [self performRequest: request
-                      redirects: AsyncHTTPClientDefaultRedirects
-                    onScheduler: scheduler];
+                      redirects: AsyncHTTPClientDefaultRedirects];
 }
 
 - (AsyncTask<OFHTTPResponse *> *)performRequest: (OFHTTPRequest *)request
                                       redirects: (unsigned int)redirects
-                                    onScheduler: (AsyncScheduler *)scheduler
 {
     auto completionSource = [[AsyncCompletionSource<OFHTTPResponse *> alloc] init];
     auto requestClient = [[OFHTTPClient alloc] init];
@@ -341,7 +338,7 @@ static void AsyncHTTPClientInitialiseState(void)
                                                             forwardDelegate: self.delegate
                                                                    request: request
                                                                  redirects: redirects
-                                                                 scheduler: scheduler
+                                                                 scheduler: AsyncScheduler.sharedScheduler
                                                           completionSource: completionSource];
 
     [AsyncHTTPClientTaskBridge retainInflightBridge: bridge];

@@ -30,10 +30,9 @@
 
 - (id)runWithWindow: (AsyncUIWindow *)window
           rootContent: (id<AsyncUIContent>)rootContent
-            taskGroup: (AsyncTaskGroup *)taskGroup
 {
     _window = window;
-    [_renderer attachRootContent: rootContent taskGroup: taskGroup];
+    [_renderer attachRootContent: rootContent];
 
     @try {
         [_window openWindow];
@@ -60,7 +59,7 @@
                 continue;
 
             (void)[AsyncTask<AsyncUnit *> race: [OFArray arrayWithObjects:
-                [taskGroup.scheduler sleepForTimeInterval: pollInterval],
+                [AsyncRuntime sleepForTimeInterval: pollInterval],
                 renderWakeTask,
                 nil]].await;
         }
@@ -131,13 +130,11 @@
 
 - (void)useRootContentForTesting: (id<AsyncUIContent> nillable)rootContent
 {
-    AsyncTaskGroup *nillable currentTaskGroup = AsyncTaskGroup.currentTaskGroup;
-
     [self _resetRuntimeState];
     [_renderer detachRootContent];
 
     if (rootContent != nilptr)
-        [_renderer attachRootContent: $assert_nonnil(rootContent) taskGroup: currentTaskGroup];
+        [_renderer attachRootContent: $assert_nonnil(rootContent)];
 }
 
 - (AsyncTask<AsyncUnit *> *)_renderWakeTask

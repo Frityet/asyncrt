@@ -50,9 +50,8 @@
 @property(readonly, nonatomic) enum AsyncTaskExecutionState executionState;
 @property(readonly, nonatomic) OFString *nillable waitReason;
 @property(readonly, nonatomic) bool isCancellationRequested;
-@property(readonly, nonatomic) OFString *nillable taskGroupName;
 
-- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested taskGroupName: (OFString *nillable)taskGroupName [[designated_initailiser]];
+- (instancetype)initWithTaskID: (uint64_t)taskID name: (OFString *nillable)name executionState: (enum AsyncTaskExecutionState)executionState waitReason: (OFString *nillable)waitReason cancellationRequested: (bool)cancellationRequested [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
 
 @end
@@ -74,17 +73,14 @@
 [[subclassing_restricted, direct_members]]
 @interface AsyncScheduler : OFObject
 
-@property(class, readonly, nonatomic) AsyncScheduler *defaultScheduler;
+@property(class, readonly, nonatomic) AsyncScheduler *sharedScheduler;
 @property(readonly, nonatomic) OFRunLoop *runLoop;
 @property(readonly, nonatomic) OFRunLoopMode mode;
 @property(readonly, nonatomic) size_t maxWorkerCount;
 @property(readonly, nonatomic) size_t maxDrainBatchSize;
 
-+ (AsyncScheduler *)defaultScheduler;
-+ (void)shutdownDefaultSchedulerForCurrentThread;
-- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode maxWorkerCount: (size_t)maxWorkerCount maxDrainBatchSize: (size_t)maxDrainBatchSize [[designated_initailiser]];
-- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop mode: (OFRunLoopMode)mode;
-- (instancetype)initWithRunLoop: (OFRunLoop *)runLoop;
++ (AsyncScheduler *)sharedScheduler;
++ (void)shutdownSharedScheduler;
 - (OFString *)describe;
 - (AsyncTask<AsyncUnit *> *)sleepForTimeInterval: (OFTimeInterval)timeInterval;
 - (AsyncTask<AsyncUnit *> *)sleepUntilDate: (OFDate *)date;
@@ -93,7 +89,6 @@
 - (bool)runUntilTaskCompletes: (AsyncTask *)task timeout: (OFTimeInterval)timeout;
 - (void)runUntilIdle;
 - (AsyncSchedulerSnapshot *)snapshot;
-- (void)shutdown;
 - (instancetype)init OF_UNAVAILABLE;
 
 @end

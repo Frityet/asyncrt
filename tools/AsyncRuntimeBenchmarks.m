@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#import <AsyncRT/Application/Core.h>
 #import <AsyncRT/Core/AsyncRuntime.h>
 
 #pragma clang assume_nonnull begin
@@ -10,7 +11,7 @@ typedef struct {
     const char *name;
     const char *unit;
     size_t operationsPerInvocation;
-    void (*invoke)(AsyncTaskGroup *rootTaskGroup);
+    void (*invoke)(void);
 } BenchmarkScenario;
 
 typedef struct {
@@ -36,16 +37,14 @@ enum {
     task_all_resolved_batch_size = 1024,
     task_all_trivial_tasks_rounds = 24,
     task_all_trivial_tasks_batch_size = 128,
-    taskGroup_spawn_all_rounds = 24,
-    taskGroup_spawn_all_batch_size = 128,
+    runtime_spawn_all_rounds = 24,
+    runtime_spawn_all_batch_size = 128,
     channel_ping_pong_message_count = 40000,
-    scheduler_offload_roundtrips = 4000
+    runtime_offload_roundtrips = 4000
 };
 
-static void benchmark_task_map_chain(AsyncTaskGroup *rootTaskGroup)
+static void benchmark_task_map_chain(void)
 {
-    (void)rootTaskGroup;
-
     for (size_t round = 0; round < task_map_chain_rounds; round++) {
         AsyncTask *task = [AsyncTask resolved: AsyncUnit.unit];
 
@@ -59,9 +58,8 @@ static void benchmark_task_map_chain(AsyncTaskGroup *rootTaskGroup)
     }
 }
 
-static void benchmark_task_all_resolved(AsyncTaskGroup *rootTaskGroup)
+static void benchmark_task_all_resolved(void)
 {
-    (void)rootTaskGroup;
     auto inputs = [OFMutableArray<AsyncTask *> arrayWithCapacity: task_all_resolved_batch_size];
 
     for (size_t index = 0; index < task_all_resolved_batch_size; index++)
@@ -73,7 +71,7 @@ static void benchmark_task_all_resolved(AsyncTaskGroup *rootTaskGroup)
         [[AsyncTask all: resolvedInputs] await];
 }
 
-static void benchmark_task_all_trivial_tasks(AsyncTaskGroup *rootTaskGroup)
+static void benchmark_task_all_trivial_tasks(void)
 {
     id (^trivialBlock)(void) = ^{
         return AsyncUnit.unit;
@@ -83,68 +81,64 @@ static void benchmark_task_all_trivial_tasks(AsyncTaskGroup *rootTaskGroup)
         auto tasks = [OFMutableArray<AsyncTask *> arrayWithCapacity: task_all_trivial_tasks_batch_size];
 
         for (size_t index = 0; index < task_all_trivial_tasks_batch_size; index++)
-            [tasks addObject: [rootTaskGroup spawnTask: trivialBlock]];
+            [tasks addObject: [AsyncRuntime spawnNamed: @"bench-task-all-trivial" block: trivialBlock]];
 
         [[AsyncTask all: tasks] await];
     }
 }
 
-static void benchmark_task_group_spawn_all_trivial(AsyncTaskGroup *rootTaskGroup)
+static void benchmark_runtime_spawn_all_trivial(void)
 {
-    auto blocks = [OFMutableArray<id (^)(void)> arrayWithCapacity: taskGroup_spawn_all_batch_size];
     id (^trivialBlock)(void) = ^{
         return AsyncUnit.unit;
     };
 
-    for (size_t index = 0; index < taskGroup_spawn_all_batch_size; index++)
-        [blocks addObject: trivialBlock];
+    for (size_t round = 0; round < runtime_spawn_all_rounds; round++) {
+        auto tasks = [OFMutableArray<AsyncTask *> arrayWithCapacity: runtime_spawn_all_batch_size];
 
-    OFArray<id (^)(void)> *trivialBlocks = [blocks copy];
+        for (size_t index = 0; index < runtime_spawn_all_batch_size; index++)
+            [tasks addObject: [AsyncRuntime spawnNamed: @"bench-runtime-spawn" block: trivialBlock]];
 
-    for (size_t round = 0; round < taskGroup_spawn_all_rounds; round++)
-        [[rootTaskGroup spawnAllTasks: trivialBlocks] await];
+        [[AsyncTask all: tasks] await];
+    }
 }
 
-static void benchmark_channel_ping_pong(AsyncTaskGroup *rootTaskGroup)
+static void benchmark_channel_ping_pong(void)
 {
     auto channel = [[AsyncChannel<id> alloc] initWithCapacity: 0];
 
-    (void)[rootTaskGroup performInChildTaskGroupNamed: @"bench-channel" block: ^id(AsyncTaskGroup *taskGroup) {
-        [taskGroup spawnTask: ^{
-            for (size_t messageIndex = 0; messageIndex < channel_ping_pong_message_count; messageIndex++)
-                [channel send: AsyncUnit.unit];
-
-            return AsyncUnit.unit;
-        } name: @"bench-channel-producer"];
-
-        [taskGroup spawnTask: ^{
-            for (size_t messageIndex = 0; messageIndex < channel_ping_pong_message_count; messageIndex++)
-                (void)channel.receive;
-
-            return AsyncUnit.unit;
-        } name: @"bench-channel-consumer"];
+    auto producer = [AsyncRuntime spawnNamed: @"bench-channel-producer" block: ^id {
+        for (size_t messageIndex = 0; messageIndex < channel_ping_pong_message_count; messageIndex++)
+            [channel send: AsyncUnit.unit];
 
         return AsyncUnit.unit;
     }];
+
+    auto consumer = [AsyncRuntime spawnNamed: @"bench-channel-consumer" block: ^id {
+        for (size_t messageIndex = 0; messageIndex < channel_ping_pong_message_count; messageIndex++)
+            (void)channel.receive;
+
+        return AsyncUnit.unit;
+    }];
+
+    [[AsyncTask all: [OFArray arrayWithObjects: producer, consumer, nil]] await];
 }
 
-static void benchmark_scheduler_offload_roundtrip(AsyncTaskGroup *rootTaskGroup)
+static void benchmark_runtime_offload_roundtrip(void)
 {
-    auto scheduler = rootTaskGroup.scheduler;
-
-    for (size_t iteration = 0; iteration < scheduler_offload_roundtrips; iteration++)
-        (void)[scheduler offload: ^{
+    for (size_t iteration = 0; iteration < runtime_offload_roundtrips; iteration++)
+        (void)[[AsyncRuntime offload: ^{
             return AsyncUnit.unit;
-        }].await;
+        }] await];
 }
 
 static BenchmarkScenario benchmark_scenarios[] = {
     {.name = "task-map-chain", .unit = "continuations", .operationsPerInvocation = task_map_chain_rounds * task_map_chain_depth, .invoke = benchmark_task_map_chain},
     {.name = "task-all-resolved", .unit = "tasks", .operationsPerInvocation = task_all_resolved_rounds * task_all_resolved_batch_size, .invoke = benchmark_task_all_resolved},
     {.name = "task-all-trivial-tasks", .unit = "tasks", .operationsPerInvocation = task_all_trivial_tasks_rounds * task_all_trivial_tasks_batch_size, .invoke = benchmark_task_all_trivial_tasks},
-    {.name = "task-group-spawn-all-trivial", .unit = "tasks", .operationsPerInvocation = taskGroup_spawn_all_rounds * taskGroup_spawn_all_batch_size, .invoke = benchmark_task_group_spawn_all_trivial},
+    {.name = "runtime-spawn-all-trivial", .unit = "tasks", .operationsPerInvocation = runtime_spawn_all_rounds * runtime_spawn_all_batch_size, .invoke = benchmark_runtime_spawn_all_trivial},
     {.name = "channel-ping-pong", .unit = "messages", .operationsPerInvocation = channel_ping_pong_message_count, .invoke = benchmark_channel_ping_pong},
-    {.name = "scheduler-offload-roundtrip", .unit = "roundtrips", .operationsPerInvocation = scheduler_offload_roundtrips, .invoke = benchmark_scheduler_offload_roundtrip},
+    {.name = "runtime-offload-roundtrip", .unit = "roundtrips", .operationsPerInvocation = runtime_offload_roundtrips, .invoke = benchmark_runtime_offload_roundtrip},
 };
 
 static int compare_doubles(const void *left, const void *right)
@@ -169,7 +163,7 @@ static BenchmarkScenario *nillable find_scenario(const char *name)
     return nullptr;
 }
 
-static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncTaskGroup *rootTaskGroup, double seconds)
+static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, double seconds)
 {
     uint64_t startNanoseconds = monotonic_nanoseconds();
     uint64_t minimumNanoseconds = (uint64_t)(seconds * 1000000000.0);
@@ -178,7 +172,7 @@ static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncTaskGr
     uint64_t elapsedNanoseconds = 0;
 
     do {
-        scenario->invoke(rootTaskGroup);
+        scenario->invoke();
         invocationCount++;
         totalOperations += scenario->operationsPerInvocation;
         elapsedNanoseconds = monotonic_nanoseconds() - startNanoseconds;
@@ -191,7 +185,7 @@ static BenchmarkSample measure_scenario(BenchmarkScenario *scenario, AsyncTaskGr
     };
 }
 
-static void print_scenario_summary(BenchmarkScenario *scenario, AsyncTaskGroup *rootTaskGroup, double seconds, size_t sampleCount)
+static void print_scenario_summary(BenchmarkScenario *scenario, double seconds, size_t sampleCount)
 {
     double rates[16];
     double nanosecondsPerOperation[16];
@@ -199,7 +193,7 @@ static void print_scenario_summary(BenchmarkScenario *scenario, AsyncTaskGroup *
     if (sampleCount > 16)
         @throw [OFOutOfRangeException exception];
 
-    scenario->invoke(rootTaskGroup);
+    scenario->invoke();
 
     printf("scenario=%s unit=%s target_seconds_per_sample=%.2f samples=%zu\n",
            scenario->name,
@@ -208,7 +202,7 @@ static void print_scenario_summary(BenchmarkScenario *scenario, AsyncTaskGroup *
            sampleCount);
 
     for (size_t sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++) {
-        BenchmarkSample sample = measure_scenario(scenario, rootTaskGroup, seconds);
+        BenchmarkSample sample = measure_scenario(scenario, seconds);
         double elapsedSeconds = (double)sample.elapsedNanoseconds / 1000000000.0;
         double rate = (double)sample.totalOperations / elapsedSeconds;
         double nsPerOperation = (double)sample.elapsedNanoseconds / (double)sample.totalOperations;
@@ -254,7 +248,6 @@ static void print_usage(const char *program)
 @implementation AsyncRuntimeBenchmarksApp
 
 - (id)applicationDidFinishLaunchingAsync: (OFNotification *)notification
-                               taskGroup: (AsyncTaskGroup *)rootTaskGroup
 {
     (void)notification;
 
@@ -271,7 +264,7 @@ static void print_usage(const char *program)
 
     if (strcmp(selectedScenario, "all") == 0) {
         for (size_t index = 0; index < sizeof(benchmark_scenarios) / sizeof(benchmark_scenarios[0]); index++)
-            print_scenario_summary(&benchmark_scenarios[index], rootTaskGroup, secondsPerSample, sampleCount);
+            print_scenario_summary(&benchmark_scenarios[index], secondsPerSample, sampleCount);
 
         return AsyncUnit.unit;
     }
@@ -283,7 +276,7 @@ static void print_usage(const char *program)
         return [OFNumber numberWithInt: 1];
     }
 
-    print_scenario_summary($assert_nonnil(scenario), rootTaskGroup, secondsPerSample, sampleCount);
+    print_scenario_summary($assert_nonnil(scenario), secondsPerSample, sampleCount);
     return AsyncUnit.unit;
 }
 
@@ -291,7 +284,7 @@ static void print_usage(const char *program)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wnullability-inferred-on-nested-type"
-ASYNC_APPLICATION_DELEGATE(AsyncRuntimeBenchmarksApp);
+OF_APPLICATION_DELEGATE(AsyncRuntimeBenchmarksApp);
 #pragma clang diagnostic pop
 
 #pragma clang assume_nonnull end

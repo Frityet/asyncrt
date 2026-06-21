@@ -13,8 +13,8 @@
 @interface AsyncImmediateUIApplication : AsyncUIApplication
 
 - (id<AsyncUIContent>)rootContent;
-- (AsyncUIWindowConfiguration *nillable)windowConfiguration;
-- (void)applicationDidStartWithTaskGroup: (AsyncTaskGroup *)taskGroup;
+- (AsyncUIWindowConfiguration *)windowConfiguration;
+- (void)applicationDidStart;
 - (void)setNeedsRender;
 
 @end

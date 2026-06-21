@@ -3,8 +3,8 @@
     const styleText = __ASYNC_WEBUI_STYLE_TEXT__;
     const layoutHTML = __ASYNC_WEBUI_LAYOUT_HTML__;
     const propertyNames = __ASYNC_WEBUI_PROPERTY_NAMES__;
-    const invokeActionName = __ASYNC_WEBUI_INVOKE_ACTION_NAME__;
-    const updateEventName = __ASYNC_WEBUI_UPDATE_EVENT_NAME__;
+    const nativeInvokeAction = __ASYNC_WEBUI_INVOKE_ACTION_NAME__;
+    const nativeUpdateEvent = __ASYNC_WEBUI_UPDATE_EVENT_NAME__;
     const stateAttributeName = 'data-async-webui-state';
     const componentIDAttributeName = 'data-async-webui-id';
     const nativeActionPattern = /^\[self\s+([A-Za-z_][A-Za-z0-9_:]*)\]$/;
@@ -108,12 +108,12 @@
 
         connectedCallback() {
             this.state = parseState(this);
-            window.addEventListener(updateEventName, this.handleNativeUpdate);
+            window.addEventListener(nativeUpdateEvent, this.handleNativeUpdate);
             this.render();
         }
 
         disconnectedCallback() {
-            window.removeEventListener(updateEventName, this.handleNativeUpdate);
+            window.removeEventListener(nativeUpdateEvent, this.handleNativeUpdate);
             this.clearNativeListeners();
         }
 
@@ -198,7 +198,7 @@
                         if (event.cancelable)
                             event.preventDefault();
 
-                        const response = await window.AsyncRT.invoke(invokeActionName, {
+                        const response = await window.AsyncRT.invoke(nativeInvokeAction, {
                             componentID: this.componentID,
                             selector,
                             event: eventPayload(event)
