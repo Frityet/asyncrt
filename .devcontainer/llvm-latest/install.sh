@@ -38,7 +38,7 @@ fi
 if [ ! -f "/etc/apt/sources.list" ]; then
   echo '#' > /etc/apt/sources.list
 fi
-
+sudo apt update && sudo apt install -y lsb-release wget software-properties-common gnupg
 cd /tmp
 wget https://apt.llvm.org/llvm.sh
 chmod +x llvm.sh

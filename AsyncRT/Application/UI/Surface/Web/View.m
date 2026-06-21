@@ -3,6 +3,8 @@
 
 #if defined(__APPLE__)
 #import <AsyncRT/Application/UI/Surface/Web/Platform/WKWebKit/View.h>
+#elif defined(__linux__)
+#import <AsyncRT/Application/UI/Surface/Web/Platform/WebKitGTK/View.h>
 #endif
 
 #pragma clang assume_nonnull begin
@@ -21,6 +23,8 @@
     if (self == AsyncWebUIView.class) {
 #if defined(__APPLE__)
         return [AsyncWKWebKitView alloc];
+#elif defined(__linux__)
+        return [AsyncWebKitGTKView alloc];
 #else
         @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 #endif

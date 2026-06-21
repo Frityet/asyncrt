@@ -1,4 +1,9 @@
-#import <objc/runtime.h>
+#if defined(__APPLE__)
+#   import <objc/runtime.h>
+#else
+#   import <ObjFWRT/ObjFWRT.h>
+#endif
+
 #import <string.h>
 
 #import "Component.h"
@@ -313,8 +318,9 @@ static char AsyncWebUIComponentChildStoragesKey;
     auto seenComponents = [OFMutableSet<AsyncWebUIComponent *> set];
 
     for (AsyncWebUIComponentChildStorage *storage in self.class._asyncWebUIChildStorages) {
-        id nillable value = object_getIvar(self, storage.ivar);
-        if (![value isKindOfClass: AsyncWebUIComponent.class])
+        // id nillable value = object_getIvar(self, storage.ivar);
+        auto value = *(unretained id nillable *)((__bridge void *)self + ivar_getOffset(storage.ivar));
+        if (not [value isKindOfClass: AsyncWebUIComponent.class])
             continue;
 
         auto component = (AsyncWebUIComponent *)value;
@@ -322,8 +328,7 @@ static char AsyncWebUIComponentChildStoragesKey;
             continue;
 
         [seenComponents addObject: component];
-        [entries addObject: [[AsyncWebUIComponentChildEntry alloc] initWithComponent: component
-                                                                            slotName: storage.slotName]];
+        [entries addObject: [[AsyncWebUIComponentChildEntry alloc] initWithComponent: component slotName: storage.slotName]];
     }
 
     [entries makeImmutable];

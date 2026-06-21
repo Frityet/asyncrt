@@ -1,8 +1,13 @@
 #import <AsyncRT/Database/AsyncDBORM.h>
 
 #include <ctype.h>
-#include <objc/runtime.h>
-#include <stdlib.h>
+#if defined(__APPLE__)
+#   include <objc/runtime.h>
+#else
+#   include <ObjFWRT/ObjFWRT.h>
+#endif
+
+#include <stdlib.h> 
 #include <string.h>
 
 #pragma clang assume_nonnull begin
@@ -187,7 +192,7 @@ static OFMutableSet<OFString *> *nillable AsyncDBAccessorInstallCache;
 
 + (OFString *)stringFromClass: (Class)cls
 {
-    return [OFString stringWithUTF8String: class_getName(cls)];
+    return [OFString stringWithUTF8String: $assert_nonnil(class_getName(cls))];
 }
 
 + (OFString *)quotedIdentifier: (OFString *)identifier
@@ -361,22 +366,36 @@ AsyncDBDynamicColumnSetter(AsyncDBTable *self, SEL selector, id nillable value)
     for (Class currentClass = cls;
          currentClass != Nil and currentClass != AsyncDBTable.class;
          currentClass = class_getSuperclass(currentClass)) {
+        #if defined(__APPLE__)
         objc_property_t property = class_getProperty(currentClass, propertyName.UTF8String);
+        #else
+        unsigned int pcount;
+        objc_property_t *properties = class_copyPropertyList(currentClass, &pcount);
+        objc_property_t property = nullptr;
+        for (unsigned int i = 0; i < pcount; i++) {
+            property = properties[i];
+            if (strcmp(property_getName(property), propertyName.UTF8String) == 0) {
+                free(properties);
+                break;
+            }
+        }
+
+        #endif
         if (property != nullptr)
             return [AsyncDBORM objectClassNameFromProperty: property];
     }
-
+        
     return nilptr;
 }
 
 + (void)setObject: (id)object property: (OFString *)propertyName value: (id nillable)value
 {
     SEL setter = [AsyncDBORM setterSelectorForPropertyName: propertyName];
-    if (![object respondsToSelector: setter])
+    if (not [object respondsToSelector: setter])
         @throw [OFInvalidArgumentException exception];
 
-    void (*setterIMP)(id, SEL, id nillable) = (void (*)(id, SEL, id nillable))[object methodForSelector: setter];
-    setterIMP(object, setter, value);
+    auto setterImp = (void (*)(id, SEL, id nillable))(void *)[object methodForSelector: setter];
+    setterImp(object, setter, value);
 }
 
 @end
@@ -705,8 +724,8 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
         SEL getter = sel_registerName(column.propertyName.UTF8String);
         SEL setter = [AsyncDBORM setterSelectorForPropertyName: column.propertyName];
 
-        class_replaceMethod(cls, getter, (IMP)AsyncDBDynamicColumnGetter, "@@:");
-        class_replaceMethod(cls, setter, (IMP)AsyncDBDynamicColumnSetter, "v@:@");
+        class_replaceMethod(cls, getter, (IMP)(void *)AsyncDBDynamicColumnGetter, "@@:");
+        class_replaceMethod(cls, setter, (IMP)(void *)AsyncDBDynamicColumnSetter, "v@:@");
     }
 
     [AsyncDBAccessorInstallCache addObject: className];

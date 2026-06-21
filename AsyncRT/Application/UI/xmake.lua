@@ -158,12 +158,15 @@ if has_config("asyncrt-webui") then
         add_headerfiles("Surface/Web/(View.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
         add_headerfiles("Surface/Web/(Web.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web" })
         add_headerfiles("Surface/Web/Platform/WKWebKit/(View.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web/Platform/WKWebKit" })
+        add_headerfiles("Surface/Web/Platform/WebKitGTK/(View.h)", { prefixdir = "AsyncRT/Application/UI/Surface/Web/Platform/WebKitGTK" })
         add_extrafiles("Surface/Web/Component.js")
-        add_files("Surface/Web/*.m", "Surface/Web/Platform/WKWebKit/View.m")
+        add_files("Surface/Web/*.m", "Surface/Web/Platform/WKWebKit/View.m", "Surface/Web/Platform/WebKitGTK/View.m")
 
         if is_plat("macosx") then
             add_links("objfwbridge", { public = true })
             add_frameworks("WebKit", "AppKit", "Foundation", { public = true })
+        elseif is_plat("linux") then
+            add_packages("webkit2gtk-4.0", { public = true })
         end
     end)
 end
