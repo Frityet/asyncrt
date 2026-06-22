@@ -55,8 +55,7 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
 
 - (instancetype)initWithJavaScript: (OFString *)javaScript
 {
-    return [self initWithJavaScript: javaScript
-                             reason: @"The HTTP WebUI backend cannot evaluate JavaScript without a connected browser"];
+    return [self initWithJavaScript: javaScript reason: @"The HTTP WebUI backend cannot evaluate JavaScript without a connected browser"];
 }
 
 - (instancetype)initWithJavaScript: (OFString *)javaScript reason: (OFString *)reason
@@ -91,14 +90,12 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
 
 + (OFString *)responseJSONForException: (OFException *)exception
 {
-    auto error = [OFMutableDictionary<OFString *, id> dictionary];
-    [error setObject: exception.className forKey: @"className"];
-    [error setObject: exception.description forKey: @"description"];
-    [error makeImmutable];
-
-    auto response = [OFMutableDictionary<OFString *, id> dictionary];
-    [response setObject: error forKey: @"error"];
-    [response makeImmutable];
+    auto response = @{
+        @"error": @{
+            @"className": exception.className,
+            @"description": exception.description
+        }
+    };
 
     return response.JSONRepresentation;
 }
@@ -260,16 +257,16 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
     [server addRoute: [AsyncHTTPGETRoute withPath: @"/" handledByBlock: ^AsyncTask<AsyncHTTPResponse *> *(AsyncHTTPRequest *request) {
         return [self _taskToServeIndex: request];
     }]];
-    [server addRoute: [AsyncHTTPGETRoute withPath: @"/index.html" handledByBlock: ^AsyncTask<AsyncHTTPResponse *> *(AsyncHTTPRequest *request) {
+    [server addRoute: [AsyncHTTPGETRoute withPath: @"/index.html" handledByBlock: ^(AsyncHTTPRequest *request) {
         return [self _taskToServeIndex: request];
     }]];
-    [server addRoute: [AsyncHTTPGETRoute withPath: @"/__asyncrt/events" handledByBlock: ^AsyncTask<AsyncHTTPResponse *> *(AsyncHTTPRequest *request) {
+    [server addRoute: [AsyncHTTPGETRoute withPath: @"/__asyncrt/events" handledByBlock: ^(AsyncHTTPRequest *request) {
         return [self _taskToServeEvents: request];
     }]];
-    [server addRoute: [AsyncHTTPPOSTRoute withPath: @"/__asyncrt/invoke" handledByBlock: ^AsyncTask<AsyncHTTPResponse *> *(AsyncHTTPRequest *request) {
+    [server addRoute: [AsyncHTTPPOSTRoute withPath: @"/__asyncrt/invoke" handledByBlock: ^(AsyncHTTPRequest *request) {
         return [self _taskToHandleInvoke: request];
     }]];
-    [server addRoute: [AsyncHTTPPOSTRoute withPath: @"/__asyncrt/evaluate-result" handledByBlock: ^AsyncTask<AsyncHTTPResponse *> *(AsyncHTTPRequest *request) {
+    [server addRoute: [AsyncHTTPPOSTRoute withPath: @"/__asyncrt/evaluate-result" handledByBlock: ^(AsyncHTTPRequest *request) {
         return [self _taskToHandleEvaluationResult: request];
     }]];
     return server;
@@ -277,8 +274,6 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
 
 - (AsyncTask<AsyncHTTPResponse *> *)_taskToServeIndex: (AsyncHTTPRequest *)request
 {
-    (void)request;
-
     if (self.loadedHTML != nilptr)
         return [AsyncTask resolved: [AsyncWebHTTPServerSupport HTMLResponseForBody: $assert_nonnil(self.loadedHTML)]];
 
@@ -295,8 +290,7 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
     if ([sinceObject isKindOfClass: OFString.class])
         commandID = (uint64_t)((OFString *)sinceObject).unsignedLongLongValue;
 
-    return [AsyncTask resolved: [AsyncWebHTTPServerSupport JSONResponseForBody:
-        [self _commandsJSONSinceCommandID: commandID]]];
+    return [AsyncTask resolved: [AsyncWebHTTPServerSupport JSONResponseForBody: [self _commandsJSONSinceCommandID: commandID]]];
 }
 
 - (AsyncTask<AsyncHTTPResponse *> *)_taskToHandleInvoke: (AsyncHTTPRequest *)request
@@ -304,17 +298,17 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
     return [[request taskToReadBodyWithMaximumLength: AsyncWebHTTPServerMaximumRequestBodyLength] flatMap: ^AsyncTask *(OFData *data) {
         OFString *body = [[OFString alloc] initWithData: data encoding: OFStringEncodingUTF8];
         id messageObject = body.objectByParsingJSON;
-        if (![messageObject isKindOfClass: OFArray.class])
+        if (not [messageObject isKindOfClass: OFArray.class])
             return [AsyncTask resolved: [AsyncWebHTTPServerSupport JSONResponseForBody: @"null"]];
 
         auto array = (OFArray<id> *)messageObject;
-        id nillable actionObject = (array.count > 0 ? [array objectAtIndex: 0] : nilptr);
-        id nillable requestIDObject = (array.count > 1 ? [array objectAtIndex: 1] : nilptr);
-        id nillable payload = (array.count > 2 ? [array objectAtIndex: 2] : nilptr);
+        id nillable actionObject = (array.count > 0 ? array[0] : nilptr);
+        id nillable requestIDObject = (array.count > 1 ? array[1] : nilptr);
+        id nillable payload = (array.count > 2 ? array[2] : nilptr);
 
-        if (![actionObject isKindOfClass: OFString.class])
+        if (not [actionObject isKindOfClass: OFString.class])
             return [AsyncTask resolved: [AsyncWebHTTPServerSupport JSONResponseForBody: @"null"]];
-        if (![requestIDObject isKindOfClass: OFString.class])
+        if (not [requestIDObject isKindOfClass: OFString.class])
             return [AsyncTask resolved: [AsyncWebHTTPServerSupport JSONResponseForBody: @"null"]];
 
         AsyncWebUIRequest webRequest = (AsyncWebUIRequest){
@@ -323,9 +317,9 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
             .requestID = (OFString *)requestIDObject
         };
 
-        return [[[self taskToHandleRequest: webRequest] recover: ^id(OFException *exception) {
+        return [[[self taskToHandleRequest: webRequest] recover: ^(OFException *exception) {
             return [AsyncWebHTTPServerSupport responseJSONForException: exception];
-        }] map: ^id(OFString *responseJSON) {
+        }] map: ^(OFString *responseJSON) {
             return [AsyncWebHTTPServerSupport JSONResponseForBody: responseJSON];
         }];
     }];
@@ -336,15 +330,15 @@ static constexpr char AsyncWebHTTPServerBridgeJavaScript[] = {
     return [[request taskToReadBodyWithMaximumLength: AsyncWebHTTPServerMaximumRequestBodyLength] map: ^id(OFData *data) {
         OFString *body = [[OFString alloc] initWithData: data encoding: OFStringEncodingUTF8];
         id messageObject = body.objectByParsingJSON;
-        if (![messageObject isKindOfClass: OFArray.class])
+        if (not [messageObject isKindOfClass: OFArray.class])
             return [AsyncWebHTTPServerSupport JSONResponseForBody: @"null"];
 
         auto array = (OFArray<id> *)messageObject;
-        id nillable requestIDObject = (array.count > 0 ? [array objectAtIndex: 0] : nilptr);
-        id nillable okObject = (array.count > 1 ? [array objectAtIndex: 1] : nilptr);
-        id nillable payload = (array.count > 2 ? [array objectAtIndex: 2] : nilptr);
+        id nillable requestIDObject = (array.count > 0 ? array[0] : nilptr);
+        id nillable okObject = (array.count > 1 ? array[1] : nilptr);
+        id nillable payload = (array.count > 2 ? array[2] : nilptr);
 
-        if (![requestIDObject isKindOfClass: OFString.class] or ![okObject isKindOfClass: OFNumber.class])
+        if (not [requestIDObject isKindOfClass: OFString.class] or not [okObject isKindOfClass: OFNumber.class])
             return [AsyncWebHTTPServerSupport JSONResponseForBody: @"null"];
 
         AsyncCompletionSource<id> *nillable completionSource;
