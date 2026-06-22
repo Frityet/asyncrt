@@ -124,6 +124,10 @@
         </html>
     ), self.documentStyle, [self _definitionJavaScriptForComponents: allComponents], [self _bodyHTMLForComponents: topLevelComponents]]];
 
+    OFIRI *nillable serverIRI = webView.serverIRI;
+    if (serverIRI != nilptr)
+        [OFStdOut writeFormat: @"AsyncRT WebUI listening on %@\n", $assert_nonnil(serverIRI).string];
+
     [self applicationDidStartWithWebView: webView];
     while (not webView.isClosed) {
         [[AsyncRuntime sleepForTimeInterval: (1.0 / 60.0)] await];

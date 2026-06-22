@@ -11,6 +11,7 @@ RUN apt-get update \
         build-essential cmake ninja-build pkg-config \
         mesa-utils vulkan-tools \
         x11-apps xauth \
+        libgtk-4-dev libwebkitgtk-6.0-dev \
         libx11-dev libxext-dev libxrandr-dev libxi-dev libxinerama-dev libxcursor-dev \
         libvulkan-dev vulkan-validationlayers \
     && rm -rf /var/lib/apt/lists/*

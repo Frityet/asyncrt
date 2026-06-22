@@ -13,6 +13,7 @@
 @property(readonly, nonatomic) AsyncWebUIDocument *document;
 @property(readonly, nonatomic) OFString *nillable loadedHTML;
 @property(readonly, nonatomic) OFIRI *nillable loadedIRI;
+@property(readonly, nonatomic) OFIRI *nillable serverIRI;
 @property(readonly, nonatomic) bool isClosed;
 
 + (OFString *)javaScriptToDispatchEventNamed: (OFString *)name payload: (id nillable)payload;

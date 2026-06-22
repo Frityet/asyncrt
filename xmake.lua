@@ -82,8 +82,8 @@ if asyncrt_ui_enabled and (ui_uses_cairo_x11_backend or internal_test_access_ena
     })
 end
 
-if has_config("asyncrt-webui") and is_plat("linux") then
-    add_requires("webkit2gtk-4.0", {
+if asyncrt_ui_enabled and ui_uses_cairo_x11_backend then
+    add_requires("libx11", {
         configs = {
             shared = get_config("kind") == "shared"
         }

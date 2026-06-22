@@ -1,62 +1,41 @@
 {
-    "name": "nvidia gfx x11",
-    "build": {
-        "dockerfile": "Containerfile",
-        "args": {
-            "USERNAME": "vscode",
-            "USER_UID": "1000",
-            "USER_GID": "1000"
-        }
-    },
-    "remoteUser": "vscode",
-    "updateRemoteUserUID": true,
-    "containerEnv": {
-        "XDG_RUNTIME_DIR": "/tmp/xdg-runtime",
-        "VK_ICD_FILENAMES": "/etc/vulkan/icd.d/nvidia_icd.x86_64.json"
-    },
+  "name": "nvidia gfx x11",
 
-    "runArgs": [
-        "--device=nvidia.com/gpu=all",
-        "--device=/dev/nvidiactl",
-        "--device=/dev/nvidia0",
-        "--device=/dev/nvidia-modeset",
-        "--device=/dev/nvidia-uvm",
-        "--device=/dev/nvidia-uvm-tools",
-        "--env", "DISPLAY=${localEnv:DISPLAY}",
-        "--volume", "/tmp/.X11-unix:/tmp/.X11-unix:rw"
-    ],
-    "initializeCommand": "bash .devcontainer/prepare-x11.sh",
-    "features": {
-        "./llvm": {
-            "version": "22"
-        },
-        "ghcr.io/devcontainers/features/common-utils:2": {
-            "installZsh": true,
-            "configureZshAsDefaultShell": true,
-            "installOhMyZsh": true,
-            "installOhMyZshConfig": true,
-            "upgradePackages": true,
-            "installSsl": true,
-            "username": "vscode",
-            "userUid": "automatic",
-            "userGid": "automatic"
-        },
-		"./xmake": {}
-    },
-    "onCreateCommand": "mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime && sudo apt update && sudo apt install -y ninja-build",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "llvm-vs-code-extensions.vscode-clangd",
-                "openai.chatgpt"
-            ],
+  "build": {
+    "dockerfile": "Containerfile",
+    "args": {
+      "USERNAME": "vscode",
+      "USER_UID": "1000",
+      "USER_GID": "1000"
+    }
+  },
 
-            "settings": {
-                "clangd.path": "/usr/bin/clangd"
-            }
-        }
-    },
-    "forwardPorts": [
-        8765
-    ]
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+
+  "runArgs": [
+    "--network=host",
+
+    "--device=nvidia.com/gpu=all",
+    "--device=/dev/nvidiactl",
+    "--device=/dev/nvidia0",
+    "--device=/dev/nvidia-modeset",
+    "--device=/dev/nvidia-uvm",
+    "--device=/dev/nvidia-uvm-tools"
+  ],
+
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "XAUTHORITY": "/home/vscode/.Xauthority",
+    "XDG_RUNTIME_DIR": "/tmp/xdg-runtime",
+    "VK_ICD_FILENAMES": "/etc/vulkan/icd.d/nvidia_icd.x86_64.json"
+  },
+
+  "mounts": [
+    "source=${localEnv:HOME}/.Xauthority,target=/home/vscode/.Xauthority,type=bind,readonly"
+  ],
+
+  "features": { "./llvm": { "version": "22" }, "ghcr.io/devcontainers/features/common-utils:2": { "installZsh": true, "configureZshAsDefaultShell": true, "installOhMyZsh": true, "installOhMyZshConfig": true, "upgradePackages": true, "installSsl": true, "username": "vscode", "userUid": "automatic", "userGid": "automatic" }, "./xmake": {} },
+  "customizations": { "vscode": { "extensions": [ "llvm-vs-code-extensions.vscode-clangd", "openai.chatgpt" ], "settings": { "clangd.path": "/usr/bin/clangd" } } },
+  "onCreateCommand": "mkdir -p /tmp/xdg-runtime && chmod 700 /tmp/xdg-runtime && sudo apt update && sudo apt install -y ninja-build x11-apps xauth"
 }

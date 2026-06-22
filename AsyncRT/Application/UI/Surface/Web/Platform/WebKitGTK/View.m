@@ -1,12 +1,10 @@
-#if defined(__linux__)
-
 #pragma push_macro("__OBJC__")
 #undef __OBJC__
 #include <gtk/gtk.h>
-#include <webkit2/webkit2.h>
+#include <webkit/webkit.h>
 #pragma pop_macro("__OBJC__")
 
-#import <AsyncRT/Application/UI/Surface/Web/Platform/WebKitGTK/View.h>
+#include "View.h"
 
 #pragma clang assume_nonnull begin
 
@@ -46,7 +44,7 @@
 @interface AsyncWebKitGTKView ()
 
 - (void)webKitGTKWindowDidDestroy;
-- (void)webKitGTKViewDidReceiveScriptMessage: (WebKitJavascriptResult *)message;
+- (void)webKitGTKViewDidReceiveScriptMessage: (JSCValue *)message;
 - (void)_startPollTimer;
 - (void)_stopPollTimer;
 - (WebKitUserScript *)_bridgeUserScript;
@@ -62,7 +60,7 @@ AsyncWebKitGTKWindowDidDestroy(GtkWidget *widget, gpointer userData)
 
 static void
 AsyncWebKitGTKViewDidReceiveScriptMessage(WebKitUserContentManager *manager,
-                                          WebKitJavascriptResult *message,
+                                          JSCValue *message,
                                           gpointer userData)
 {
     (void)manager;
@@ -70,10 +68,9 @@ AsyncWebKitGTKViewDidReceiveScriptMessage(WebKitUserContentManager *manager,
 }
 
 static gboolean
-AsyncWebKitGTKWindowDeleteEvent(GtkWidget *widget, GdkEvent *event, gpointer userData)
+AsyncWebKitGTKWindowCloseRequest(GtkWindow *window, gpointer userData)
 {
-    (void)widget;
-    (void)event;
+    (void)window;
     [(__bridge AsyncWebKitGTKView *)userData close];
     return TRUE;
 }
@@ -146,7 +143,7 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
     if (prepared)
         return;
 
-    if (!gtk_init_check(nullptr, nullptr))
+    if (!gtk_init_check())
         @throw [[OFInitializationFailedException alloc] initWithClass: AsyncWebKitGTKView.class];
 
     prepared = true;
@@ -223,26 +220,28 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
     [AsyncWebKitGTKApplicationSupport ensureGTKInitialized];
 
     _userContentManager = webkit_user_content_manager_new();
-    webkit_user_content_manager_register_script_message_handler(_userContentManager, "asyncrt");
-    WebKitUserScript *bridgeUserScript = [self _bridgeUserScript];
-    webkit_user_content_manager_add_script(_userContentManager, bridgeUserScript);
-    webkit_user_script_unref(bridgeUserScript);
     g_signal_connect(_userContentManager,
                      "script-message-received::asyncrt",
                      G_CALLBACK(AsyncWebKitGTKViewDidReceiveScriptMessage),
                      (__bridge gpointer)self);
+    webkit_user_content_manager_register_script_message_handler(_userContentManager, "asyncrt", nullptr);
+    WebKitUserScript *bridgeUserScript = [self _bridgeUserScript];
+    webkit_user_content_manager_add_script(_userContentManager, bridgeUserScript);
+    webkit_user_script_unref(bridgeUserScript);
 
-    _webView = WEBKIT_WEB_VIEW(webkit_web_view_new_with_user_content_manager(_userContentManager));
-    _window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    _webView = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+                                            "user-content-manager", _userContentManager,
+                                            nullptr));
+    _window = gtk_window_new();
     gtk_window_set_title(GTK_WINDOW(_window), configuration.title.UTF8String);
     gtk_window_set_default_size(GTK_WINDOW(_window), (gint)configuration.initialWidth, (gint)configuration.initialHeight);
     gtk_window_set_resizable(GTK_WINDOW(_window), configuration.isResizable);
-    gtk_container_add(GTK_CONTAINER(_window), GTK_WIDGET(_webView));
+    gtk_window_set_child(GTK_WINDOW(_window), GTK_WIDGET(_webView));
 
-    g_signal_connect(_window, "delete-event", G_CALLBACK(AsyncWebKitGTKWindowDeleteEvent), (__bridge gpointer)self);
+    g_signal_connect(_window, "close-request", G_CALLBACK(AsyncWebKitGTKWindowCloseRequest), (__bridge gpointer)self);
     g_signal_connect(_window, "destroy", G_CALLBACK(AsyncWebKitGTKWindowDidDestroy), (__bridge gpointer)self);
 
-    gtk_widget_show_all(_window);
+    gtk_window_present(GTK_WINDOW(_window));
     gtk_widget_grab_focus(GTK_WIDGET(_webView));
     [self _startPollTimer];
 
@@ -294,14 +293,14 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
         g_signal_handlers_disconnect_by_func(_userContentManager,
                                              G_CALLBACK(AsyncWebKitGTKViewDidReceiveScriptMessage),
                                              (__bridge gpointer)self);
-        webkit_user_content_manager_unregister_script_message_handler(_userContentManager, "asyncrt");
+        webkit_user_content_manager_unregister_script_message_handler(_userContentManager, "asyncrt", nullptr);
     }
 
     if (_window != nilptr) {
         GtkWidget *window = $assert_nonnil(_window);
         _window = NULL;
         _webView = NULL;
-        gtk_widget_destroy(window);
+        gtk_window_destroy(GTK_WINDOW(window));
     } else {
         _webView = NULL;
     }
@@ -314,7 +313,7 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
 
 - (void)webKitGTKWindowDidDestroy
 {
-    if (!self.isClosed)
+    if (not self.isClosed)
         [super close];
 
     _window = NULL;
@@ -348,21 +347,20 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
     _pollTimer = nilptr;
 }
 
-- (void)webKitGTKViewDidReceiveScriptMessage: (WebKitJavascriptResult *)message
+- (void)webKitGTKViewDidReceiveScriptMessage: (JSCValue *)message
 {
-    JSCValue *messageValue = webkit_javascript_result_get_js_value(message);
-    id messageObject = [AsyncWebKitGTKApplicationSupport objectFromJavaScriptValue: messageValue];
-    if (![messageObject isKindOfClass: OFArray.class])
+    id messageObject = [AsyncWebKitGTKApplicationSupport objectFromJavaScriptValue: message];
+    if (not [messageObject isKindOfClass: OFArray.class])
         return;
 
     auto array = (OFArray<id> *)messageObject;
-    id nillable actionObject = (array.count > 0 ? [array objectAtIndex: 0] : nilptr);
-    id nillable requestIDObject = (array.count > 1 ? [array objectAtIndex: 1] : nilptr);
-    id nillable payload = (array.count > 2 ? [array objectAtIndex: 2] : nilptr);
+    id nillable actionObject = (array.count > 0 ? array[0] : nilptr);
+    id nillable requestIDObject = (array.count > 1 ? array[1] : nilptr);
+    id nillable payload = (array.count > 2 ? array[2] : nilptr);
 
-    if (![actionObject isKindOfClass: OFString.class])
+    if (not [actionObject isKindOfClass: OFString.class])
         return;
-    if (![requestIDObject isKindOfClass: OFString.class])
+    if (not [requestIDObject isKindOfClass: OFString.class])
         return;
 
     OFString *requestID = (OFString *)requestIDObject;
@@ -372,13 +370,13 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
         .requestID = requestID
     };
 
-    AsyncTask<id> *task = [[self taskToHandleRequest: request] recover: ^id(OFException *exception) {
+    auto task = [[self taskToHandleRequest: request] recover: ^id(OFException *exception) {
         return [AsyncWebKitGTKApplicationSupport responseJSONForException: exception];
     }];
-    (void)[task map: ^id(OFString *responseJSON) {
+    task = [task map: ^(OFString *responseJSON) {
         OFString *javaScript = [AsyncWebUIView javaScriptToResolveRequestID: requestID
                                                                responseJSON: responseJSON];
-        (void)[self taskToEvaluateJavaScript: javaScript];
+        [self taskToEvaluateJavaScript: javaScript];
         return AsyncUnit.unit;
     }];
 }
@@ -521,5 +519,3 @@ AsyncWebKitGTKViewDidEvaluateJavaScript(GObject *object, GAsyncResult *result, g
 @end
 
 #pragma clang assume_nonnull end
-
-#endif

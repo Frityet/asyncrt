@@ -1,6 +1,6 @@
 #import <AsyncRT/Common/Plugin.h>
 
-#if not defined(__APPLE__)
+#if !defined(__APPLE__)
 #import <ObjFWRT/ObjFWRT.h>
 #else
 #import <objc/runtime.h>

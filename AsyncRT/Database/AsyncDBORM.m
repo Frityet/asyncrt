@@ -466,7 +466,7 @@ AsyncDBDynamicColumnSetter(AsyncDBTable *self, SEL selector, id nillable value)
 
     AsyncDBColumnSchema *nillable primaryKeyColumn = nilptr;
     for (AsyncDBColumnSchema *column in _columns) {
-        if (!column.isPrimaryKey)
+        if (not column.isPrimaryKey)
             continue;
         if (primaryKeyColumn != nilptr)
             @throw [OFInvalidArgumentException exception];
@@ -758,7 +758,7 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
             bool isNullable = [AsyncDBORM property: property hasProtocol: @"AsyncDBNullable"];
             bool isUnique = [AsyncDBORM property: property hasProtocol: @"AsyncDBUnique"];
 
-            if (!isColumn and !isPrimaryKey and !isForeignKey)
+            if (not isColumn and not isPrimaryKey and not isForeignKey)
                 continue;
             if (valueClassName == nilptr)
                 @throw [OFInvalidArgumentException exception];
@@ -927,7 +927,7 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
             [columnSQL appendString: @" PRIMARY KEY"];
         if (column.isPrimaryKey and [column.valueClassName isEqual: @"OFNumber"])
             [columnSQL appendString: @" AUTOINCREMENT"];
-        if (!column.isNullable and !column.isPrimaryKey)
+        if (not column.isNullable and not column.isPrimaryKey)
             [columnSQL appendString: @" NOT NULL"];
         if (column.isUnique)
             [columnSQL appendString: @" UNIQUE"];
@@ -948,7 +948,7 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
     [relationships addObjectsFromArray: [schema.entityClass relationships]];
 
     for (AsyncDBColumnSchema *column in schema.columns) {
-        if (!column.isForeignKey or column.referencedTableClass == Nil)
+        if (not column.isForeignKey or column.referencedTableClass == Nil)
             continue;
 
         AsyncDBColumnReference *sourceColumn = [table columnNamed: column.propertyName];
@@ -987,7 +987,7 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
         if (column.isPrimaryKey and ![self _asyncdb_hasValueForColumnProperty: column.propertyName])
             continue;
         if (![self _asyncdb_hasValueForColumnProperty: column.propertyName]) {
-            if (!column.isNullable)
+            if (not column.isNullable)
                 @throw [OFInvalidArgumentException exception];
             continue;
         }
@@ -1007,7 +1007,7 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
 
     AsyncTask<AsyncDBWriteResult *> *insertTask = [(id)connection asyncdb_executeSQL: SQL
                                                                               values: values];
-    if (!shouldLoadPrimaryKey)
+    if (not shouldLoadPrimaryKey)
         return insertTask;
 
     return (AsyncTask<AsyncDBWriteResult *> *)[insertTask flatMap: ^AsyncTask *(AsyncDBWriteResult *result) {
@@ -1366,7 +1366,7 @@ ASYNC_DB_LITERAL_ORDERED_EXPRESSION_IMPLEMENTATION
             break;
         }
 
-        if (!joinedAny)
+        if (not joinedAny)
             @throw [OFInvalidArgumentException exception];
     }
 

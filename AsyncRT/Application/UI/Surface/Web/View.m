@@ -1,11 +1,6 @@
 #import <AsyncRT/Application/UI/Surface/Web/View.h>
 #import <AsyncRT/Application/UI/Surface/Web/DOM.h>
-
-#if defined(__APPLE__)
-#import <AsyncRT/Application/UI/Surface/Web/Platform/WKWebKit/View.h>
-#elif defined(__linux__)
-#import <AsyncRT/Application/UI/Surface/Web/Platform/WebKitGTK/View.h>
-#endif
+#import <AsyncRT/Application/UI/Surface/Web/Platform/HTTPServer/View.h>
 
 #pragma clang assume_nonnull begin
 
@@ -21,13 +16,7 @@
 + (instancetype)alloc
 {
     if (self == AsyncWebUIView.class) {
-#if defined(__APPLE__)
-        return [AsyncWKWebKitView alloc];
-#elif defined(__linux__)
-        return [AsyncWebKitGTKView alloc];
-#else
-        @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
-#endif
+        return [AsyncWebHTTPServerView alloc];
     }
 
     return [super alloc];
@@ -94,6 +83,11 @@
 - (OFIRI *nillable)loadedIRI
 {
     return _loadedIRI;
+}
+
+- (OFIRI *nillable)serverIRI
+{
+    return nilptr;
 }
 
 - (bool)isClosed

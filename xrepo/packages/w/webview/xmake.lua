@@ -8,9 +8,9 @@ package("webview")
 
     add_configs("webkitgtk", {
         description = "Linux WebKitGTK API/module.",
-        default = "webkit2gtk-4.1",
+        default = "webkitgtk-6.0",
         type = "string",
-        values = {"webkit2gtk-4.1", "webkit2gtk-4.0", "webkitgtk-6.0"}
+        values = {"webkit2gtk-4.1", "webkitgtk", "webkitgtk-6.0"}
     })
 
     add_deps("cmake")
@@ -24,8 +24,8 @@ package("webview")
             return "6.0", {"webkitgtk-6.0", "gtk4"}
         elseif webkitgtk == "webkit2gtk-4.1" then
             return "4.1", {"webkit2gtk-4.1", "gtk+-3.0"}
-        elseif webkitgtk == "webkit2gtk-4.0" then
-            return "4.0", {"webkit2gtk-4.0", "gtk+-3.0"}
+        elseif webkitgtk == "webkitgtk" then
+            return "4.0", {"webkitgtk", "gtk+-3.0"}
         end
         raise("unsupported webview WebKitGTK module: %s", webkitgtk)
     end

@@ -398,7 +398,7 @@
             const pendingRequests = new Map();
             bridge.__resolve = (requestID, response) => {
                 const resolve = pendingRequests.get(requestID);
-                if (!resolve)
+                if (not resolve)
                     return;
 
                 pendingRequests.delete(requestID);
@@ -441,7 +441,7 @@
                 },
                 measure(selector) {
                     const el = document.querySelector(String(selector));
-                    if (!el)
+                    if (not el)
                         return null;
 
                     const r = el.getBoundingClientRect();
@@ -453,7 +453,7 @@
 
                     const elementForSelector = (selector) => {
                         selector = String(selector);
-                        if (!elementsBySelector.has(selector))
+                        if (not elementsBySelector.has(selector))
                             elementsBySelector.set(selector, document.querySelector(selector));
 
                         return elementsBySelector.get(selector);
@@ -462,7 +462,7 @@
                     for (let index = 0; index < mutations.length; index++) {
                         const mutation = mutations[index];
                         const el = elementForSelector(mutation[1]);
-                        if (!el) {
+                        if (not el) {
                             results[index] = false;
                             continue;
                         }

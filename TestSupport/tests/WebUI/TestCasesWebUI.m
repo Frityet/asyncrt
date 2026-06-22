@@ -1,6 +1,8 @@
 #import <TestSupport/TestSupport.h>
 #import <AsyncRT/Application/UI/Surface/Web/Web.h>
 #import <AsyncRT/Application/UI/Surface/Web/Internal/Component+Private.h>
+#import <AsyncRT/Application/UI/Surface/Web/Platform/HTTPServer/View.h>
+#import <AsyncRT/Networking/HTTP.h>
 
 #pragma clang assume_nonnull begin
 
@@ -196,6 +198,71 @@
         [view loadIRI: IRI];
         OTAssert(([view.loadedIRI.string isEqual: @"https://example.com/app"]), @"IRI loads should be recorded");
         OTAssert((view.loadedHTML == nilptr), @"Loading an IRI should clear previous HTML");
+    }];
+}
+
+- (void)test_default_web_view_serves_html_over_http_without_window
+{
+    [self runAsyncBlock: ^{
+        AsyncWebUIView *view = [[AsyncWebUIView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
+
+        @try {
+            OTAssert(([view isKindOfClass: AsyncWebHTTPServerView.class]),
+                     @"Default WebUI views should use the HTTP server backend");
+            OTAssert((view.serverIRI != nilptr), @"HTTP server views should expose their listening IRI");
+
+            [view loadHTML: @"<!doctype html><html><head><title>Test</title></head><body><main>Hello</main></body></html>"];
+
+            auto client = [AsyncHTTPClient client];
+            auto request = [[OFHTTPRequest alloc] initWithIRI: $assert_nonnil(view.serverIRI)];
+            OFHTTPResponse *response = [[client performRequest: request] await];
+            OFString *body = response.readString;
+
+            OTAssert((response.statusCode == 200), @"HTTP WebUI backend should serve the loaded document");
+            OTAssert(([body containsString: @"<main>Hello</main>"]), @"Served HTML should include loaded content");
+            OTAssert(([body containsString: @"window.AsyncRT = bridge"]),
+                     @"Served HTML should include the HTTP browser bridge");
+            OTAssert(([body containsString: @"__startHTTPCommandPolling"]),
+                     @"Served HTML should poll for runtime commands");
+
+            [view emitEvent: @"ready" withPayload: [OFDictionary dictionaryWithObject: [OFNumber numberWithBool: true]
+                                                                                forKey: @"ok"]];
+            auto eventsIRI = [OFIRI IRIWithString: [OFString stringWithFormat: @"%@__asyncrt/events?since=0",
+                                                                               $assert_nonnil(view.serverIRI).string]];
+            auto eventsRequest = [[OFHTTPRequest alloc] initWithIRI: eventsIRI];
+            OFHTTPResponse *eventsResponse = [[client performRequest: eventsRequest] await];
+            OFString *eventsBody = eventsResponse.readString;
+
+            OTAssert((eventsResponse.statusCode == 200), @"HTTP WebUI backend should expose queued browser commands");
+            OTAssert(([eventsBody containsString: @"window.AsyncRT.__emit"]),
+                     @"Queued browser commands should include emitted runtime events");
+            OTAssert(([eventsBody containsString: @"ready"]),
+                     @"Queued browser commands should preserve event names");
+
+            AsyncTask<id> *valueTask = [view taskToEvaluateJavaScriptReturningValue: @"1 + 1"];
+            auto valueEventsIRI = [OFIRI IRIWithString: [OFString stringWithFormat: @"%@__asyncrt/events?since=0",
+                                                                                    $assert_nonnil(view.serverIRI).string]];
+            auto valueEventsRequest = [[OFHTTPRequest alloc] initWithIRI: valueEventsIRI];
+            OFHTTPResponse *valueEventsResponse = [[client performRequest: valueEventsRequest] await];
+            OFString *valueEventsBody = valueEventsResponse.readString;
+
+            OTAssert((valueEventsResponse.statusCode == 200), @"HTTP WebUI backend should expose queued value evaluations");
+            OTAssert(([valueEventsBody containsString: @"\"requestID\""]),
+                     @"Value-returning evaluations should carry a browser response request ID");
+            OTAssert(([valueEventsBody containsString: @"1 + 1"]),
+                     @"Value-returning evaluations should preserve the JavaScript expression");
+
+            [view close];
+            @try {
+                (void)[valueTask await];
+                OTAssert(false, @"Pending HTTP WebUI JavaScript evaluations should reject when the view closes");
+            } @catch (OFException *exception) {
+                OTAssert(([exception.description containsString: @"closed before the browser returned"]),
+                         @"Closed pending JavaScript evaluations should describe the missing browser result");
+            }
+        } @finally {
+            [view close];
+        }
     }];
 }
 

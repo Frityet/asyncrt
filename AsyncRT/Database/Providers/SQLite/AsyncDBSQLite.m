@@ -188,7 +188,7 @@
     if (_options.isReadOnly)
         return SQLITE_OPEN_READONLY;
 
-    if (!_options.createsIfNeeded)
+    if (not _options.createsIfNeeded)
         return SQLITE_OPEN_READWRITE;
 
     return SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
