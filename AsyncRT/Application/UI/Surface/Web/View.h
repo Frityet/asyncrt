@@ -15,8 +15,9 @@
 @property(readonly, nonatomic) OFIRI *nillable loadedIRI;
 @property(readonly, nonatomic) bool isClosed;
 
-+ (OFString *)javaScriptToDispatchEventNamed: (OFString *)name payloadJSON: (OFString *nillable)payloadJSON;
++ (OFString *)javaScriptToDispatchEventNamed: (OFString *)name payload: (id nillable)payload;
 + (OFString *)javaScriptToResolveRequestID: (OFString *)requestID responseJSON: (OFString *nillable)responseJSON;
++ (OFString *)javaScriptToUpdateComponentID: (OFString *)componentID stateJSON: (OFString *)stateJSON;
 
 - (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration [[designated_initailiser]];
 - (instancetype)init OF_UNAVAILABLE;
@@ -28,7 +29,7 @@
 - (AsyncTask<OFString *> *)taskToHandleRequest: (AsyncWebUIRequest)request;
 - (AsyncTask<id> *)taskToEvaluateJavaScriptReturningValue: (OFString *)javaScript;
 - (AsyncTask<AsyncUnit *> *)taskToEvaluateJavaScript: (OFString *)javaScript;
-- (void)emitEvent: (OFString *)name withJSONPayload: (OFString *nillable)payloadJSON;
+- (void)emitEvent: (OFString *)name withPayload: (id nillable)payload;
 - (void)pollEvents;
 - (void)close;
 

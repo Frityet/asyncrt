@@ -12,7 +12,7 @@
 
 + (OFString *)layout
 {
-    return @$raw(<button class="primary" onclick="[self onPress:]">Press {{message}}</button>);
+    return @$raw(<button class="primary" onclick="onPress:">Press {{message}}</button>);
 }
 
 + (OFString *)styling
@@ -28,7 +28,7 @@
 @property(nonatomic) OFString *message;
 @property(nonatomic) int counter;
 @property(nonatomic) bool mounted;
-@property(nonatomic) OFDictionary<OFString *, id> *nillable lastEvent;
+@property(nonatomic) OFArray<id> *nillable lastEvent;
 
 @end
 
@@ -49,7 +49,7 @@
     return @$raw(
         <section>
             <h1>{{message}}</h1>
-            <button onclick="[self onIncrementClick:]">{{counter}}</button>
+            <button onclick="onIncrementClick:">{{counter}}</button>
         </section>
     );
 }
@@ -63,8 +63,8 @@
 - (void)onIncrementClick: (id)sender
 {
     self.counter += 1;
-    if ([sender isKindOfClass: OFDictionary.class])
-        self.lastEvent = (OFDictionary<OFString *, id> *)sender;
+    if ([sender isKindOfClass: OFArray.class])
+        self.lastEvent = (OFArray<id> *)sender;
 }
 
 @end
@@ -211,7 +211,7 @@
              @"Component definitions should register the lowercase identifier");
     OTAssert(([definitionJavaScript containsString: @"const styleText = \".primary { color: \\\"red\\\"; }\""]),
              @"Component styling should be JSON-escaped before entering JavaScript");
-    OTAssert(([definitionJavaScript containsString: @"const layoutHTML = \"<button class=\\\"primary\\\" onclick=\\\"[self onPress:]\\\">Press {{message}}</button>\""]),
+    OTAssert(([definitionJavaScript containsString: @"const layoutHTML = \"<button class=\\\"primary\\\" onclick=\\\"onPress:\\\">Press {{message}}</button>\""]),
              @"Component layout should be JSON-escaped before entering JavaScript");
     OTAssert(([definitionJavaScript containsString: @"window.AsyncRT.invoke(nativeInvokeAction"]),
              @"Generated components should call through the AsyncRT browser bridge");
@@ -284,22 +284,34 @@
         auto component = [[AsyncWebUIStatefulTestComponent alloc] init];
         [component _asyncWebUIMountToWebView: view componentID: @"root"];
 
-        auto payload = (OFDictionary<OFString *, id> *)@"{\"componentID\":\"root\",\"selector\":\"onIncrementClick:\",\"event\":{\"type\":\"click\"}}".objectByParsingJSON;
+        auto payload = [OFArray arrayWithObjects:
+            @"root",
+            @"onIncrementClick:",
+            [OFArray arrayWithObject: @"click"],
+            nil];
         OFString *responseJSON = [component _asyncWebUIHandleActionPayload: payload].await;
-        auto response = (OFDictionary<OFString *, id> *)responseJSON.objectByParsingJSON;
-        auto state = (OFDictionary<OFString *, id> *)[response objectForKey: @"state"];
+        auto state = (OFDictionary<OFString *, id> *)responseJSON.objectByParsingJSON;
 
         OTAssert((component.counter == 3), @"Component action selectors should be invoked");
         OTAssert((component.lastEvent != nilptr), @"Component action selectors should receive the event payload");
-        OTAssert(([[component.lastEvent objectForKey: @"type"] isEqual: @"click"]),
-                 @"Event payloads should be passed to one-argument selectors");
-        OTAssert(([[response objectForKey: @"componentID"] isEqual: @"root"]),
-                 @"Action responses should include the component ID");
+        OTAssert(([[component.lastEvent objectAtIndex: 0] isEqual: @"click"]),
+                 @"Compact event payloads should be passed to one-argument selectors");
         OTAssert((((OFNumber *)[state objectForKey: @"counter"]).intValue == 3),
-                 @"Action responses should include updated component state");
+                 @"Action responses should return updated component state directly");
+
+        auto compactPayload = [OFArray arrayWithObjects:
+            @"root",
+            @"onIncrementClick:",
+            [OFArray arrayWithObject: @"click"],
+            nil];
+        OFString *compactResponseJSON = [component _asyncWebUIHandleActionPayload: compactPayload].await;
+        auto compactState = (OFDictionary<OFString *, id> *)compactResponseJSON.objectByParsingJSON;
+        OTAssert((component.counter == 4), @"Compact component action payloads should be invoked");
+        OTAssert((((OFNumber *)[compactState objectForKey: @"counter"]).intValue == 4),
+                 @"Compact component action responses should return updated state directly");
 
         @try {
-            auto invalidPayload = (OFDictionary<OFString *, id> *)@"{\"componentID\":\"root\",\"selector\":\"missingAction:\"}".objectByParsingJSON;
+            auto invalidPayload = [OFArray arrayWithObjects: @"root", @"missingAction:", nil];
             (void)[component _asyncWebUIHandleActionPayload: invalidPayload].await;
             OTAssert(false, @"Invalid component selectors should reject the action task");
         } @catch (AsyncWebUIComponentException *exception) {
@@ -321,10 +333,8 @@
 
         OTAssert((view.evaluatedJavaScripts.count == 1), @"Rendering should evaluate one browser update event");
         OFString *javaScript = [view.evaluatedJavaScripts objectAtIndex: 0];
-        OTAssert(([javaScript containsString: [AsyncWebUIComponent _asyncWebUIUpdateEventName]]),
-                 @"Render tasks should emit the component update event");
-        OTAssert(([javaScript containsString: @"\"componentID\":\"root\""]),
-                 @"Render tasks should include the mounted component ID");
+        OTAssert(([javaScript containsString: @"window.AsyncRT.__components.update(\"root\""]),
+                 @"Render tasks should update the injected component registry directly");
         OTAssert(([javaScript containsString: @"\"counter\":9"]),
                  @"Render tasks should include the current component state");
     }];
@@ -335,14 +345,16 @@
     [self runAsyncBlock: ^{
         auto view = [[AsyncWebUITestView alloc] initWithConfiguration: AsyncUIWindowConfiguration.defaults];
         OFString *javaScript = [AsyncWebUIView javaScriptToDispatchEventNamed: @"state:ready\"quoted"
-                                                                  payloadJSON: @"{\"ok\":true}"];
+                                                                       payload: [OFDictionary dictionaryWithObject: [OFNumber numberWithBool: true]
+                                                                                                            forKey: @"ok"]];
 
-        OTAssert(([javaScript containsString: @"new CustomEvent(\"state:ready\\\"quoted\""]),
-                 @"Event names should be JSON-escaped before JavaScript injection");
-        OTAssert(([javaScript containsString: @"{ detail: {\"ok\":true} }"]),
-                 @"Event payload JSON should be passed as the CustomEvent detail");
+        OTAssert(([javaScript containsString: @"window.AsyncRT.__emit(\"state:ready\\\"quoted\""]),
+                 @"Event names should be passed through the injected event emitter");
+        OTAssert(([javaScript containsString: @"{\"ok\":true}"]),
+                 @"Event payloads should be JSON-encoded from ObjFW values");
 
-        [view emitEvent: @"state:ready" withJSONPayload: @"{\"phase\":1}"];
+        [view emitEvent: @"state:ready" withPayload: [OFDictionary dictionaryWithObject: [OFNumber numberWithInt: 1]
+                                                                                 forKey: @"phase"]];
         OTAssert((view.evaluatedJavaScripts.count == 1), @"Emitting an event should evaluate one JavaScript snippet");
         OTAssert(([[view.evaluatedJavaScripts objectAtIndex: 0] containsString: @"state:ready"]),
                  @"Emitted JavaScript should contain the event name");
@@ -372,18 +384,20 @@
         OTAssert((result.count == 3), @"DOM mutation batches should return one result per operation");
         OTAssert((view.evaluatedJavaScripts.count == 1), @"DOM mutation batches should evaluate one JavaScript snippet");
         OFString *script = [view.evaluatedJavaScripts objectAtIndex: 0];
-        OTAssert(([script containsString: @"document.querySelector(\".gauge\")"]),
-                 @"DOM mutations should target the escaped selector");
-        OTAssert(([script containsString: @"el.textContent = \"42%\""]),
-                 @"DOM mutations should set text through generated JavaScript");
-        OTAssert(([script containsString: @"el.style.setProperty(\"--load\", \"0.42\")"]),
-                 @"DOM mutations should support CSS custom property updates");
-        OTAssert(([script containsString: @"el.classList.toggle(\"hot\", true)"]),
-                 @"DOM mutations should support explicit class toggles");
+        OTAssert(([script containsString: @"window.AsyncRT.__dom.applyMutations("]),
+                 @"DOM mutations should call the injected browser-side DOM runtime");
+        OTAssert(([script containsString: @"[0,\".gauge\",null,\"42%\",false]"]),
+                 @"DOM mutations should encode text updates as compact payload operations");
+        OTAssert(([script containsString: @"[4,\".gauge\",\"--load\",\"0.42\",false]"]),
+                 @"DOM mutations should encode CSS custom property updates as compact payload operations");
+        OTAssert(([script containsString: @"[7,\".gauge\",\"hot\",null,true]"]),
+                 @"DOM mutations should encode explicit class toggles as compact payload operations");
 
         view.nextJavaScriptValue = @"ready";
         OTAssert(([[gauge taskToReadText].await isEqual: @"ready"]),
                  @"DOM elements should expose async text reads");
+        OTAssert(([[view.evaluatedJavaScripts objectAtIndex: 1] containsString: @"window.AsyncRT.__dom.readText(\".gauge\")"]),
+                 @"DOM text reads should use the injected browser-side DOM runtime");
     }];
 }
 
@@ -400,14 +414,14 @@
 
         AsyncWebUIRequest request = (AsyncWebUIRequest){
             .action = @"save",
-            .payloadJSON = @"{\"id\":1}",
+            .payload = [OFArray arrayWithObject: [OFNumber numberWithInt: 1]],
             .requestID = @"request-1"
         };
         OFString *result = [view taskToHandleRequest: request].await;
 
         OTAssert(([result isEqual: @"{\"saved\":true}"]), @"Bound actions should resolve through their handler");
         OTAssert(([observedRequest.action isEqual: @"save"]), @"Action handlers should receive the action name");
-        OTAssert(([observedRequest.payloadJSON isEqual: @"{\"id\":1}"]), @"Action handlers should receive payload JSON");
+        OTAssert(([observedRequest.payload isKindOfClass: OFArray.class]), @"Action handlers should receive compact payload objects");
         OTAssert(([observedRequest.requestID isEqual: @"request-1"]), @"Action handlers should receive the request ID");
 
         [view unbindActionNamed: @"save"];
@@ -425,8 +439,8 @@
         OFString *javaScript = [AsyncWebUIView javaScriptToResolveRequestID: @"abc"
                                                                responseJSON: @"{\"ok\":true}"];
 
-        OTAssert(([javaScript containsString: @"asyncrt_response_abc"]),
-                 @"Responses should dispatch to the request-specific response event");
+        OTAssert(([javaScript containsString: @"window.AsyncRT.__resolve(\"abc\""]),
+                 @"Responses should resolve through the injected request table");
         OTAssert(([javaScript containsString: @"{\"ok\":true}"]),
                  @"Responses should carry JSON response detail");
         OTAssert((not view.isClosed), @"Fresh web views should start open");

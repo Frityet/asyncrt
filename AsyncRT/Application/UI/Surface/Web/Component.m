@@ -112,9 +112,6 @@ static char AsyncWebUIComponentChildStoragesKey;
 + (OFString *)_asyncWebUIInvokeActionName
 { return @"component.invoke"; }
 
-+ (OFString *)_asyncWebUIUpdateEventName
-{ return @"asyncrt_component_update"; }
-
 + (OFString *)identifier
 { return [OFString stringWithFormat: @"awuic-%@", self.className.lowercaseString]; }
 
@@ -204,8 +201,6 @@ static char AsyncWebUIComponentChildStoragesKey;
                                 withString: self.observedProperties.JSONRepresentation];
     [javaScript replaceOccurrencesOfString: @"__ASYNC_WEBUI_INVOKE_ACTION_NAME__"
                                 withString: self._asyncWebUIInvokeActionName.JSONRepresentation];
-    [javaScript replaceOccurrencesOfString: @"__ASYNC_WEBUI_UPDATE_EVENT_NAME__"
-                                withString: self._asyncWebUIUpdateEventName.JSONRepresentation];
 
     [javaScript makeImmutable];
     return javaScript;
@@ -364,14 +359,9 @@ static char AsyncWebUIComponentChildStoragesKey;
     if (_webView == nilptr or _componentID == nilptr)
         return [AsyncTask resolved: AsyncUnit.unit];
 
-    auto payload = [OFMutableDictionary<OFString *, id> dictionary];
-    [payload setObject: $assert_nonnil(_componentID) forKey: @"componentID"];
-    [payload setObject: self.propertyState forKey: @"state"];
-    [payload makeImmutable];
-
     return [$assert_nonnil(_webView) taskToEvaluateJavaScript:
-        [AsyncWebUIView javaScriptToDispatchEventNamed: self.class._asyncWebUIUpdateEventName
-                                           payloadJSON: payload.JSONRepresentation]];
+        [AsyncWebUIView javaScriptToUpdateComponentID: $assert_nonnil(_componentID)
+                                            stateJSON: self._stateJSONString]];
 }
 
 - (AsyncTask<AsyncUnit *> *)taskToRenderTree
@@ -384,23 +374,33 @@ static char AsyncWebUIComponentChildStoragesKey;
     }];
 }
 
-- (AsyncTask<OFString *> *)_asyncWebUIHandleActionPayload: (OFDictionary<OFString *, id> *)payload
+- (AsyncTask<OFString *> *)_asyncWebUIHandleActionPayload: (id)payload
 {
     @try {
-        id nillable componentIDObject = [payload objectForKey: @"componentID"];
-        id nillable selectorObject = [payload objectForKey: @"selector"];
-        id nillable eventPayload = [payload objectForKey: @"event"];
+        if (![payload isKindOfClass: OFArray.class])
+            @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action payload must be a compact array"];
+
+        OFArray *actionPayload = (OFArray *)payload;
+        id nillable componentIDObject = (actionPayload.count > 0 ? [actionPayload objectAtIndex: 0] : nilptr);
+        id nillable selectorObject = (actionPayload.count > 1 ? [actionPayload objectAtIndex: 1] : nilptr);
 
         if (![componentIDObject isKindOfClass: OFString.class])
             @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action payload is missing componentID"];
         if (![selectorObject isKindOfClass: OFString.class])
             @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action payload is missing selector"];
+
+        OFString *componentID = (OFString *)componentIDObject;
+        OFString *selectorName = (OFString *)selectorObject;
+        id nillable eventPayload = (actionPayload.count > 2 ? [actionPayload objectAtIndex: 2] : nilptr);
+        if (eventPayload == OFNull.null)
+            eventPayload = nilptr;
+
         if (_componentID == nilptr)
             @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component has not been mounted"];
-        if (![(OFString *)componentIDObject isEqual: $assert_nonnil(_componentID)])
+        if (![componentID isEqual: $assert_nonnil(_componentID)])
             @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action was delivered to the wrong component"];
 
-        [self _invokeSelectorNamed: (OFString *)selectorObject eventPayload: eventPayload];
+        [self _invokeSelectorNamed: selectorName eventPayload: eventPayload];
         return [AsyncTask resolved: [self _actionResponseJSON]];
     } @catch (OFException *exception) {
         return [AsyncTask rejected: exception];
@@ -408,14 +408,7 @@ static char AsyncWebUIComponentChildStoragesKey;
 }
 
 - (OFString *)_actionResponseJSON
-{
-    auto response = [OFMutableDictionary<OFString *, id> dictionary];
-    [response setObject: (_componentID != nilptr ? $assert_nonnil(_componentID) : @"") forKey: @"componentID"];
-    [response setObject: self.propertyState forKey: @"state"];
-    [response makeImmutable];
-
-    return response.JSONRepresentation;
-}
+{ return self._stateJSONString; }
 
 - (id)_jsonCompatibleValueForPropertyValue: (id)value
 {
@@ -450,10 +443,12 @@ static char AsyncWebUIComponentChildStoragesKey;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+#pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+    IMP implementation = [self methodForSelector: selector];
     if (argumentCount == 0)
-        (void)[self performSelector: selector];
+        ((void (*)(id, SEL))implementation)(self, selector);
     else
-        (void)[self performSelector: selector withObject: eventPayload];
+        ((void (*)(id, SEL, id nillable))implementation)(self, selector, eventPayload);
 #pragma clang diagnostic pop
 }
 

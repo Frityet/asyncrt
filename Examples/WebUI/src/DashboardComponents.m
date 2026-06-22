@@ -219,7 +219,7 @@ static constexpr size_t DashboardHistoryLimit = 42;
     self = [super init];
     _points = @"0,120";
     _sampleText = @"sample 0";
-    _intervalText = @"250 ms";
+    _intervalText = @"25 ms";
     return self;
 }
 
@@ -415,7 +415,7 @@ static constexpr size_t DashboardHistoryLimit = 42;
     _chart = [[DashboardChartComponent alloc] init];
     _activity = [[DashboardActivityComponent alloc] init];
     _cpuHistory = [OFMutableArray array];
-    _refreshInterval = 0.25;
+    _refreshInterval = 0.025;
     _stressEnabled = false;
     _stressLabel = @"Start stress";
     _refreshLabel = @"250 ms";
@@ -430,11 +430,11 @@ static constexpr size_t DashboardHistoryLimit = 42;
         <main class="dashboard">
             <slot name="hero"></slot>
             <div class="controls">
-                <button onclick="[self onToggleStressClick:]">{{stressLabel}}</button>
-                <button onclick="[self onFasterClick:]">Faster</button>
-                <button onclick="[self onSlowerClick:]">Slower</button>
-                <button onclick="[self onMarkClick:]">Mark</button>
-                <button onclick="[self onClearLogClick:]">Clear log</button>
+                <button onclick="onToggleStressClick">{{stressLabel}}</button>
+                <button onclick="onFasterClick">Faster</button>
+                <button onclick="onSlowerClick">Slower</button>
+                <button onclick="onMarkClick">Mark</button>
+                <button onclick="onClearLogClick">Clear log</button>
                 <span>{{refreshLabel}}</span>
                 <span class="native-clock">browser pending</span>
             </div>
@@ -549,9 +549,8 @@ static constexpr size_t DashboardHistoryLimit = 42;
     }];
 }
 
-- (void)onToggleStressClick: (id)event
+- (void)onToggleStressClick
 {
-    (void)event;
     _stressEnabled = not _stressEnabled;
     [self _syncControls];
     [_activity appendEvent: (_stressEnabled ? @"stress worker started" : @"stress worker stopped")];
@@ -562,34 +561,30 @@ static constexpr size_t DashboardHistoryLimit = 42;
     [self _renderTreeSoon];
 }
 
-- (void)onFasterClick: (id)event
+- (void)onFasterClick
 {
-    (void)event;
     _refreshInterval = fmax(0.08, _refreshInterval * 0.75);
     [self _syncControls];
     [_activity appendEvent: @"refresh interval decreased"];
     [self _renderTreeSoon];
 }
 
-- (void)onSlowerClick: (id)event
+- (void)onSlowerClick
 {
-    (void)event;
     _refreshInterval = fmin(1.5, _refreshInterval * 1.25);
     [self _syncControls];
     [_activity appendEvent: @"refresh interval increased"];
     [self _renderTreeSoon];
 }
 
-- (void)onMarkClick: (id)event
+- (void)onMarkClick
 {
-    (void)event;
     [_activity appendEvent: [OFString stringWithFormat: @"manual mark at %@", OFDate.date]];
     [self _renderTreeSoon];
 }
 
-- (void)onClearLogClick: (id)event
+- (void)onClearLogClick
 {
-    (void)event;
     [_activity clearEvents];
     [_activity appendEvent: @"activity log cleared"];
     [self _renderTreeSoon];

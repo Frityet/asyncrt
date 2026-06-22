@@ -260,12 +260,13 @@
 - (AsyncTask<OFString *> *)_taskToHandleComponentActionRequest: (AsyncWebUIRequest)request
 {
     @try {
-        id nillable payloadObject = (request.payloadJSON != nilptr ? $assert_nonnil(request.payloadJSON).objectByParsingJSON : nilptr);
-        if (![payloadObject isKindOfClass: OFDictionary.class])
-            @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action payload must be a JSON object"];
+        id nillable payloadCandidate = request.payload;
+        if (![payloadCandidate isKindOfClass: OFArray.class])
+            @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action payload must be a compact array"];
 
-        auto payload = (OFDictionary<OFString *, id> *)payloadObject;
-        id nillable componentIDObject = [payload objectForKey: @"componentID"];
+        id payload = $assert_nonnil(payloadCandidate);
+        id nillable componentIDObject = (((OFArray *)payload).count > 0 ? [(OFArray *)payload objectAtIndex: 0] : nilptr);
+
         if (![componentIDObject isKindOfClass: OFString.class])
             @throw [[AsyncWebUIComponentException alloc] initWithReason: @"Component action payload is missing componentID"];
 

@@ -19,13 +19,12 @@
 @interface AsyncWebUIComponent ()
 
 + (OFString *)_asyncWebUIInvokeActionName;
-+ (OFString *)_asyncWebUIUpdateEventName;
 + (OFString *)_asyncWebUIDefinitionJavaScript;
 
 - (OFArray<AsyncWebUIComponentChildEntry *> *)_asyncWebUIChildComponentEntries;
 - (void)_asyncWebUIMountToWebView: (AsyncWebUIView *)webView componentID: (OFString *)componentID;
 - (OFString *)_asyncWebUIElementHTMLWithSlotName: (OFString *nillable)slotName;
-- (AsyncTask<OFString *> *)_asyncWebUIHandleActionPayload: (OFDictionary<OFString *, id> *)payload;
+- (AsyncTask<OFString *> *)_asyncWebUIHandleActionPayload: (id)payload;
 
 @end
 

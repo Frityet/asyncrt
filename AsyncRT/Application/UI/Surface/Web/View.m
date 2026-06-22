@@ -34,17 +34,34 @@
 }
 
 + (OFString *)javaScriptToDispatchEventNamed: (OFString *)name
-                                  payloadJSON: (OFString *nillable)payloadJSON
+                                      payload: (id nillable)payload
 {
-    OFString *detailJSON = (payloadJSON != nilptr ? $assert_nonnil(payloadJSON) : @"null");
+    OFString *detailJSON = @"null";
+    if (payload != nilptr and payload != OFNull.null) {
+        id nonnullPayload = $assert_nonnil(payload);
+        if (![nonnullPayload conformsToProtocol: @protocol(OFJSONRepresentation)])
+            @throw [OFInvalidArgumentException exception];
 
-    return [OFString stringWithFormat: @"window.dispatchEvent(new CustomEvent(%@, { detail: %@ }));", name.JSONRepresentation, detailJSON];
+        detailJSON = ((id<OFJSONRepresentation>)nonnullPayload).JSONRepresentation;
+    }
+
+    return [OFString stringWithFormat: @"window.AsyncRT.__emit(%@, %@);", name.JSONRepresentation, detailJSON];
 }
 
 + (OFString *)javaScriptToResolveRequestID: (OFString *)requestID
                                responseJSON: (OFString *nillable)responseJSON
 {
-    return [self javaScriptToDispatchEventNamed: [OFString stringWithFormat: @"asyncrt_response_%@", requestID] payloadJSON: responseJSON];
+    return [OFString stringWithFormat: @"window.AsyncRT.__resolve(%@, %@);",
+                                      requestID.JSONRepresentation,
+                                      (responseJSON != nilptr ? $assert_nonnil(responseJSON) : @"null")];
+}
+
++ (OFString *)javaScriptToUpdateComponentID: (OFString *)componentID
+                                  stateJSON: (OFString *)stateJSON
+{
+    return [OFString stringWithFormat: @"window.AsyncRT.__components.update(%@, %@);",
+                                      componentID.JSONRepresentation,
+                                      stateJSON];
 }
 
 - (instancetype)initWithConfiguration: (AsyncUIWindowConfiguration *)configuration
@@ -130,9 +147,9 @@
     }];
 }
 
-- (void)emitEvent: (OFString *)name withJSONPayload: (OFString *nillable)payloadJSON
+- (void)emitEvent: (OFString *)name withPayload: (id nillable)payload
 {
-    [self taskToEvaluateJavaScript: [AsyncWebUIView javaScriptToDispatchEventNamed: name payloadJSON: payloadJSON]];
+    [self taskToEvaluateJavaScript: [AsyncWebUIView javaScriptToDispatchEventNamed: name payload: payload]];
 }
 
 - (void)pollEvents

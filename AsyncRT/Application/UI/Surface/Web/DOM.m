@@ -4,73 +4,65 @@
 
 @namespace(AsyncWebUIDOMScript)
 
-+ (OFString *)scriptExpressionForSelector: (OFString *)selector property: (OFString *)property;
++ (OFString *)scriptToCheckElementExistsForSelector: (OFString *)selector;
++ (OFString *)scriptToReadTextForSelector: (OFString *)selector;
++ (OFString *)scriptToMeasureElementForSelector: (OFString *)selector;
 + (OFString *)scriptForMutations: (OFArray<AsyncWebUIDOMMutation *> *)mutations;
-+ (OFString *)statementForMutation: (AsyncWebUIDOMMutation *)mutation index: (size_t)index;
++ (void)appendMutation: (AsyncWebUIDOMMutation *)mutation toJSON: (OFMutableString *)json;
++ (void)appendNullableString: (OFString *nillable)value toJSON: (OFMutableString *)json;
 
 @end
 
 @namespace_implementation(AsyncWebUIDOMScript)
 
-+ (OFString *)scriptExpressionForSelector: (OFString *)selector property: (OFString *)property
++ (OFString *)scriptToCheckElementExistsForSelector: (OFString *)selector
 {
-    return [OFString stringWithFormat: @"(() => { const el = document.querySelector(%@); return el ? el.%@ : null; })()",
-                                      selector.JSONRepresentation,
-                                      property];
+    return [OFString stringWithFormat: @"window.AsyncRT.__dom.exists(%@)", selector.JSONRepresentation];
+}
+
++ (OFString *)scriptToReadTextForSelector: (OFString *)selector
+{
+    return [OFString stringWithFormat: @"window.AsyncRT.__dom.readText(%@)", selector.JSONRepresentation];
+}
+
++ (OFString *)scriptToMeasureElementForSelector: (OFString *)selector
+{
+    return [OFString stringWithFormat: @"window.AsyncRT.__dom.measure(%@)", selector.JSONRepresentation];
 }
 
 + (OFString *)scriptForMutations: (OFArray<AsyncWebUIDOMMutation *> *)mutations
 {
-    auto script = [OFMutableString stringWithString: @"(() => {\nconst results = [];\n"];
+    auto json = [OFMutableString string];
+    [json appendString: @"window.AsyncRT.__dom.applyMutations(["];
 
-    for (size_t index = 0; index < mutations.count; index++)
-        [script appendString: [self statementForMutation: [mutations objectAtIndex: index] index: index]];
+    bool isFirst = true;
+    for (AsyncWebUIDOMMutation *mutation in mutations) {
+        if (not isFirst)
+            [json appendString: @","];
+        isFirst = false;
 
-    [script appendString: @"return results;\n})()"];
-    [script makeImmutable];
-    return script;
-}
-
-+ (OFString *)statementForMutation: (AsyncWebUIDOMMutation *)mutation index: (size_t)index
-{
-    OFString *selectorJSON = mutation.selector.JSONRepresentation;
-    OFString *nameJSON = (mutation.name != nilptr ? $assert_nonnil(mutation.name).JSONRepresentation : @"null");
-    OFString *valueJSON = (mutation.value != nilptr ? $assert_nonnil(mutation.value).JSONRepresentation : @"null");
-    OFString *flagJSON = (mutation.flag ? @"true" : @"false");
-
-    OFString *body = nilptr;
-    switch (mutation.kind) {
-        case AsyncWebUIDOMMutationKindSetText:
-            body = [OFString stringWithFormat: @"el.textContent = %@; return true;", valueJSON];
-            break;
-        case AsyncWebUIDOMMutationKindSetHTML:
-            body = [OFString stringWithFormat: @"el.innerHTML = %@; return true;", valueJSON];
-            break;
-        case AsyncWebUIDOMMutationKindSetAttribute:
-            body = [OFString stringWithFormat: @"el.setAttribute(%@, %@); return true;", nameJSON, valueJSON];
-            break;
-        case AsyncWebUIDOMMutationKindRemoveAttribute:
-            body = [OFString stringWithFormat: @"el.removeAttribute(%@); return true;", nameJSON];
-            break;
-        case AsyncWebUIDOMMutationKindSetStyleProperty:
-            body = [OFString stringWithFormat: @"el.style.setProperty(%@, %@); return true;", nameJSON, valueJSON];
-            break;
-        case AsyncWebUIDOMMutationKindAddClass:
-            body = [OFString stringWithFormat: @"el.classList.add(%@); return true;", nameJSON];
-            break;
-        case AsyncWebUIDOMMutationKindRemoveClass:
-            body = [OFString stringWithFormat: @"el.classList.remove(%@); return true;", nameJSON];
-            break;
-        case AsyncWebUIDOMMutationKindToggleClass:
-            body = [OFString stringWithFormat: @"el.classList.toggle(%@, %@); return true;", nameJSON, flagJSON];
-            break;
+        [self appendMutation: mutation toJSON: json];
     }
 
-    return [OFString stringWithFormat:
-        @"{ const el = document.querySelector(%@); results[%zu] = el ? (() => { %@ })() : false; }\n",
-        selectorJSON,
-        index,
-        body];
+    [json appendString: @"])"];
+    [json makeImmutable];
+    return json;
+}
+
++ (void)appendMutation: (AsyncWebUIDOMMutation *)mutation toJSON: (OFMutableString *)json
+{
+    [json appendFormat: @"[%d,%@,",
+                        (int)mutation.kind,
+                        mutation.selector.JSONRepresentation];
+    [self appendNullableString: mutation.name toJSON: json];
+    [json appendString: @","];
+    [self appendNullableString: mutation.value toJSON: json];
+    [json appendString: (mutation.flag ? @",true]" : @",false]")];
+}
+
++ (void)appendNullableString: (OFString *nillable)value toJSON: (OFMutableString *)json
+{
+    [json appendString: (value != nilptr ? $assert_nonnil(value).JSONRepresentation : @"null")];
 }
 
 @end
@@ -176,26 +168,19 @@
 - (AsyncTask<OFNumber *> *)taskToExists
 {
     return (AsyncTask<OFNumber *> *)[_document taskToEvaluateExpression:
-        [OFString stringWithFormat: @"document.querySelector(%@) !== null", _selector.JSONRepresentation]];
+        [AsyncWebUIDOMScript scriptToCheckElementExistsForSelector: _selector]];
 }
 
 - (AsyncTask<OFString *> *)taskToReadText
 {
     return (AsyncTask<OFString *> *)[_document taskToEvaluateExpression:
-        [AsyncWebUIDOMScript scriptExpressionForSelector: _selector property: @"textContent"]];
+        [AsyncWebUIDOMScript scriptToReadTextForSelector: _selector]];
 }
 
 - (AsyncTask<OFDictionary<OFString *, id> *> *)taskToMeasure
 {
     return (AsyncTask<OFDictionary<OFString *, id> *> *)[_document taskToEvaluateExpression:
-        [OFString stringWithFormat: @$raw(
-            (() => {
-                const el = document.querySelector(%@);
-                if (!el) return null;
-                const r = el.getBoundingClientRect();
-                return { x: r.x, y: r.y, width: r.width, height: r.height };
-            })()
-        ), _selector.JSONRepresentation]];
+        [AsyncWebUIDOMScript scriptToMeasureElementForSelector: _selector]];
 }
 
 - (AsyncTask<OFArray<id> *> *)taskToApplyMutations: (OFArray<AsyncWebUIDOMMutation *> *)mutations

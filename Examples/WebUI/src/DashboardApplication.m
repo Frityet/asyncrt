@@ -50,29 +50,26 @@
     DashboardRootComponent *dashboard = $assert_nonnil(_dashboard);
     auto sampler = [[DashboardSampler alloc] init];
 
-    (void)[AsyncRuntime spawnNamed: @"dashboard-sampler" block: ^id {
+    [AsyncRuntime spawnNamed: @"dashboard-sampler" block: ^{
         while (not webView.isClosed) {
             double javaScriptClock = 0.0;
 
-            @try {
-                id value = [[webView.document taskToEvaluateExpression: @"performance.now()"] await];
-                if ([value isKindOfClass: OFNumber.class])
-                    javaScriptClock = ((OFNumber *)value).doubleValue;
-            } @catch (OFException *) {
-            }
-
+            id value = [[webView.document taskToEvaluateExpression: @"performance.now()"] await];
+            if ([value isKindOfClass: OFNumber.class])
+                javaScriptClock = ((OFNumber *)value).doubleValue;
+            
             DashboardSample *sample = [sampler sampleWithJavaScriptClock: javaScriptClock];
             [dashboard applySample: sample];
-            (void)[[dashboard taskToRenderTree] await];
+            [[dashboard taskToRenderTree] await];
 
-            OFString *cpuLoad = [OFString stringWithFormat: @"%.3f", fmax(0.0, fmin(1.0, sample.cpuPercent / 100.0))];
-            OFString *clockText = [OFString stringWithFormat: @"browser %.1f ms", sample.jsClockMS];
+            auto cpuLoad = [OFString stringWithFormat: @"%.3f", fmax(0.0, fmin(1.0, sample.cpuPercent / 100.0))];
+            auto clockText = [OFString stringWithFormat: @"browser %.1f ms", sample.jsClockMS];
             auto mutations = @[
                 [AsyncWebUIDOMMutation setStyleProperty: @"--cpu-load" value: cpuLoad selector: @"body"],
                 [AsyncWebUIDOMMutation toggleClass: @"stress-enabled" enabled: dashboard.isStressEnabled selector: @"body"],
                 [AsyncWebUIDOMMutation setText: clockText selector: @".native-clock"],
             ];
-            (void)[[webView.document taskToApplyMutations: mutations] await];
+            [[webView.document taskToApplyMutations: mutations] await];
 
             [[AsyncRuntime sleepForTimeInterval: dashboard.refreshInterval] await];
         }

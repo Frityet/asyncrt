@@ -6,7 +6,7 @@
 
 typedef struct AsyncWebUIRequest {
     OFString *nillable action;
-    OFString *nillable payloadJSON;
+    id nillable payload;
     OFString *nillable requestID;
 } AsyncWebUIRequest;
 

@@ -355,13 +355,13 @@
 {
     if (not [message.name isEqualToString: @"asyncrt".NSObject])
         return;
-    if (not [message.body isKindOfClass: NSDictionary.class])
+    if (![message.body isKindOfClass: NSArray.class])
         return;
 
-    auto dictionary = (NSDictionary *)message.body;
-    id actionObject = dictionary[@"action".NSObject];
-    id payloadObject = dictionary[@"payload".NSObject];
-    id requestIDObject = dictionary[@"requestID".NSObject];
+    auto array = (NSArray *)message.body;
+    id actionObject = (array.count > 0 ? array[0] : nilptr);
+    id requestIDObject = (array.count > 1 ? array[1] : nilptr);
+    id payloadValue = (array.count > 2 ? array[2] : nilptr);
 
     if (not [actionObject isKindOfClass: NSString.class])
         return;
@@ -370,16 +370,11 @@
 
     OFString *action = ((NSString *)actionObject).OFObject;
     OFString *requestID = ((NSString *)requestIDObject).OFObject;
-    OFString *payloadJSON = @"null";
-
-    if ([payloadObject isKindOfClass: NSString.class])
-        payloadJSON = (OFString *)((NSString *)payloadObject).OFObject;
-    else if (payloadObject != nilptr and payloadObject != (id)NSNull.null)
-        payloadJSON = (OFString *)((NSObject *)payloadObject).description.OFObject;
+    id payload = [AsyncWKWebKitApplicationSupport objectFromJavaScriptResult: payloadValue];
 
     AsyncWebUIRequest request = (AsyncWebUIRequest){
         .action = action,
-        .payloadJSON = payloadJSON,
+        .payload = (payload != OFNull.null ? payload : nilptr),
         .requestID = requestID
     };
 
@@ -399,16 +394,125 @@
     OFString *source = @$raw(
         (() => {
             const bridge = window.AsyncRT || {};
+            let nextRequestID = 1;
+            const pendingRequests = new Map();
+            bridge.__resolve = (requestID, response) => {
+                const resolve = pendingRequests.get(requestID);
+                if (!resolve)
+                    return;
+
+                pendingRequests.delete(requestID);
+                resolve(response);
+            };
+            bridge.__emit = (name, payload) => {
+                window.dispatchEvent(new CustomEvent(name, { detail: payload }));
+            };
             bridge.invoke = (action, payload) => new Promise((resolve) => {
-                const requestID = Math.random().toString(36).slice(2) + Date.now().toString(36);
-                const eventName = 'asyncrt_response_' + requestID;
-                window.addEventListener(eventName, (event) => resolve(event.detail), { once: true });
-                window.webkit.messageHandlers.asyncrt.postMessage({
-                    action: String(action),
-                    payload: payload === undefined ? null : JSON.stringify(payload),
-                    requestID
-                });
+                const requestID = String(nextRequestID++);
+                pendingRequests.set(requestID, resolve);
+                window.webkit.messageHandlers.asyncrt.postMessage([
+                    action,
+                    requestID,
+                    payload === undefined ? null : payload
+                ]);
             });
+            bridge.__components = bridge.__components || {
+                byID: new Map(),
+                register(componentID, component) {
+                    this.byID.set(componentID, component);
+                },
+                unregister(componentID, component) {
+                    if (this.byID.get(componentID) === component)
+                        this.byID.delete(componentID);
+                },
+                update(componentID, state) {
+                    const component = this.byID.get(componentID);
+                    if (component && state && typeof state === 'object')
+                        component.setState(state);
+                }
+            };
+            bridge.__dom = bridge.__dom || {
+                exists(selector) {
+                    return document.querySelector(String(selector)) !== null;
+                },
+                readText(selector) {
+                    const el = document.querySelector(String(selector));
+                    return el ? el.textContent : null;
+                },
+                measure(selector) {
+                    const el = document.querySelector(String(selector));
+                    if (!el)
+                        return null;
+
+                    const r = el.getBoundingClientRect();
+                    return { x: r.x, y: r.y, width: r.width, height: r.height };
+                },
+                applyMutations(mutations) {
+                    const results = new Array(mutations.length);
+                    const elementsBySelector = new Map();
+
+                    const elementForSelector = (selector) => {
+                        selector = String(selector);
+                        if (!elementsBySelector.has(selector))
+                            elementsBySelector.set(selector, document.querySelector(selector));
+
+                        return elementsBySelector.get(selector);
+                    };
+
+                    for (let index = 0; index < mutations.length; index++) {
+                        const mutation = mutations[index];
+                        const el = elementForSelector(mutation[1]);
+                        if (!el) {
+                            results[index] = false;
+                            continue;
+                        }
+
+                        const kind = mutation[0];
+                        const name = mutation[2];
+                        const value = mutation[3];
+
+                        switch (kind) {
+                            case 0:
+                                el.textContent = value;
+                                results[index] = true;
+                                break;
+                            case 1:
+                                el.innerHTML = value;
+                                results[index] = true;
+                                break;
+                            case 2:
+                                el.setAttribute(name, value);
+                                results[index] = true;
+                                break;
+                            case 3:
+                                el.removeAttribute(name);
+                                results[index] = true;
+                                break;
+                            case 4:
+                                el.style.setProperty(name, value);
+                                results[index] = true;
+                                break;
+                            case 5:
+                                el.classList.add(name);
+                                results[index] = true;
+                                break;
+                            case 6:
+                                el.classList.remove(name);
+                                results[index] = true;
+                                break;
+                            case 7:
+                                el.classList.toggle(name, Boolean(mutation[4]));
+                                results[index] = true;
+                                break;
+                            default:
+                                results[index] = false;
+                                break;
+                        }
+                    }
+
+                    return results;
+                }
+            };
             window.AsyncRT = bridge;
         })();
     );
