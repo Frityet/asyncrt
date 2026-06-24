@@ -15,92 +15,79 @@
 
 #pragma clang assume_nonnull begin
 
+@implementation CannotGetExecutablePathException
+@end
+
 @interface OFApplication(ExecutableIRIPrivate)
 
-+ (OFIRI *_Nullable)_executableIRIFromPath: (OFString *_Nullable)path;
-+ (OFIRI *_Nullable)_standardizedExecutableIRIFromPath: (OFString *_Nullable)path;
-+ (OFString *_Nullable)_executablePathFromOperatingSystem;
-+ (OFString *_Nullable)_executablePathFromProgramNameFallback;
++ (OFIRI *)_standardizedExecutableIRIFromPath: (OFString *)path;
++ (OFString *)_executablePathFromOperatingSystem;
++ (OFString *)_executablePathFromProgramNameFallback;
 
 #if defined(OF_MACOS)
-+ (OFString *_Nullable)_executablePathFromMachO;
++ (OFString *)_executablePathFromMachO;
 #elif defined(OF_LINUX)
-+ (OFString *_Nullable)_executablePathFromProcSelfExecutable;
++ (OFString *)_executablePathFromProcSelfExecutable;
 #elif defined(OF_WINDOWS)
-+ (OFString *_Nullable)_executablePathFromWindowsModule;
++ (OFString *)_executablePathFromWindowsModule;
 #endif
 
 @end
 
 @implementation OFApplication(ExecutableIRI)
 
-+ (OFIRI *_Nullable)executableIRI
++ (OFIRI *)executableIRI
+{ return [OFIRI fileIRIWithPath: self._executablePathFromOperatingSystem isDirectory: false]; }
+
+
++ (OFIRI *)_standardizedExecutableIRIFromPath: (OFString *)path
 {
-    OFIRI *executableIRI = [self _executableIRIFromPath: [self _executablePathFromOperatingSystem]];
-    if (executableIRI != nil)
-        return executableIRI;
-
-    return [self _executableIRIFromPath: [self _executablePathFromProgramNameFallback]];
-}
-
-+ (OFIRI *_Nullable)_executableIRIFromPath: (OFString *_Nullable)path
-{
-    if (path == nil)
-        return nil;
-
-    OFString *nonNullPath = (OFString *)path;
-    return [OFIRI fileIRIWithPath: nonNullPath isDirectory: false];
-}
-
-+ (OFIRI *_Nullable)_standardizedExecutableIRIFromPath: (OFString *_Nullable)path
-{
-    if (path == nil || path.length == 0)
-        return nil;
-
-    OFString *nonNullPath = (OFString *)path;
 
 #if !defined(OF_WINDOWS)
-    OFStringEncoding pathEncoding = [OFLocale encoding];
-    char *resolvedPathCString = realpath([nonNullPath cStringWithEncoding: pathEncoding], NULL);
+    char *resolvedPathCString = realpath([path cStringWithEncoding: OFLocale.encoding], NULL);
 
-    if (resolvedPathCString != NULL) {
+    if (resolvedPathCString != nullptr) {
         @try {
-            OFString *resolvedPath = [OFString stringWithCString: resolvedPathCString encoding: pathEncoding];
-            return [self _executableIRIFromPath: resolvedPath];
+            OFString *resolvedPath = [OFString stringWithCString: resolvedPathCString encoding: OFLocale.encoding];
+            return [OFIRI fileIRIWithPath: resolvedPath isDirectory: false];
         } @finally {
             free(resolvedPathCString);
         }
     }
 #endif
 
-    return [self _executableIRIFromPath: nonNullPath].IRIByStandardizingPath;
+    return [OFIRI fileIRIWithPath: path isDirectory: false].IRIByStandardizingPath;
 }
 
-+ (OFString *_Nullable)_executablePathFromOperatingSystem
++ (OFString *)_executablePathFromOperatingSystem
 {
 #if defined(OF_MACOS)
-    return [self _executablePathFromMachO];
+    return self._executablePathFromMachO;
 #elif defined(OF_LINUX)
-    return [self _executablePathFromProcSelfExecutable];
+    return self._executablePathFromProcSelfExecutable;
 #elif defined(OF_WINDOWS)
-    return [self _executablePathFromWindowsModule];
+    return self._executablePathFromWindowsModule;
 #else
-    return nil;
+#   error "Unsupported platform"
 #endif
 }
 
-+ (OFString *_Nullable)_executablePathFromProgramNameFallback
++ (OFString *)_executablePathFromProgramNameFallback
 {
-    return [self _standardizedExecutableIRIFromPath: self.programName].fileSystemRepresentation;
+    @try {
+        return $assert_nonnil([self _standardizedExecutableIRIFromPath: $assert_nonnil(self.programName)].fileSystemRepresentation);
+    } @catch(NilReferenceException *) {
+        @throw [CannotGetExecutablePathException exception];
+    }
 }
 
 #if defined(OF_MACOS)
-+ (OFString *_Nullable)_executablePathFromMachO
++ (OFString *)_executablePathFromMachO
 {
     uint32_t pathCapacity = 0;
 
     if (_NSGetExecutablePath(NULL, &pathCapacity) == 0 || pathCapacity == 0)
-        return nil;
+        @throw [CannotGetExecutablePathException exception];
 
     char *pathBuffer = malloc(pathCapacity);
     if (pathBuffer == NULL)
@@ -111,13 +98,13 @@
             return nil;
 
         OFString *path = [OFString stringWithCString: pathBuffer encoding: [OFLocale encoding]];
-        return [self _standardizedExecutableIRIFromPath: path].fileSystemRepresentation;
+        return $assert_nonnil([self _standardizedExecutableIRIFromPath: path].fileSystemRepresentation);
     } @finally {
         free(pathBuffer);
     }
 }
 #elif defined(OF_LINUX)
-+ (OFString *_Nullable)_executablePathFromProcSelfExecutable
++ (OFString *)_executablePathFromProcSelfExecutable
 {
     size_t pathCapacity = 1024;
     char *pathBuffer = NULL;
@@ -137,7 +124,7 @@
         ssize_t pathLength = readlink("/proc/self/exe", pathBuffer, pathCapacity);
         if (pathLength < 0) {
             free(pathBuffer);
-            return nil;
+            @throw [CannotGetExecutablePathException exception];
         }
 
         if ((size_t)pathLength < pathCapacity) {
@@ -145,7 +132,7 @@
                 OFString *path = [OFString stringWithCString: pathBuffer
                                                     encoding: [OFLocale encoding]
                                                       length: (size_t)pathLength];
-                return [self _standardizedExecutableIRIFromPath: path].fileSystemRepresentation;
+                return $assert_nonnil([self _standardizedExecutableIRIFromPath: path].fileSystemRepresentation);
             } @finally {
                 free(pathBuffer);
             }
@@ -160,7 +147,7 @@
     }
 }
 #elif defined(OF_WINDOWS)
-+ (OFString *_Nullable)_executablePathFromWindowsModule
++ (OFString *)_executablePathFromWindowsModule
 {
     size_t pathCapacity = MAX_PATH;
     OFChar16 *pathBuffer = NULL;
@@ -179,7 +166,7 @@
         DWORD pathLength = GetModuleFileNameW(NULL, (LPWSTR)pathBuffer, (DWORD)pathCapacity);
         if (pathLength == 0) {
             free(pathBuffer);
-            return nil;
+            @throw [CannotGetExecutablePathException exception];
         }
 
         if ((size_t)pathLength < pathCapacity) {

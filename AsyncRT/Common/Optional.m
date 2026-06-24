@@ -1,4 +1,4 @@
-#include <AsyncRT/Common/Optional.h>
+#include "Optional.h"
 
 #import <ObjFW/ObjFW.h>
 #if !defined(__APPLE__)
@@ -6,7 +6,6 @@
 #else
 #import <objc/objc.h>
 #endif
-#import <iso646.h>
 
 #pragma clang assume_nonnull begin
 
@@ -157,7 +156,7 @@ enum : uintptr_t {
     if (self_value != nilptr) {
         if (self_value == object)
             return true;
-        if (object != nilptr and [self_value isEqual: (id)object])
+        if (object != nilptr and [self_value isEqual: object])
             return true;
     }
 

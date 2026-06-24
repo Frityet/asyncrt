@@ -1,6 +1,4 @@
-#pragma once
-
-#import <AsyncRT/Common/common.h>
+#import "Common.h"
 
 #pragma clang assume_nonnull begin
 
