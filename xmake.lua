@@ -49,4 +49,4 @@ if is_plat("linux") and is_mode("debug") then
     add_mflags("-fno-omit-frame-pointer")
 end
 
-includes("AsyncRT")
+includes("AsyncRT", "Examples")

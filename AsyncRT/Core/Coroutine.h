@@ -78,12 +78,11 @@ static inline OFString *describe(enum CoroutineStatus status)
 [[subclassing_restricted, direct_members]]
 @interface Coroutine<covariant T> : OFObject<OFFastEnumeration> {
 @private
-    void *nillable _nativeCoroutine;
     bool _isRootCoroutine;
     T (^_block)(unretained Coroutine *co);
     unretained Coroutine *nillable _caller;
     id nillable _raisedException;
-    OFMutableArray *nillable _fastEnumerationBatch;
+    OFMutableArray<T> *nillable _fastEnumerationBatch;
     unsigned long _fastEnumerationMutations;
 }
 
@@ -96,7 +95,6 @@ static inline OFString *describe(enum CoroutineStatus status)
 @property(readonly) size_t stackSize;
 
 + (instancetype)fromBlock: (T (^)(unretained Coroutine *co))block;
-+ (OFString *)describeStatus: (enum CoroutineStatus)status;
 - (instancetype)initWithBlock: (T (^)(unretained Coroutine *co))block;
 - (instancetype)initWithBlock: (T (^)(unretained Coroutine *co))block stackSize: (size_t)stackSize;
 - (T nillable)resume;
