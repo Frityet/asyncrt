@@ -8,6 +8,7 @@
 #endif
 
 #define MINICORO_IMPL
+#define MCO_USE_VMEM_ALLOCATOR
 #include <AsyncRT/Vendor/minicoro.h>
 
 #define ASAN __has_feature(address_sanitizer)

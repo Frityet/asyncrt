@@ -18,7 +18,7 @@
         return nilptr;
     }];
 }
-
+ 
 - (void)applicationDidFinishLaunching:_
 {
     for (OFNumber *n in [self rangeFrom: 0 to: 10])

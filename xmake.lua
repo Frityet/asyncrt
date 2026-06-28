@@ -1,4 +1,4 @@
-add_rules("mode.debug", "mode.release", "mode.minsizerel", "mode.coverage", "mode.asan", "mode.tsan")
+add_rules("mode.debug", "mode.release", "mode.minsizerel", "mode.asan", "mode.tsan")
 
 set_languages("gnu23")
 set_toolchains("clang")
@@ -39,6 +39,10 @@ add_flags {
     "-Wno-missing-braces"
 }
 
+if is_mode("debug") then
+    add_flags("-fobjc-disable-direct-methods-for-testing")
+end
+
 if is_kind("shared") then
     add_flags("-fPIC")
 end
@@ -49,4 +53,4 @@ if is_plat("linux") and is_mode("debug") then
     add_mflags("-fno-omit-frame-pointer")
 end
 
-includes("AsyncRT", "Examples")
+includes("AsyncRT", "Examples", "Tests", "Tools")
