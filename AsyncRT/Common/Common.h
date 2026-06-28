@@ -7,6 +7,7 @@
 
 #define nonnil _Nonnull
 #define nillable _Nullable
+#define nillability_unspecified _Null_unspecified
 #define nullptr ((void *nillable)0)
 #define nilptr ((id nillable)0)
 
