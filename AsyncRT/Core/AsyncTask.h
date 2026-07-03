@@ -1,10 +1,9 @@
 #import <AsyncRT/Common/Common.h>
 
-#import "AsyncExecutor.h"
-
 #pragma clang assume_nonnull begin
 
 @class AsyncTask;
+@class AsyncExecutor;
 @class Coroutine;
 
 enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
@@ -35,7 +34,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
     @private enum AsyncTaskStatus _status;
     @private AsyncExecutor *_executor;
     @private OFCondition *_condition;
-    @private OFMutableArray *_continuations;
+    @private OFMutableArray<void(^)(void)> *_continuations;
     @private Coroutine *nillable _coroutine;
     @private bool _resumeScheduled;
 }

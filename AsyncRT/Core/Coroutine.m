@@ -18,9 +18,9 @@
 
 
 #if ASAN or TSAN
-    static atomic_t(size_t) default_stack_size = 2 * 1024 * 1024;
+    static atomic_t(size_t) defaultStackSize = 2 * 1024 * 1024;
 #else
-    static atomic_t(size_t) default_stack_size = 256 * 1024;
+    static atomic_t(size_t) defaultStackSize = 256 * 1024;
 #endif
 
 static thread_local unretained Coroutine *nillable current_coroutine;
@@ -91,13 +91,13 @@ static void coroutine_entry(mco_coro *nativeCoroutine);
 { return [[[self alloc] initWithBlock: block] autorelease]; }
 
 + (size_t)defaultStackSize
-{ return default_stack_size; }
+{ return defaultStackSize; }
 
 + (void)setDefaultStackSize: (size_t)stackSize
-{ default_stack_size = stackSize; }
+{ defaultStackSize = stackSize; }
 
 - (instancetype)initWithBlock: (id (^)(unretained Coroutine *co))block
-{ return [self initWithBlock: block stackSize: default_stack_size]; }
+{ return [self initWithBlock: block stackSize: defaultStackSize]; }
 
 - (instancetype)initWithBlock: (id nonnil (^)(Coroutine *nonnil))block stackSize: (size_t)stksz
 {

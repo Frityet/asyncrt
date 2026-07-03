@@ -10,7 +10,7 @@
 
 - (void)testSpawnRunsBlockAndResolves
 {
-    AsyncTask<OFNumber *> *task = [AsyncTask spawn: ^OFNumber *{
+    auto task = [AsyncTask<OFNumber *> spawn: ^{
         return @42;
     }];
 
@@ -21,7 +21,7 @@
 
 - (void)testCompletionSourceResolve
 {
-    AsyncTaskCompletionSource<OFString *> *source = [[AsyncTaskCompletionSource alloc] init];
+    auto source = [[AsyncTaskCompletionSource<OFString *> alloc] init];
 
     [source resolveWithResult: @"done"];
 
@@ -47,7 +47,7 @@
 
 - (void)testCompletionSourceCancelThrowsCancelledException
 {
-    AsyncTaskCompletionSource *source = [[AsyncTaskCompletionSource alloc] init];
+    auto source = [[AsyncTaskCompletionSource alloc] init];
     block_reference bool didThrow = false;
 
     [source cancel];
@@ -66,8 +66,8 @@
 
 - (void)testAwaitInsideExecutorTaskCanRunNestedTask
 {
-    AsyncTask<OFString *> *outer = [AsyncTask spawn: ^OFString *{
-        AsyncTask<OFString *> *inner = [AsyncTask spawn: ^OFString *{
+    auto outer = [AsyncTask<OFString *> spawn: ^{
+        auto inner = [AsyncTask<OFString *> spawn: ^{
             return @"inner";
         }];
 

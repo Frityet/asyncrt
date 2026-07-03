@@ -1,7 +1,8 @@
 #include "AsyncTask.h"
 
-#include "AsyncTask+Private.h"
-#include "Coroutine.h"
+#import "AsyncExecutor.h"
+#import "AsyncTask+Private.h"
+#import "Coroutine.h"
 
 #pragma clang assume_nonnull begin
 
@@ -96,9 +97,6 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
 
 - (void)setExecutor: (AsyncExecutor *)executor
 {
-    if ((AsyncExecutor *nillable)executor == nilptr)
-        @throw [OFInvalidArgumentException exception];
-
     [_condition lock];
     @try {
         _executor = executor;
@@ -144,7 +142,6 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
 
 + (instancetype)spawnOffloaded: (id nillability_unspecified (^)())block
 {
-    (void)block;
     @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
 }
 
@@ -227,7 +224,7 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
                      result: (id nillability_unspecified)result
                       error: (OFException *nillable)error [[direct]]
 {
-    OFArray *nillable continuations = nilptr;
+    OFArray<AsyncTaskContinuationBlock> *nillable continuations = nilptr;
 
     [_condition lock];
     @try {
