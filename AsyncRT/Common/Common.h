@@ -15,6 +15,7 @@
 #define unretained __unsafe_unretained
 #define unretained_cast __bridge
 #define retained_cast __bridge_retained
+#define method_family(name) clang::objc_method_family(name)
 #define designated_initailiser clang::objc_designated_initializer
 #define unavailable clang::unavailable
 

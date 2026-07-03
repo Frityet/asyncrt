@@ -1,6 +1,11 @@
 #import <AsyncRT/Common/Common.h>
 
+#import "AsyncExecutor.h"
+
 #pragma clang assume_nonnull begin
+
+@class AsyncTask;
+@class Coroutine;
 
 enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
     AsyncTaskStatus_PENDING,
@@ -10,14 +15,34 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 };
 
 
+[[direct_members, subclassing_restricted]]
+@interface AsyncTaskCancelledException : OFException {
+    @private AsyncTask *_task;
+}
+
+@property(readonly, nonatomic) AsyncTask *task;
+
+- (instancetype)initWithTask: (AsyncTask *)task [[designated_initailiser]];
+- (instancetype)init [[unavailable]];
+
+@end
+
+[[direct_members, subclassing_restricted]]
 @interface AsyncTask<covariant TResult> : OFObject {
-    TResult nillability_unspecified _result;
-    __kindof OFException *_error;
-    TResult nillability_unspecified (^_block)();
+    @private TResult nillability_unspecified _result;
+    @private __kindof OFException *nillable _error;
+    @private TResult nillability_unspecified (^nillable _block)(void);
+    @private enum AsyncTaskStatus _status;
+    @private AsyncExecutor *_executor;
+    @private OFCondition *_condition;
+    @private OFMutableArray *_continuations;
+    @private Coroutine *nillable _coroutine;
+    @private bool _resumeScheduled;
 }
 
 @property(readonly) enum AsyncTaskStatus status;
 @property(readonly, nonatomic) bool isComplete, isPending, isCancelled;
+@property(retain, nonatomic) AsyncExecutor *executor;
 
 - (instancetype)init [[unavailable]];
 - (instancetype)initResolvedWithResult: (TResult nillability_unspecified)result [[designated_initailiser]];
@@ -25,18 +50,31 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 
 - (instancetype)initExecutingBlock: (TResult nillability_unspecified (^)())block [[designated_initailiser]];
 
-+ (instancetype)resolvedWithResult: (TResult nillability_unspecified)result;
-+ (instancetype)rejectedWithError: (__kindof OFException *)error;
++ (instancetype)resolvedWithResult: (TResult nillability_unspecified)result [[method_family(new)]];
++ (instancetype)rejectedWithError: (__kindof OFException *)error [[method_family(new)]];
 
-+ (instancetype)spawn: (TResult nillability_unspecified (^)())block;
-+ (instancetype)spawnOffloaded: (TResult nillability_unspecified (^)())block;
++ (instancetype)spawn: (TResult nillability_unspecified (^)())block [[method_family(new)]];
++ (instancetype)spawnOffloaded: (TResult nillability_unspecified (^)())block [[method_family(new)]];
 
 - (TResult nillability_unspecified)await;
 - (TResult nillability_unspecified)runUntilCompletion;
 
 @end
 
-@interface AsyncTaskCompletionSource<covariant TResult> : OFObject
+[[direct_members, subclassing_restricted]]
+@interface AsyncTaskCompletionSource<covariant TResult> : OFObject {
+    @private AsyncTask<TResult> *_task;
+}
+
+@property(readonly, nonatomic) AsyncTask<TResult> *task;
+@property(retain, nonatomic) AsyncExecutor *executor;
+
+- (instancetype)init [[designated_initailiser]];
+
+- (void)resolveWithResult: (TResult nillability_unspecified)result;
+- (void)rejectWithError: (__kindof OFException *)error;
+
+- (void)cancel;
 
 
 @end
