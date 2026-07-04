@@ -5,7 +5,6 @@
 #pragma clang assume_nonnull begin
 
 @class AsyncHTTPClient;
-@class AsyncHTTPRequest;
 @class AsyncHTTPResponse;
 
 [[subclassing_restricted, direct_members]]
@@ -15,23 +14,6 @@
 
 - (instancetype)initWithRequest: (OFHTTPRequest *)request;
 - (instancetype)init [[unavailable]];
-
-@end
-
-[[subclassing_restricted, direct_members]]
-@interface AsyncHTTPRequest : OFObject
-
-@property(readonly, nonatomic) OFHTTPRequest *rawRequest;
-@property(copy, nonatomic) OFIRI *IRI;
-@property(nonatomic) OFHTTPRequestMethod method;
-@property(copy, nonatomic) OFDictionary<OFString *, OFString *> *nillable headers;
-
-+ (instancetype)requestWithIRI: (OFIRI *)IRI;
-+ (instancetype)requestWithRawRequest: (OFHTTPRequest *)request;
-- (instancetype)initWithIRI: (OFIRI *)IRI;
-- (instancetype)initWithRawRequest: (OFHTTPRequest *)request;
-- (instancetype)init [[unavailable]];
-- (OFHTTPRequest *)copyRawRequest;
 
 @end
 
@@ -58,12 +40,9 @@
 @property(assign, nonatomic) OFObject<OFHTTPClientDelegate> *nillable delegate;
 
 + (instancetype)client;
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (AsyncHTTPRequest *)request;
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRawRequest: (OFHTTPRequest *)request;
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (AsyncHTTPRequest *)request redirects: (unsigned int)redirects;
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRawRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
-- (AsyncTask<OFData *> *)taskToReadBodyForRequest: (AsyncHTTPRequest *)request;
-- (AsyncTask<OFData *> *)taskToReadBodyForRawRequest: (OFHTTPRequest *)request;
+- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request;
+- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
+- (AsyncTask<OFData *> *)taskToReadBodyForRequest: (OFHTTPRequest *)request;
 
 @end
 

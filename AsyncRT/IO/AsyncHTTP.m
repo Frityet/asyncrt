@@ -38,67 +38,6 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
 @end
 
-@implementation AsyncHTTPRequest
-
-+ (instancetype)requestWithIRI: (OFIRI *)IRI
-{
-    return [[self alloc] initWithIRI: IRI];
-}
-
-+ (instancetype)requestWithRawRequest: (OFHTTPRequest *)request
-{
-    return [[self alloc] initWithRawRequest: request];
-}
-
-- (instancetype)initWithIRI: (OFIRI *)IRI
-{
-    return [self initWithRawRequest: [OFHTTPRequest requestWithIRI: IRI]];
-}
-
-- (instancetype)initWithRawRequest: (OFHTTPRequest *)request
-{
-    self = [super init];
-    _rawRequest = [request copy];
-    return self;
-}
-
-- (OFIRI *)IRI
-{
-    return _rawRequest.IRI;
-}
-
-- (void)setIRI: (OFIRI *)IRI
-{
-    _rawRequest.IRI = IRI;
-}
-
-- (OFHTTPRequestMethod)method
-{
-    return _rawRequest.method;
-}
-
-- (void)setMethod: (OFHTTPRequestMethod)method
-{
-    _rawRequest.method = method;
-}
-
-- (OFDictionary<OFString *, OFString *> *nillable)headers
-{
-    return _rawRequest.headers;
-}
-
-- (void)setHeaders: (OFDictionary<OFString *, OFString *> *nillable)headers
-{
-    _rawRequest.headers = headers;
-}
-
-- (OFHTTPRequest *)copyRawRequest
-{
-    return [_rawRequest copy];
-}
-
-@end
-
 @implementation AsyncHTTPResponse
 
 - (instancetype)initWithRequest: (OFHTTPRequest *)request response: (OFHTTPResponse *)response client: (OFHTTPClient *)client
@@ -144,22 +83,12 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     return self;
 }
 
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (AsyncHTTPRequest *)request
+- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request
 {
-    return [self taskToPerformRawRequest: [request copyRawRequest]];
+    return [self taskToPerformRequest: request redirects: 10];
 }
 
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRawRequest: (OFHTTPRequest *)request
-{
-    return [self taskToPerformRawRequest: request redirects: 10];
-}
-
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (AsyncHTTPRequest *)request redirects: (unsigned int)redirects
-{
-    return [self taskToPerformRawRequest: [request copyRawRequest] redirects: redirects];
-}
-
-- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRawRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects
+- (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects
 {
     auto operation = [[AsyncHTTPClientOperation alloc] initWithOwner: self request: [request copy] redirects: redirects];
     [_activeOperations addObject: operation];
@@ -167,15 +96,10 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     return operation.task;
 }
 
-- (AsyncTask<OFData *> *)taskToReadBodyForRequest: (AsyncHTTPRequest *)request
-{
-    return [self taskToReadBodyForRawRequest: [request copyRawRequest]];
-}
-
-- (AsyncTask<OFData *> *)taskToReadBodyForRawRequest: (OFHTTPRequest *)request
+- (AsyncTask<OFData *> *)taskToReadBodyForRequest: (OFHTTPRequest *)request
 {
     return [AsyncTask<OFData *> spawn: ^OFData *{
-        auto response = [[self taskToPerformRawRequest: request] await];
+        auto response = [[self taskToPerformRequest: request] await];
         return [[response taskToReadBody] await];
     }];
 }
