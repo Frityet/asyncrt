@@ -17,7 +17,7 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 @property(readonly, nonatomic) OFHTTPRequest *request;
 @property(readonly, nonatomic) OFHTTPClient *client;
 @property(readonly, nonatomic) AsyncTask<AsyncHTTPResponse *> *task;
-- (instancetype)initWithOwner: (AsyncHTTPClient *)owner request: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
+- (instancetype)initWithOwner: (AsyncHTTPClient *)owner client: (OFHTTPClient *)client request: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
 - (instancetype)init [[unavailable]];
 - (void)start;
 @end
@@ -68,7 +68,8 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 @end
 
 @implementation AsyncHTTPClient {
-    OFMutableArray<AsyncHTTPClientOperation *> *_activeOperations;
+    OFHTTPClient *_client;
+    AsyncHTTPClientOperation *nillable _activeOperation;
 }
 
 + (instancetype)client
@@ -79,7 +80,7 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 - (instancetype)init
 {
     self = [super init];
-    _activeOperations = [OFMutableArray<AsyncHTTPClientOperation *> array];
+    _client = [OFHTTPClient client];
     return self;
 }
 
@@ -90,8 +91,11 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
 - (AsyncTask<AsyncHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects
 {
-    auto operation = [[AsyncHTTPClientOperation alloc] initWithOwner: self request: [request copy] redirects: redirects];
-    [_activeOperations addObject: operation];
+    if (_activeOperation != nilptr)
+        @throw [OFAlreadyOpenException exceptionWithObject: self];
+
+    auto operation = [[AsyncHTTPClientOperation alloc] initWithOwner: self client: _client request: [request copy] redirects: redirects];
+    _activeOperation = operation;
     [operation start];
     return operation.task;
 }
@@ -106,7 +110,20 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
 - (void)_operationDidFinish: (AsyncHTTPClientOperation *)operation
 {
-    [_activeOperations removeObjectIdenticalTo: operation];
+    if (_activeOperation == operation) {
+        _client.delegate = nilptr;
+        _activeOperation = nilptr;
+    }
+}
+
+- (bool)allowsInsecureRedirects
+{
+    return _client.allowsInsecureRedirects;
+}
+
+- (void)setAllowsInsecureRedirects: (bool)allowsInsecureRedirects
+{
+    _client.allowsInsecureRedirects = allowsInsecureRedirects;
 }
 
 @end
@@ -117,15 +134,14 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     AsyncTaskCompletionSource<AsyncHTTPResponse *> *_source;
 }
 
-- (instancetype)initWithOwner: (AsyncHTTPClient *)owner request: (OFHTTPRequest *)request redirects: (unsigned int)redirects
+- (instancetype)initWithOwner: (AsyncHTTPClient *)owner client: (OFHTTPClient *)client request: (OFHTTPRequest *)request redirects: (unsigned int)redirects
 {
     self = [super init];
     _owner = owner;
     _request = request;
     _redirects = redirects;
-    _client = [OFHTTPClient client];
+    _client = client;
     _client.delegate = self;
-    _client.allowsInsecureRedirects = owner.allowsInsecureRedirects;
     _source = [[AsyncTaskCompletionSource<AsyncHTTPResponse *> alloc] init];
     return self;
 }

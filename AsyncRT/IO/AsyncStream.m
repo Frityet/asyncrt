@@ -26,6 +26,7 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     auto source = [[AsyncTaskCompletionSource<OFData *> alloc] init];
     auto buffer = [OFMutableData dataWithCapacity: length];
     [buffer increaseCountBy: length];
+    OFData *retainedBuffer = buffer;
     void *nillable mutableItems = buffer.mutableItems;
     if (mutableItems == NULL)
         @throw [OFOutOfMemoryException exception];
@@ -37,6 +38,9 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
                 [source rejectWithError: [self _exceptionFromObject: exception]];
                 return false;
             }
+
+            if (retainedBuffer.count == 0)
+                return false;
 
             [source resolveWithResult: [OFData dataWithItems: readBuffer count: bytesRead]];
             return false;
@@ -54,6 +58,7 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     auto buffer = [OFMutableData dataWithCapacity: AsyncStreamDefaultReadBufferLength];
     auto body = [OFMutableData data];
     [buffer increaseCountBy: AsyncStreamDefaultReadBufferLength];
+    OFData *retainedBuffer = buffer;
     void *nillable mutableItems = buffer.mutableItems;
     if (mutableItems == NULL)
         @throw [OFOutOfMemoryException exception];
@@ -65,6 +70,9 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
                 [source rejectWithError: [self _exceptionFromObject: exception]];
                 return false;
             }
+
+            if (retainedBuffer.count == 0)
+                return false;
 
             if (bytesRead > 0)
                 [body addItems: readBuffer count: bytesRead];
