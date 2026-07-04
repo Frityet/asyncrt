@@ -9,7 +9,8 @@ add_requires("objfw", {
     configs = {
         shared = is_kind("shared"),
         rpath = true,
-        debug = is_mode("debug")
+        debug = is_mode("debug"),
+        tls = "openssl"
     }
 })
 add_packages("objfw")
