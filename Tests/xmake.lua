@@ -1,1 +1,1 @@
-includes("Core")
+includes("Common", "Core")
