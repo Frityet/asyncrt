@@ -4,6 +4,8 @@
 
 #pragma clang assume_nonnull begin
 
+int AsyncRT_OFHTTPClient_AsyncIO_anchor = 0;
+
 static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
 [[subclassing_restricted, direct_members]]

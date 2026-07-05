@@ -2,6 +2,9 @@
 
 #pragma clang assume_nonnull begin
 
+extern int AsyncRT_OFData_AsyncIO_anchor;
+static int *const AsyncRT_OFData_AsyncIO_anchor_reference __attribute__((used)) = &AsyncRT_OFData_AsyncIO_anchor;
+
 @interface OFData(AsyncIO)
 
 + (AsyncTask<OFData *> *)taskToReadDataWithContentsOfFile: (OFString *)path;

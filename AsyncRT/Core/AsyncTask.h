@@ -53,7 +53,6 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 + (instancetype)rejectedWithError: (__kindof OFException *)error [[method_family(new)]];
 
 + (instancetype)spawn: (TResult nillability_unspecified (^)())block [[method_family(new)]];
-+ (instancetype)spawnOffloaded: (TResult nillability_unspecified (^)())block [[method_family(new)]];
 
 - (TResult nillability_unspecified)await;
 - (TResult nillability_unspecified)runUntilCompletion;

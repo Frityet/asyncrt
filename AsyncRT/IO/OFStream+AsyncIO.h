@@ -3,6 +3,9 @@
 
 #pragma clang assume_nonnull begin
 
+extern int AsyncIOOFStreamAnchor;
+static int *const ASYNCIO_OFSTREAM_ANCHOR_REFERENCE __attribute__((used)) = &AsyncIOOFStreamAnchor;
+
 @interface OFStream(AsyncIO)
 
 - (AsyncTask<OFData *> *)taskToReadAtMostLength: (size_t)length;

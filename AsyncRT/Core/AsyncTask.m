@@ -140,11 +140,6 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
 + (instancetype)spawn: (id nillability_unspecified (^)())block
 { return [[self alloc] initExecutingBlock: block]; }
 
-+ (instancetype)spawnOffloaded: (id nillability_unspecified (^)())block
-{
-    @throw [OFNotImplementedException exceptionWithSelector: _cmd object: self];
-}
-
 - (void)_waitUntilComplete [[direct]]
 {
     if (self.isComplete)

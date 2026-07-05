@@ -2,6 +2,8 @@
 
 #pragma clang assume_nonnull begin
 
+int AsyncIOOFStreamAnchor = 0;
+
 constexpr size_t DEFAULT_READ_BUFFER_LEN = 64 * 1024;
 
 @interface OFStream(AsyncIOPrivate)

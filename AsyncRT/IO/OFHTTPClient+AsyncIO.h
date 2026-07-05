@@ -4,6 +4,9 @@
 
 #pragma clang assume_nonnull begin
 
+extern int AsyncRT_OFHTTPClient_AsyncIO_anchor;
+static int *const AsyncRT_OFHTTPClient_AsyncIO_anchor_reference __attribute__((used)) = &AsyncRT_OFHTTPClient_AsyncIO_anchor;
+
 [[subclassing_restricted, direct_members]]
 @interface AsyncHTTPMissingResponseException : OFException
 
