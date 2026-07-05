@@ -1,0 +1,31 @@
+#import <AsyncRT/Common/Common.h>
+#import <AsyncRT/Core/AsyncTask.h>
+#import <AsyncRT/IO/OFStream+AsyncIO.h>
+
+#pragma clang assume_nonnull begin
+
+[[subclassing_restricted, direct_members]]
+@interface AsyncHTTPMissingResponseException : OFException
+
+@property(readonly, nonatomic) OFHTTPRequest *request;
+
+- (instancetype)initWithRequest: (OFHTTPRequest *)request;
+- (instancetype)init [[unavailable]];
+
+@end
+
+@interface OFHTTPResponse(AsyncIO)
+
+- (AsyncTask<OFData *> *)taskToReadBody;
+
+@end
+
+@interface OFHTTPClient(AsyncIO)
+
+- (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request;
+- (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
+- (AsyncTask<OFData *> *)taskToReadBodyForRequest: (OFHTTPRequest *)request;
+
+@end
+
+#pragma clang assume_nonnull end

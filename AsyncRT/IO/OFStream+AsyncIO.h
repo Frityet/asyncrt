@@ -3,14 +3,8 @@
 
 #pragma clang assume_nonnull begin
 
-[[subclassing_restricted, direct_members]]
-@interface AsyncStream : OFObject
+@interface OFStream(AsyncIO)
 
-@property(readonly, nonatomic) OFStream *rawStream;
-
-+ (instancetype)streamWithStream: (OFStream *)stream;
-- (instancetype)initWithStream: (OFStream *)stream;
-- (instancetype)init [[unavailable]];
 - (AsyncTask<OFData *> *)taskToReadAtMostLength: (size_t)length;
 - (AsyncTask<OFData *> *)taskToReadUntilEnd;
 - (AsyncTask<OFNumber *> *)taskToWriteData: (OFData *)data;

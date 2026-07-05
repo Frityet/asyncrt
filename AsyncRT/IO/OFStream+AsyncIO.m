@@ -1,22 +1,16 @@
-#import "AsyncStream.h"
+#import "OFStream+AsyncIO.h"
 
 #pragma clang assume_nonnull begin
 
-static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
+constexpr size_t DEFAULT_READ_BUFFER_LEN = 64 * 1024;
 
-@implementation AsyncStream
+@interface OFStream(AsyncIOPrivate)
 
-+ (instancetype)streamWithStream: (OFStream *)stream
-{
-    return [[self alloc] initWithStream: stream];
-}
+- (OFException *)_asyncRTExceptionFromObject: (id nillable)exception;
 
-- (instancetype)initWithStream: (OFStream *)stream
-{
-    self = [super init];
-    _rawStream = stream;
-    return self;
-}
+@end
+
+@implementation OFStream(AsyncIO)
 
 - (AsyncTask<OFData *> *)taskToReadAtMostLength: (size_t)length
 {
@@ -28,14 +22,14 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     [buffer increaseCountBy: length];
     OFData *retainedBuffer = buffer;
     void *nillable mutableItems = buffer.mutableItems;
-    if (mutableItems == NULL)
+    if (mutableItems == nullptr)
         @throw [OFOutOfMemoryException exception];
     void *readTarget = (void *nonnil)mutableItems;
 
     @try {
-        [_rawStream asyncReadIntoBuffer: readTarget length: length handler: ^bool(OFStream *, void *readBuffer, size_t bytesRead, id nillable exception) {
+        [self asyncReadIntoBuffer: readTarget length: length handler: ^bool(OFStream *, void *readBuffer, size_t bytesRead, id nillable exception) {
             if (exception != nilptr) {
-                [source rejectWithError: [self _exceptionFromObject: exception]];
+                [source rejectWithError: [self _asyncRTExceptionFromObject: exception]];
                 return false;
             }
 
@@ -55,9 +49,9 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
 - (AsyncTask<OFData *> *)taskToReadUntilEnd
 {
     auto source = [[AsyncTaskCompletionSource<OFData *> alloc] init];
-    auto buffer = [OFMutableData dataWithCapacity: AsyncStreamDefaultReadBufferLength];
+    auto buffer = [OFMutableData dataWithCapacity: DEFAULT_READ_BUFFER_LEN];
     auto body = [OFMutableData data];
-    [buffer increaseCountBy: AsyncStreamDefaultReadBufferLength];
+    [buffer increaseCountBy: DEFAULT_READ_BUFFER_LEN];
     OFData *retainedBuffer = buffer;
     void *nillable mutableItems = buffer.mutableItems;
     if (mutableItems == NULL)
@@ -65,9 +59,9 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     void *readTarget = (void *nonnil)mutableItems;
 
     @try {
-        [_rawStream asyncReadIntoBuffer: readTarget length: AsyncStreamDefaultReadBufferLength handler: ^bool(OFStream *stream, void *readBuffer, size_t bytesRead, id nillable exception) {
+        [self asyncReadIntoBuffer: readTarget length: DEFAULT_READ_BUFFER_LEN handler: ^bool(OFStream *stream, void *readBuffer, size_t bytesRead, id nillable exception) {
             if (exception != nilptr) {
-                [source rejectWithError: [self _exceptionFromObject: exception]];
+                [source rejectWithError: [self _asyncRTExceptionFromObject: exception]];
                 return false;
             }
 
@@ -96,9 +90,9 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     auto source = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
 
     @try {
-        [_rawStream asyncWriteData: data handler: ^OFData *nillable(OFStream *, OFData *, size_t bytesWritten, id nillable exception) {
+        [self asyncWriteData: data handler: ^OFData *nillable(OFStream *, OFData *, size_t bytesWritten, id nillable exception) {
             if (exception != nilptr)
-                [source rejectWithError: [self _exceptionFromObject: exception]];
+                [source rejectWithError: [self _asyncRTExceptionFromObject: exception]];
             else
                 [source resolveWithResult: @(bytesWritten)];
             return nilptr;
@@ -120,9 +114,9 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     auto source = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
 
     @try {
-        [_rawStream asyncWriteString: string encoding: encoding handler: ^OFString *nillable(OFStream *, OFString *, OFStringEncoding, size_t bytesWritten, id nillable exception) {
+        [self asyncWriteString: string encoding: encoding handler: ^OFString *nillable(OFStream *, OFString *, OFStringEncoding, size_t bytesWritten, id nillable exception) {
             if (exception != nilptr)
-                [source rejectWithError: [self _exceptionFromObject: exception]];
+                [source rejectWithError: [self _asyncRTExceptionFromObject: exception]];
             else
                 [source resolveWithResult: @(bytesWritten)];
             return nilptr;
@@ -134,7 +128,7 @@ static size_t const AsyncStreamDefaultReadBufferLength = 64 * 1024;
     return source.task;
 }
 
-- (OFException *)_exceptionFromObject: (id nillable)exception [[direct]]
+- (OFException *)_asyncRTExceptionFromObject: (id nillable)exception
 {
     if (exception != nilptr and [exception isKindOfClass: OFException.class])
         return (OFException *nonnil)exception;
