@@ -5,6 +5,7 @@
 @class AsyncTask;
 @class AsyncExecutor;
 @class Coroutine;
+@class ThreadPool;
 
 enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
     AsyncTaskStatus_PENDING,
@@ -54,6 +55,8 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 
 + (instancetype)spawn: (TResult nillability_unspecified (^)())block [[method_family(new)]];
 
++ (instancetype)offload: (TResult nillability_unspecified (^)())block ontoPool: (ThreadPool *)pool [[method_family(new)]];
+
 - (TResult nillability_unspecified)await;
 - (TResult nillability_unspecified)runUntilCompletion;
 
@@ -67,7 +70,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 @property(readonly, nonatomic) AsyncTask<TResult> *task;
 @property(retain, nonatomic) AsyncExecutor *executor;
 
-- (instancetype)init [[designated_initailiser]];
+// - (instancetype)init [[designated_initailiser]];
 
 - (void)resolveWithResult: (TResult nillability_unspecified)result;
 - (void)rejectWithError: (__kindof OFException *)error;

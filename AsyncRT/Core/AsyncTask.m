@@ -3,6 +3,7 @@
 #import "AsyncExecutor.h"
 #import "AsyncTask+Private.h"
 #import "Coroutine.h"
+#import "ThreadPool.h"
 
 #pragma clang assume_nonnull begin
 
@@ -139,6 +140,22 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
 
 + (instancetype)spawn: (id nillability_unspecified (^)())block
 { return [[self alloc] initExecutingBlock: block]; }
+
++ (instancetype)offload: (id nillability_unspecified (^)())block ontoPool: (ThreadPool *)pool
+{
+    block_reference auto comp = [[AsyncTaskCompletionSource alloc] init];
+
+    [pool.tasks addObject: ^{
+        @try {
+            id nillability_unspecified result = block();
+            [comp resolveWithResult: result];
+        } @catch (OFException *error) {
+            [comp rejectWithError: error];
+        }
+    }];
+
+    return comp.task;
+}
 
 - (void)_waitUntilComplete [[direct]]
 {
