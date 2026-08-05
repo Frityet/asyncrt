@@ -17,7 +17,6 @@
 #define retained_cast __bridge_retained
 #define method_family(name) clang::objc_method_family(name)
 #define designated_initailiser clang::objc_designated_initializer
-#define unavailable clang::unavailable
 
 #define direct clang::objc_direct
 #define direct_members clang::objc_direct_members
@@ -339,5 +338,7 @@ static inline OFString *_AsyncRTFormat(OFString *nillable format,
     __VA_OPT__(_ASYNC_RT_FMT_COLLECT_SELECT(_ASYNC_RT_FMT_NARG(__VA_ARGS__))(_async_rt_fmt_arguments, __VA_ARGS__);) \
     _AsyncRTFormat((format), _async_rt_fmt_arguments); \
 })
+
+#define $log(...) OFLog(@"%@", $fmt(__VA_ARGS__))
 
 #pragma clang assume_nonnull end

@@ -5,7 +5,9 @@ set_toolchains("clang")
 
 add_rules("plugin.compile_commands.autoupdate", { lsp = "clangd" })
 
-add_requires("objfw", {
+add_repositories("local .")
+
+add_requires("objfw main", {
     configs = {
         shared = is_kind("shared"),
         rpath = true,
@@ -13,6 +15,7 @@ add_requires("objfw", {
         tls = "openssl"
     }
 })
+add_requires("objsqlite3")
 add_packages("objfw")
 
 function add_flags(...)

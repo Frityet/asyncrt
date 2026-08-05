@@ -14,11 +14,17 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 @property(readonly, nonatomic) OFHTTPRequest *request;
 @property(readonly, nonatomic) OFHTTPClient *client;
 @property(readonly, nonatomic) AsyncTask<OFHTTPResponse *> *task;
+- (instancetype)initWithClient: (OFHTTPClient *)client
+                        request: (OFHTTPRequest *)request
+                      redirects: (unsigned int)redirects
+                           body: (OFData *nillable)body;
 
-- (instancetype)initWithClient: (OFHTTPClient *)client request: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 - (void)start;
 - (void)_complete;
+- (AsyncTask<OFNumber *> *)_taskToCloseRequestBody: (OFStream *)requestBody;
+- (void)_closeRequestBody;
+- (void)_resolveWithResponse: (OFHTTPResponse *)response;
 - (void)_rejectWithObject: (id nillable)exception;
 - (OFException *)_exceptionFromObject: (id nillable)exception;
 
@@ -58,7 +64,21 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
 - (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects
 {
-    auto operation = [[OFHTTPClientTaskOperation alloc] initWithClient: self request: [request copy] redirects: redirects];
+    auto operation = [[OFHTTPClientTaskOperation alloc]
+        initWithClient: self request: [request copy] redirects: redirects body: nilptr];
+    [operation start];
+    return operation.task;
+}
+
+- (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request body: (OFData *)body
+{
+    return [self taskToPerformRequest: request redirects: 10 body: body];
+}
+
+- (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects body: (OFData *)body
+{
+    auto operation = [[OFHTTPClientTaskOperation alloc]
+        initWithClient: self request: [request copy] redirects: redirects body: body];
     [operation start];
     return operation.task;
 }
@@ -76,16 +96,39 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 @implementation OFHTTPClientTaskOperation {
     unsigned int _redirects;
     AsyncTaskCompletionSource<OFHTTPResponse *> *_source;
+    bool _sourceCompleted;
     unretained OFObject<OFHTTPClientDelegate> *nillable _delegate;
+    OFData *nillable _body;
+    AsyncTask<OFNumber *> *nillable _bodyWriteTask;
+    OFStream *nillable _requestBody;
+    AsyncTaskCompletionSource<OFNumber *> *nillable _bodyCloseSource;
     OFHTTPClientTaskOperation *nillable _retainedSelf;
 }
 
-- (instancetype)initWithClient: (OFHTTPClient *)client request: (OFHTTPRequest *)request redirects: (unsigned int)redirects
+- (instancetype)initWithClient: (OFHTTPClient *)client
+                        request: (OFHTTPRequest *)request
+                      redirects: (unsigned int)redirects
+                           body: (OFData *nillable)body
 {
     self = [super init];
     _client = client;
+
+    if (body != nilptr) {
+        auto headers = [request.headers mutableCopy];
+        if (headers == nilptr)
+            headers = [OFMutableDictionary dictionary];
+
+        if ([headers objectForKey: @"Content-Length"] == nilptr and
+            [headers objectForKey: @"Transfer-Encoding"] == nilptr)
+            [headers setObject: [OFString stringWithFormat: @"%zu",
+                body.count * body.itemSize] forKey: @"Content-Length"];
+
+        request.headers = headers;
+    }
+
     _request = request;
     _redirects = redirects;
+    _body = body;
     _source = [[AsyncTaskCompletionSource<OFHTTPResponse *> alloc] init];
     return self;
 }
@@ -104,7 +147,7 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     @try {
         [_client asyncPerformRequest: _request redirects: _redirects];
     } @catch (OFException *exception) {
-        [_source rejectWithError: exception];
+        [self _rejectWithObject: exception];
         [self _complete];
     }
 }
@@ -121,12 +164,12 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     }
 
     if (response == nilptr) {
-        [_source rejectWithError: [[AsyncHTTPMissingResponseException alloc] initWithRequest: request]];
+        [self _rejectWithObject: [[AsyncHTTPMissingResponseException alloc] initWithRequest: request]];
         [self _complete];
         return;
     }
 
-    [_source resolveWithResult: $assert_nonnil(response)];
+    [self _resolveWithResponse: $assert_nonnil(response)];
     [self _complete];
 }
 
@@ -144,17 +187,64 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
 - (void)client: (OFHTTPClient *)client wantsRequestBody: (OFStream *)requestBody request: (OFHTTPRequest *)request
 {
+    if (_body != nilptr) {
+        auto body = $assert_nonnil(_body);
+        _bodyWriteTask = [AsyncTask<OFNumber *> spawn: ^OFNumber *{
+            @try {
+                auto bytesWritten = [[requestBody taskToWriteData: body] await];
+                [[self _taskToCloseRequestBody: requestBody] await];
+                return bytesWritten;
+            } @catch (OFException *exception) {
+                [self _rejectWithObject: exception];
+                [self _complete];
+                [_client close];
+                @throw;
+            }
+        }];
+        return;
+    }
+
     if (_delegate != nilptr and [_delegate respondsToSelector: @selector(client:wantsRequestBody:request:)])
         [_delegate client: client wantsRequestBody: requestBody request: request];
 }
 
-- (void)client: (OFHTTPClient *)client didReceiveHeaders: (OFDictionary<OFString *, OFString *> *)headers statusCode: (short)statusCode request: (OFHTTPRequest *)request
+- (AsyncTask<OFNumber *> *)_taskToCloseRequestBody: (OFStream *)requestBody
+{
+    _requestBody = requestBody;
+    _bodyCloseSource = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
+
+    auto timer = [OFTimer timerWithTimeInterval: 0
+                                           target: self
+                                         selector: @selector(_closeRequestBody)
+                                          repeats: false];
+    [[OFRunLoop currentRunLoop] addTimer: timer forMode: OFDefaultRunLoopMode];
+
+    return [$assert_nonnil(_bodyCloseSource) task];
+}
+
+- (void)_closeRequestBody
+{
+    auto requestBody = $assert_nonnil(_requestBody);
+    auto source = $assert_nonnil(_bodyCloseSource);
+
+    @try {
+        [requestBody close];
+        [source resolveWithResult: @0];
+    } @catch (id exception) {
+        [source rejectWithError: [self _exceptionFromObject: exception]];
+    }
+
+    _requestBody = nilptr;
+    _bodyCloseSource = nilptr;
+}
+
+- (void)client: (OFHTTPClient *)client didReceiveHeaders: (OFDictionary<OFString *, OFString *> *)headers statusCode: (unsigned short)statusCode request: (OFHTTPRequest *)request
 {
     if (_delegate != nilptr and [_delegate respondsToSelector: @selector(client:didReceiveHeaders:statusCode:request:)])
         [_delegate client: client didReceiveHeaders: headers statusCode: statusCode request: request];
 }
 
-- (bool)client: (OFHTTPClient *)client shouldFollowRedirectToIRI: (OFIRI *)IRI statusCode: (short)statusCode request: (OFHTTPRequest *)request response: (OFHTTPResponse *)response
+- (bool)client: (OFHTTPClient *)client shouldFollowRedirectToIRI: (OFIRI *)IRI statusCode: (unsigned short)statusCode request: (OFHTTPRequest *)request response: (OFHTTPResponse *)response
 {
     if (_delegate != nilptr and [_delegate respondsToSelector: @selector(client:shouldFollowRedirectToIRI:statusCode:request:response:)])
         return [_delegate client: client shouldFollowRedirectToIRI: IRI statusCode: statusCode request: request response: response];
@@ -171,8 +261,21 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     _retainedSelf = nilptr;
 }
 
+- (void)_resolveWithResponse: (OFHTTPResponse *)response
+{
+    if (_sourceCompleted)
+        return;
+
+    _sourceCompleted = true;
+    [_source resolveWithResult: response];
+}
+
 - (void)_rejectWithObject: (id nillable)exception
 {
+    if (_sourceCompleted)
+        return;
+
+    _sourceCompleted = true;
     [_source rejectWithError: [self _exceptionFromObject: exception]];
 }
 

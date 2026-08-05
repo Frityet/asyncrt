@@ -22,7 +22,7 @@
 - (void)applicationDidFinishLaunching:_
 {
     for (OFNumber *n in [self rangeFrom: 0 to: 10])
-        OFLog(@"%d", n.intValue);
+        $log(@"{}", n.intValue);
 }
 
 @end

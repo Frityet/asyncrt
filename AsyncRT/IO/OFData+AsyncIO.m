@@ -12,7 +12,7 @@ int AsyncRT_OFData_AsyncIO_anchor = 0;
 @property(readonly, nonatomic) OFIRI *IRI;
 
 - (instancetype)initWithIRI: (OFIRI *)IRI;
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -23,7 +23,7 @@ int AsyncRT_OFData_AsyncIO_anchor = 0;
 @property(readonly, nonatomic) AsyncTask<OFData *> *task;
 
 - (instancetype)initWithIRI: (OFIRI *)IRI;
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 - (void)start;
 - (void)_startSynchronousReadFallback;
 - (void)_readStream: (OFStream *)stream;

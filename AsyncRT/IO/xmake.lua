@@ -5,4 +5,8 @@ target("AsyncRT.IO", function ()
     add_packages("objfw")
     add_deps("AsyncRT.Common", "AsyncRT.Core")
     add_files("*.m")
+
+    if is_plat("macosx") then
+        add_ldflags("-ObjC", { public = true })
+    end
 end)

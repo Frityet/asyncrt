@@ -157,6 +157,92 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
     return comp.task;
 }
 
++ (AsyncTask<OFArray *> *)all: (OFArray<AsyncTask *> *)tasks
+{
+    OFArray<AsyncTask *> *taskList = [tasks copy];
+    auto source = [[AsyncTaskCompletionSource<OFArray *> alloc] init];
+    auto results = [OFMutableArray<Optional<id> *> arrayWithCapacity: tasks.count];
+
+    for (size_t index = 0; index < tasks.count; index++)
+        [results addObject: Optional.none];
+
+    if (tasks.count == 0) {
+        [source resolveWithResult: [results copy]];
+        return source.task;
+    }
+
+    block_reference size_t pending = tasks.count;
+    block_reference bool completed = false;
+    auto executor = source.executor;
+
+    for (size_t index = 0; index < tasks.count; index++) {
+        auto resultIndex = index;
+        auto task = taskList[index];
+        unretained AsyncTask *unretainedTask = task;
+
+        [task _addContinuationOnExecutor: executor block: ^{
+            (void)taskList;
+            if (completed)
+                return;
+
+            @try {
+                id result = [unretainedTask await];
+                results[resultIndex] = [Optional some: result];
+                pending--;
+
+                if (pending == 0) {
+                    auto finalResults = [OFMutableArray arrayWithCapacity:
+                        results.count];
+                    for (Optional<id> *optional in results)
+                        [finalResults addObject: optional.value];
+
+                    completed = true;
+                    [source resolveWithResult: [finalResults copy]];
+                }
+            } @catch (OFException *exception) {
+                completed = true;
+                [source rejectWithError: exception];
+            }
+        }];
+    }
+
+    return source.task;
+}
+
++ (AsyncTask<OFNumber *> *)any: (OFArray<AsyncTask *> *)tasks
+{
+    if (tasks.count == 0)
+        return [AsyncTask<OFNumber *> rejectedWithError:
+            [OFInvalidArgumentException exception]];
+
+    OFArray<AsyncTask *> *taskList = [tasks copy];
+    auto source = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
+    block_reference bool completed = false;
+    auto executor = source.executor;
+
+    for (size_t index = 0; index < taskList.count; index++) {
+        auto taskIndex = index;
+        unretained AsyncTask *unretainedTask = taskList[index];
+
+        [unretainedTask _addContinuationOnExecutor: executor block: ^{
+            (void)taskList;
+            if (completed)
+                return;
+
+            @try {
+                (void)[unretainedTask await];
+                completed = true;
+                [source resolveWithResult: @(taskIndex)];
+            } @catch (OFException *exception) {
+                completed = true;
+                [source rejectWithError: exception];
+            }
+        }];
+    }
+
+    return source.task;
+}
+
 - (void)_waitUntilComplete [[direct]]
 {
     if (self.isComplete)

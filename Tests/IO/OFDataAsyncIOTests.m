@@ -3,6 +3,48 @@
 
 #pragma clang assume_nonnull begin
 
+[[subclassing_restricted, direct_members]]
+@interface AsyncIOHTTPServerDelegate : OFObject <OFHTTPServerDelegate>
+@end
+
+@implementation AsyncIOHTTPServerDelegate
+
+- (void)server: (OFHTTPServer *)server
+  didReceiveRequest: (OFHTTPRequest *)request
+        requestBody: (OFStream *nillable)requestBody
+           response: (OFHTTPResponse *)response
+{
+    if (requestBody == nilptr) {
+        response.statusCode = 400;
+        response.headers = @{ @"Content-Length": @"0" };
+        [response close];
+        return;
+    }
+
+    @try {
+        auto body = [requestBody readDataUntilEndOfStream];
+        response.statusCode = 200;
+        response.headers = @{
+            @"Content-Type": @"application/octet-stream",
+            @"Content-Length": [OFString stringWithFormat: @"%zu",
+                body.count * body.itemSize]
+        };
+        [response writeData: $assert_nonnil(body)];
+        [response close];
+    } @catch (OFException *exception) {
+        (void)exception;
+        @try {
+            response.statusCode = 500;
+            response.headers = @{ @"Content-Length": @"0" };
+            [response close];
+        } @catch (OFException *closeException) {
+            (void)closeException;
+        }
+    }
+}
+
+@end
+
 @interface OFDataAsyncIOTests : OTTestCase
 @end
 
@@ -22,6 +64,40 @@
     } @finally {
         if ([OFFileManager.defaultManager fileExistsAtPath: path])
             [OFFileManager.defaultManager removeItemAtPath: path];
+    }
+}
+
+- (void)testTaskToPerformRequestWithBody
+{
+    auto server = [OFHTTPServer server];
+    auto serverDelegate = [[AsyncIOHTTPServerDelegate alloc] init];
+    server.host = @"127.0.0.1";
+    server.port = 0;
+    server.numberOfThreads = 1;
+    server.delegate = serverDelegate;
+    [server start];
+
+    auto client = [[OFHTTPClient alloc] init];
+    auto request = [OFHTTPRequest requestWithIRI: [OFIRI IRIWithString:
+        [OFString stringWithFormat: @"http://127.0.0.1:%u/echo", server.port]]];
+    request.method = OFHTTPRequestMethodPost;
+    request.headers = @{ @"Content-Type": @"application/octet-stream" };
+
+    const char bytes[] = "async-http-body";
+    auto expected = [OFData dataWithItems: bytes count: sizeof(bytes) - 1];
+
+    @try {
+        auto response = [[client taskToPerformRequest: request body: expected]
+            runUntilCompletion];
+        OTAssert(response.statusCode == 200,
+            @"async HTTP body request must receive a successful response");
+
+        auto actual = [[response taskToReadBody] runUntilCompletion];
+        OTAssertEqualObjects(actual, expected,
+            @"async HTTP body request must send and receive the complete body");
+    } @finally {
+        [client close];
+        [server stop];
     }
 }
 

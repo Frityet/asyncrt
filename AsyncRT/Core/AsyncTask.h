@@ -23,7 +23,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 @property(readonly, nonatomic) AsyncTask *task;
 
 - (instancetype)initWithTask: (AsyncTask *)task [[designated_initailiser]];
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -44,7 +44,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 @property(readonly, nonatomic) bool isComplete, isPending, isCancelled;
 @property(retain, nonatomic) AsyncExecutor *executor;
 
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 - (instancetype)initResolvedWithResult: (TResult nillability_unspecified)result [[designated_initailiser]];
 - (instancetype)initRejectedWithError: (__kindof OFException *)error [[designated_initailiser]];
 
@@ -56,6 +56,18 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 + (instancetype)spawn: (TResult nillability_unspecified (^)())block [[method_family(new)]];
 
 + (instancetype)offload: (TResult nillability_unspecified (^)())block ontoPool: (ThreadPool *)pool [[method_family(new)]];
+
+/**
+ * Resolves with the results of all tasks in input order. The child tasks are
+ * observed concurrently and the aggregate task rejects when one rejects.
+ */
++ (AsyncTask<OFArray<TResult> *> *)all: (OFArray<AsyncTask<TResult> *> *)tasks;
+
+/**
+ * Resolves with the index of the first task to complete. The aggregate task
+ * rejects when the first task to complete rejects.
+ */
++ (AsyncTask<OFNumber *> *)any: (OFArray<AsyncTask<TResult> *> *)tasks;
 
 - (TResult nillability_unspecified)await;
 - (TResult nillability_unspecified)runUntilCompletion;

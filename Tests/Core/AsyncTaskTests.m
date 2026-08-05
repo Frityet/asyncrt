@@ -77,6 +77,70 @@
     OTAssertEqualObjects([outer await], @"inner", @"task await must allow nested executor work to make progress");
 }
 
+- (void)testAllCollectsResultsInInputOrder
+{
+    auto firstSource = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+    auto secondSource = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+    auto all = [AsyncTask<OFString *> all: @[
+        firstSource.task,
+        secondSource.task
+    ]];
+
+    [secondSource resolveWithResult: @"second"];
+    OTAssertTrue(all.isPending,
+        @"all must wait for every child task rather than the first completion");
+
+    [firstSource resolveWithResult: @"first"];
+    OTAssertEqualObjects([all await], (@[ @"first", @"second" ]),
+        @"all must preserve the input task order");
+}
+
+- (void)testAllPropagatesChildRejection
+{
+    auto source = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+    auto all = [AsyncTask<OFString *> all: @[ source.task ]];
+    auto error = [OFException exception];
+    block_reference bool didThrow = false;
+
+    [source rejectWithError: error];
+
+    @try {
+        [all await];
+    } @catch (OFException *caught) {
+        didThrow = true;
+        OTAssertEqual(caught, error,
+            @"all must propagate the child rejection error");
+    }
+
+    OTAssertTrue(didThrow, @"all must reject when a child task rejects");
+}
+
+- (void)testAllResolvesEmptyInput
+{
+    auto all = [AsyncTask<OFString *> all: @[]];
+    auto results = [all await];
+
+    OTAssertEqual(results.count, 0,
+        @"all must resolve with an empty result list for empty input");
+    OTAssertEqual(all.status, AsyncTaskStatus_RESOLVED,
+        @"all must resolve immediately for empty input");
+}
+
+- (void)testAnyResolvesWithFirstCompletedIndex
+{
+    auto firstSource = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+    auto secondSource = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+    auto any = [AsyncTask<OFString *> any: @[
+        firstSource.task,
+        secondSource.task
+    ]];
+
+    [secondSource resolveWithResult: @"second"];
+
+    OTAssertEqualObjects([any await], @1,
+        @"any must resolve with the first completed task index");
+}
+
 @end
 
 #pragma clang assume_nonnull end

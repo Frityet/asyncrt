@@ -431,7 +431,7 @@ static Coroutine<OFString *> *coroutineYieldingStrings(OFArray<OFString *> *stri
         [OFApplication terminateWithStatus: EXIT_FAILURE];
     }
 
-    OFString *selectorName = [arguments objectAtIndex: 0];
+    OFString *selectorName = arguments[0];
     SEL selector = sel_registerName(selectorName.UTF8String);
     CoroutineTests *testCase = [[[CoroutineTests alloc] init] autorelease];
 

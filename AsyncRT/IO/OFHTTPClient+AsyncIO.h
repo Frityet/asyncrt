@@ -13,7 +13,7 @@ static int *const AsyncRT_OFHTTPClient_AsyncIO_anchor_reference __attribute__((u
 @property(readonly, nonatomic) OFHTTPRequest *request;
 
 - (instancetype)initWithRequest: (OFHTTPRequest *)request;
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -27,6 +27,8 @@ static int *const AsyncRT_OFHTTPClient_AsyncIO_anchor_reference __attribute__((u
 
 - (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request;
 - (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects;
+- (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request body: (OFData *)body;
+- (AsyncTask<OFHTTPResponse *> *)taskToPerformRequest: (OFHTTPRequest *)request redirects: (unsigned int)redirects body: (OFData *)body;
 - (AsyncTask<OFData *> *)taskToReadBodyForRequest: (OFHTTPRequest *)request;
 
 @end
