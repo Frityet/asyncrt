@@ -16,5 +16,28 @@
     return self;
 }
 
+-(OFString *)description
+{
+    return [OFString stringWithFormat: @"Nil reference for expression: %@", _expression];
+}
+
 @end
+
+@implementation CastFailureException
+
+- (instancetype)initWithCastFrom:(Class)from to:(Class)to
+{
+    self = [super init];
+    _from = from;
+    _to = to;
+    return self;
+}
+
+- (OFString *)description
+{
+    return [OFString stringWithFormat: @"Cast failure from %@ to %@", _from, _to];
+}
+
+@end
+
 

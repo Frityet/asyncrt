@@ -101,6 +101,37 @@
     }
 }
 
+- (void)testTaskToReadString
+{
+    auto server = [OFHTTPServer server];
+    auto serverDelegate = [[AsyncIOHTTPServerDelegate alloc] init];
+    server.host = @"127.0.0.1";
+    server.port = 0;
+    server.numberOfThreads = 1;
+    server.delegate = serverDelegate;
+    [server start];
+
+    auto client = [[OFHTTPClient alloc] init];
+    auto request = [OFHTTPRequest requestWithIRI: [OFIRI IRIWithString:
+        [OFString stringWithFormat: @"http://127.0.0.1:%u/echo", server.port]]];
+    request.method = OFHTTPRequestMethodPost;
+    request.headers = @{ @"Content-Type": @"text/plain" };
+
+    auto expected = [OFString stringWithUTF8String: "async-http-string"];
+
+    @try {
+        auto response = [[client taskToPerformRequest: request
+                                                  body: [expected dataWithEncoding: OFStringEncodingUTF8]]
+            runUntilCompletion];
+        auto actual = [[response taskToReadString] runUntilCompletion];
+        OTAssertEqualObjects(actual, expected,
+            @"async HTTP response string read must decode the complete body");
+    } @finally {
+        [client close];
+        [server stop];
+    }
+}
+
 @end
 
 #pragma clang assume_nonnull end

@@ -1,0 +1,128 @@
+#import "CXXRecordDecl.h"
+
+#pragma clang assume_nonnull begin
+
+@implementation CXXRecordDecl
+
+- (instancetype)initFromJSONObject: (id)obj
+{
+    self = [super init];
+
+    auto dictionary = $cast(OFDictionary, obj);
+    {
+        auto value = dictionary[@"TemplateInstantiationPattern"];
+        if (value != nilptr)
+            _TemplateInstantiationPattern = $cast(OFString, value);
+    }
+    {
+        auto value = dictionary[@"bases"];
+        if (value != nilptr) {
+            auto array = $cast(OFArray, value);
+            auto converted = [OFMutableArray arrayWithCapacity: array.count];
+            for (id item in array)
+                [converted addObject: [[CxxBaseSpecifier alloc] initFromJSONObject: item]];
+            _bases = [converted copy];
+        }
+    }
+    {
+        auto value = dictionary[@"completeDefinition"];
+        if (value != nilptr)
+            _completeDefinition = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"definitionData"];
+        if (value != nilptr)
+            _definitionData = [[CxxRecordDefinitionData alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"firstRedecl"];
+        if (value != nilptr)
+            _firstRedecl = $cast(OFString, value);
+    }
+    {
+        auto value = dictionary[@"id"];
+        _id = $cast(OFString, $assert_nonnil(value));
+    }
+    {
+        auto value = dictionary[@"inner"];
+        if (value != nilptr) {
+            auto array = $cast(OFArray, value);
+            auto converted = [OFMutableArray arrayWithCapacity: array.count];
+            for (id item in array)
+                [converted addObject: [[AstObject alloc] initFromJSONObject: item]];
+            _inner = [converted copy];
+        }
+    }
+    {
+        auto value = dictionary[@"isHidden"];
+        if (value != nilptr)
+            _isHidden = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"isImplicit"];
+        if (value != nilptr)
+            _isImplicit = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"isInvalid"];
+        if (value != nilptr)
+            _isInvalid = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"isReferenced"];
+        if (value != nilptr)
+            _isReferenced = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"isUsed"];
+        if (value != nilptr)
+            _isUsed = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"kind"];
+        _kind = $cast(OFString, $assert_nonnil(value));
+    }
+    {
+        auto value = dictionary[@"loc"];
+        _loc = [[SourceLocation alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"mangledName"];
+        if (value != nilptr)
+            _mangledName = $cast(OFString, value);
+    }
+    {
+        auto value = dictionary[@"name"];
+        if (value != nilptr)
+            _name = $cast(OFString, value);
+    }
+    {
+        auto value = dictionary[@"parentDeclContextId"];
+        if (value != nilptr)
+            _parentDeclContextId = $cast(OFString, value);
+    }
+    {
+        auto value = dictionary[@"previousDecl"];
+        if (value != nilptr)
+            _previousDecl = $cast(OFString, value);
+    }
+    {
+        auto value = dictionary[@"range"];
+        _range = [[SourceRange alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"strict-pack-match"];
+        if (value != nilptr)
+            _strictPackMatch = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"tagUsed"];
+        _tagUsed = $cast(OFString, $assert_nonnil(value));
+    }
+
+    return self;
+}
+
+@end
+
+#pragma clang assume_nonnull end

@@ -1,0 +1,17 @@
+target("AsyncRT.Tools.CodeGen.Clang", function()
+    set_kind("static")
+    add_deps("AsyncRT.Core", "AsyncRT.Common")
+    add_files("src/Clang/**.m")
+end)
+
+target("AsyncRT.Tools.CodeGen", function()
+    set_kind("binary")
+    set_filename("codegen")
+    add_deps("AsyncRT.Core", "AsyncRT.Common", "AsyncRT.IO")
+    add_deps("AsyncRT.Tools.CodeGen.Clang")
+      add_files("src/**.m|src/Clang/**.m")
+
+    on_load(function(target)
+        target:add("runenvs", "ASYNC_RUNTIME_PROJECT_DIR", os.projectdir())
+    end)
+end)

@@ -12,7 +12,7 @@
 
 + (OFData *)_allLoadedClassPointers;
 + (Class)_moduleClassForPluginPath: (OFString *)path;
-+ (bool)_class: (Class)cls implementsProtocol: (Protocol *unretained)protocol;
++ (bool)_doesClass: (Class)cls implementProtocol: (Protocol *unretained)protocol;
 + (bool)_classPointers: (OFData *)classPointers containClass: (Class)cls;
 + (OFData *)_classPointersIn: (OFData *)classPointers excluding: (OFData *)excludedClassPointers;
 
@@ -23,7 +23,7 @@
 - (instancetype)initWithPath: (OFString *)path
 {
     self = [super init];
-    _path = [path copy];
+    _path = path;
     return self;
 }
 
@@ -108,7 +108,7 @@
     }
 }
 
-+ (bool)_class: (Class)cls implementsProtocol: (Protocol *unretained)protocol
++ (bool)_doesClass: (Class)cls implementProtocol: (Protocol *unretained)protocol
 {
     const char *className = class_getName(cls);
     Class currentClass = (className != nullptr ? objc_getClass(className) : Nil);
@@ -167,9 +167,9 @@
 
     self = [super init];
     _isCurrentProcess = false;
-    _path = [path copy];
+    _path = path;
     Class moduleClass = [Plugin _moduleClassForPluginPath: _path];
-    OFData *classesBeforeLoad = [Plugin _allLoadedClassPointers];
+    OFData *classesBeforeLoad = Plugin._allLoadedClassPointers;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -180,7 +180,7 @@
         @throw [OFInvalidArgumentException exception];
 
     _module = module;
-    _loadedClassPointers = [Plugin _classPointersIn: [Plugin _allLoadedClassPointers]
+    _loadedClassPointers = [Plugin _classPointersIn: Plugin._allLoadedClassPointers
                                           excluding: classesBeforeLoad];
     return self;
 }
@@ -208,18 +208,19 @@
 
 - (OFData *)classPointersThatImplementProtocol: (Protocol *unretained)protocol
 {
-    OFData *classPointers = (_isCurrentProcess ? [Plugin _allLoadedClassPointers] : _loadedClassPointers);
+    OFData *classPointers = (_isCurrentProcess ? Plugin._allLoadedClassPointers : _loadedClassPointers);
     auto classes = (Class unretained const *)classPointers.items;
     auto matchingClassPointers = [OFMutableData dataWithItemSize: sizeof(Class)];
 
     for (size_t classIndex = 0; classIndex < classPointers.count; classIndex++) {
         Class cls = classes[classIndex];
 
-        if ([Plugin _class: cls implementsProtocol: protocol])
+        if ([Plugin _doesClass: cls implementProtocol: protocol])
             [matchingClassPointers addItem: &cls];
     }
 
-    return [matchingClassPointers copy];
+    [matchingClassPointers makeImmutable];
+    return matchingClassPointers;
 }
 
 @end

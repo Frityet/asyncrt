@@ -1,0 +1,82 @@
+#import "ObjCPropertyRefExpr.h"
+
+#pragma clang assume_nonnull begin
+
+@implementation ObjCPropertyRefExpr
+
+- (instancetype)initFromJSONObject: (id)obj
+{
+    self = [super init];
+
+    auto dictionary = $cast(OFDictionary, obj);
+    {
+        auto value = dictionary[@"getter"];
+        if (value != nilptr)
+            _getter = [[BareDeclRef alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"id"];
+        _id = $cast(OFString, $assert_nonnil(value));
+    }
+    {
+        auto value = dictionary[@"inner"];
+        if (value != nilptr) {
+            auto array = $cast(OFArray, value);
+            auto converted = [OFMutableArray arrayWithCapacity: array.count];
+            for (id item in array)
+                [converted addObject: [[AstObject alloc] initFromJSONObject: item]];
+            _inner = [converted copy];
+        }
+    }
+    {
+        auto value = dictionary[@"isMessagingGetter"];
+        if (value != nilptr)
+            _isMessagingGetter = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"isMessagingSetter"];
+        if (value != nilptr)
+            _isMessagingSetter = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"isSuperReceiver"];
+        if (value != nilptr)
+            _isSuperReceiver = [$cast(OFNumber, value) boolValue];
+    }
+    {
+        auto value = dictionary[@"kind"];
+        _kind = $cast(OFString, $assert_nonnil(value));
+    }
+    {
+        auto value = dictionary[@"property"];
+        if (value != nilptr)
+            _property = [[BareDeclRef alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"propertyKind"];
+        _propertyKind = $cast(OFString, $assert_nonnil(value));
+    }
+    {
+        auto value = dictionary[@"range"];
+        _range = [[SourceRange alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"setter"];
+        if (value != nilptr)
+            _setter = [[BareDeclRef alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"type"];
+        _type = [[JSONQualType alloc] initFromJSONObject: $assert_nonnil(value)];
+    }
+    {
+        auto value = dictionary[@"valueCategory"];
+        _valueCategory = $cast(OFString, $assert_nonnil(value));
+    }
+
+    return self;
+}
+
+@end
+
+#pragma clang assume_nonnull end

@@ -87,6 +87,36 @@ constexpr size_t DEFAULT_READ_BUFFER_LEN = 64 * 1024;
     return source.task;
 }
 
+- (AsyncTask<OFString *> *)taskToReadString
+{
+    return [self taskToReadStringWithEncoding: self.encoding];
+}
+
+- (AsyncTask<OFString *> *)taskToReadStringWithEncoding: (OFStringEncoding)encoding
+{
+    if ([self isKindOfClass: OFFile.class])
+        return [AsyncTask<OFString *> spawn: ^OFString *{
+            return [self readStringWithEncoding: encoding];
+        }];
+
+    auto source = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+
+    @try {
+        [self asyncReadStringWithEncoding: encoding handler: ^bool(OFStream *, OFString *nillable string, id nillable exception) {
+            if (exception != nilptr)
+                [source rejectWithError: [self _asyncRTExceptionFromObject: exception]];
+            else
+                [source resolveWithResult: string];
+
+            return false;
+        }];
+    } @catch (OFException *exception) {
+        [source rejectWithError: exception];
+    }
+
+    return source.task;
+}
+
 - (AsyncTask<OFNumber *> *)taskToWriteData: (OFData *)data
 {
     auto source = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
@@ -113,6 +143,13 @@ constexpr size_t DEFAULT_READ_BUFFER_LEN = 64 * 1024;
 
 - (AsyncTask<OFNumber *> *)taskToWriteString: (OFString *)string encoding: (OFStringEncoding)encoding
 {
+    if ([self isKindOfClass: OFFile.class])
+        return [AsyncTask<OFNumber *> spawn: ^OFNumber *{
+            [self writeString: string encoding: encoding];
+            auto data = [string dataWithEncoding: encoding];
+            return @(data.count * data.itemSize);
+        }];
+
     auto source = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
 
     @try {

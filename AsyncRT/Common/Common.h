@@ -43,6 +43,14 @@
 
 @end
 
+@interface CastFailureException : OFException
+
+@property(nonatomic, readonly) Class from, to;
+
+- (instancetype)initWithCastFrom:(Class)from to:(Class)to;
+
+@end
+
 #define $as_nonnil(...) (__builtin_assume((__VA_ARGS__) != nilptr), (typeof(typeof(*(__VA_ARGS__)) *nonnil))(__VA_ARGS__))
 #if defined(NDEBUG)
 #   define $assert_nonnil(...) $as_nonnil(__VA_ARGS__)
@@ -56,11 +64,11 @@
     })
 #endif
 
-#define $cast(to, ...) ({\
+#define $cast(_to, ...) (typeof(typeof(_to) *nonnil))({\
     __auto_type _val = (__VA_ARGS__); \
-    if (not [_val isKindOfClass: [to class]])\
-        @throw [OFInvalidArgumentException exception];\
-    (typeof(typeof(*_val) *nonnil))_val;\
+    if (not [_val isKindOfClass: [_to class]])\
+        @throw [[CastFailureException alloc] initWithCastFrom: (Class)[_val class] to: (Class)[_to class]];\
+    _val;\
 })
 
 

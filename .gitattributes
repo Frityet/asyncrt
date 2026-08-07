@@ -1,2 +1,3 @@
 src/extern/** linguist-vendored
 src/extern/** -diff
+Tools/CodeGen/src/Clang/** linguist-vendored
