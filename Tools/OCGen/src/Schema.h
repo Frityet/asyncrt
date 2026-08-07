@@ -245,7 +245,7 @@
 + (instancetype)fromJSONObject: (id)obj;
 - (JSONSchema *)schemaForReference: (OFString *)reference;
 - (void)verifyJSONObject: (id)obj;
-- (AsyncTask *)taskToGeneratedInterfacesToDirectory: (OFIRI *)dir;
+- (AsyncTask *)taskToGenerateInterfacesToDirectory: (OFIRI *)dir;
 
 @end
 

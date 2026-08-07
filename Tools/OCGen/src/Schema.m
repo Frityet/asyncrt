@@ -1364,7 +1364,7 @@
     return schema;
 }
 
-- (AsyncTask *)taskToGeneratedInterfacesToDirectory: (OFIRI *)dir
+- (AsyncTask *)taskToGenerateInterfacesToDirectory: (OFIRI *)dir
 {
     return [SchemaObjectiveCGenerationSupport taskToGenerateInterfacesFromSchema: self toDirectory: dir];
 }

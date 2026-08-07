@@ -34,7 +34,7 @@
 
 - (void)_generateSchema: (Schema *)schema toDirectory: (OFIRI *)directory
 {
-    [[schema taskToGeneratedInterfacesToDirectory: directory] runUntilCompletion];
+    [[schema taskToGenerateInterfacesToDirectory: directory] runUntilCompletion];
 }
 
 - (OFString *)_contentsOfGeneratedFile: (OFString *)fileName inDirectory: (OFIRI *)directory

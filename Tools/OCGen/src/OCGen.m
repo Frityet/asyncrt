@@ -31,7 +31,7 @@ constexpr auto PROJECT_DIRECTORY_ENVIRONMENT_KEY = @"ASYNC_RUNTIME_PROJECT_DIR";
 
         auto schema = [Schema fromJSONObject: schemaString.objectByParsingJSON];
         auto directory = OFApplication.arguments.count > 0 ? [OFIRI fileIRIWithPath: $assert_nonnil(OFApplication.arguments[0]) isDirectory: true] : OFFileManager.defaultManager.currentDirectoryIRI;
-        [[schema taskToGeneratedInterfacesToDirectory: directory] await];
+        [[schema taskToGenerateInterfacesToDirectory: directory] await];
         $log(@"Generated {} and per-interface sources in {}", GENERATED_HEADER_FILENAME, directory.string);
         [OFApplication terminateWithStatus: 0];
 
