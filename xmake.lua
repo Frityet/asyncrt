@@ -43,7 +43,7 @@ add_flags {
     "-Wno-missing-braces"
 }
 
-if is_mode("debug") then
+if is_mode("debug", "asan", "tsan") then
     add_flags("-fobjc-disable-direct-methods-for-testing")
 end
 
@@ -51,7 +51,7 @@ if is_kind("shared") then
     add_flags("-fPIC")
 end
 
-if is_plat("linux") and is_mode("debug") then
+if is_plat("linux") and is_mode("debug", "asan", "tsan") then
     add_ldflags("-rdynamic")
     add_cxflags("-fno-omit-frame-pointer")
     add_mflags("-fno-omit-frame-pointer")

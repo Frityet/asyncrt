@@ -12,6 +12,7 @@ typedef void (^AsyncExecutorBlock)();
     @private size_t _jobIdx;
     @private OFMutex *_lock;
     @private OFRunLoop *_runLoop;
+    @private OFTimer *nillable _drainTimer;
     
 }
 @property(nonatomic) bool shouldShutdown;
