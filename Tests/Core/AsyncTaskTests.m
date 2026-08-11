@@ -77,6 +77,21 @@
     OTAssertEqualObjects([outer await], @"inner", @"task await must allow nested executor work to make progress");
 }
 
+- (void)testCompletionFromAnotherThreadWakesNonCoroutineAwait
+{
+    auto source = [[AsyncTaskCompletionSource<OFString *> alloc] init];
+    OFThread *worker = [OFThread threadWithBlock: ^ id nillable {
+        [OFThread sleepForTimeInterval: 0.01];
+        [source resolveWithResult: @"cross-thread"];
+        return nilptr;
+    }];
+    [worker start];
+
+    OTAssertEqualObjects([source.task await], @"cross-thread",
+        @"cross-thread completion must wake a run-loop-backed await");
+    [worker join];
+}
+
 @end
 
 #pragma clang assume_nonnull end
