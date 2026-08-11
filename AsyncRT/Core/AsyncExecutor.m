@@ -1,6 +1,7 @@
 #include "AsyncExecutor.h"
 
 #include <float.h>
+#include <stdlib.h>
 
 #pragma clang assume_nonnull begin
 
@@ -8,7 +9,61 @@ constexpr auto CURRENT_EXECUTOR_TD_KEY = @"AsyncRT.Core.AsyncExecutor.current";
 
 constexpr auto CLEANUP_QUEUE_THRESHOLD = 128UL;
 
+static OFMutableDictionary *nillable mainExecutorThreadDictionary;
+
+@interface AsyncExecutor ()
+- (void)_shutdown;
+@end
+
+/* Invalidating an OFTimer releases its target, but ObjFW does not remove the
+ * timer from its run loop. These ObjFW private methods are direct, so call
+ * their direct symbols with the direct-method ABI rather than objc_msgSend. */
+extern void _i_OFRunLoop__of_removeTimer_forMode_(
+    OFRunLoop *, OFTimer *, OFRunLoopMode);
+extern void _i_OFTimer__of_setInRunLoop_mode_(
+    OFTimer *, OFRunLoop *nillable, OFRunLoopMode nillable);
+
+@interface AsyncExecutorThreadState : OFObject {
+    @private AsyncExecutor *_executor;
+}
+@property(readonly, nonatomic) AsyncExecutor *executor;
+- (instancetype)initWithExecutor: (AsyncExecutor *)executor;
+@end
+
+@implementation AsyncExecutorThreadState
+
+@synthesize executor = _executor;
+
+- (instancetype)initWithExecutor: (AsyncExecutor *)executor
+{
+    self = [super init];
+    _executor = executor;
+    return self;
+}
+
+- (void)dealloc
+{
+    [_executor _shutdown];
+}
+
+@end
+
+static void
+cleanupCurrentExecutor(void)
+{
+    OFMutableDictionary *nillable threadDictionary =
+        mainExecutorThreadDictionary ?: OFThread.threadDictionary;
+    [threadDictionary removeObjectForKey: CURRENT_EXECUTOR_TD_KEY];
+    mainExecutorThreadDictionary = nilptr;
+}
+
 @implementation AsyncExecutor
+
++ (void)initialize
+{
+    if (self == AsyncExecutor.class and atexit(cleanupCurrentExecutor) != 0)
+        @throw [OFInitializationFailedException exceptionWithClass: self];
+}
 
 - (void)setMaxDrainCount:(size_t)maxDrainCount
 {
@@ -19,7 +74,21 @@ constexpr auto CLEANUP_QUEUE_THRESHOLD = 128UL;
 }
 
 + (instancetype)current
-{ return OFThread.threadDictionary[CURRENT_EXECUTOR_TD_KEY] ?: (OFThread.threadDictionary[CURRENT_EXECUTOR_TD_KEY] = [[self alloc] init]); }
+{
+    OFMutableDictionary *threadDictionary = $assert_nonnil(OFThread.threadDictionary);
+    AsyncExecutorThreadState *state = threadDictionary[CURRENT_EXECUTOR_TD_KEY];
+
+    if (OFThread.isMainThread)
+        mainExecutorThreadDictionary = threadDictionary;
+
+    if (state == nilptr) {
+        state = [[AsyncExecutorThreadState alloc]
+            initWithExecutor: [[self alloc] init]];
+        threadDictionary[CURRENT_EXECUTOR_TD_KEY] = state;
+    }
+
+    return state.executor;
+}
 
 - (instancetype)init
 {
@@ -31,6 +100,38 @@ constexpr auto CLEANUP_QUEUE_THRESHOLD = 128UL;
     _maxDrainCount = 64;
     _jobIdx = 0;
     return self;
+}
+
+- (void)_shutdown
+{
+    OFTimer *nillable timer;
+    OFRunLoop *runLoop;
+
+    [_lock lock];
+    @try {
+        if (_shouldShutdown)
+            return;
+
+        _shouldShutdown = true;
+        _drainScheduled = false;
+        [_workQueue removeAllObjects];
+        _jobIdx = 0;
+
+        timer = _drainTimer;
+        _drainTimer = nilptr;
+        runLoop = _runLoop;
+        _runLoop = nilptr;
+    } @finally {
+        [_lock unlock];
+    }
+
+    if (timer != nilptr) {
+        OFTimer *timerToCancel = $assert_nonnil(timer);
+        _i_OFRunLoop__of_removeTimer_forMode_(
+            runLoop, timerToCancel, OFDefaultRunLoopMode);
+        _i_OFTimer__of_setInRunLoop_mode_(timerToCancel, nilptr, nilptr);
+        [timerToCancel invalidate];
+    }
 }
 
 - (void)_cleanWorkQueue
@@ -67,7 +168,6 @@ constexpr auto CLEANUP_QUEUE_THRESHOLD = 128UL;
         if (_isDraining)
             return;
         
-        _drainScheduled = false;
         _isDraining = true;
     } @finally {
         [_lock unlock];
@@ -101,7 +201,8 @@ constexpr auto CLEANUP_QUEUE_THRESHOLD = 128UL;
             [self _cleanWorkQueue];
             _isDraining = false;
 
-            if (not _shouldShutdown and _jobIdx < _workQueue.count) {
+            if (not _shouldShutdown and not _drainScheduled
+                and _jobIdx < _workQueue.count) {
                 schedAnother = true;
                 _drainScheduled = true;
             }
@@ -116,7 +217,37 @@ constexpr auto CLEANUP_QUEUE_THRESHOLD = 128UL;
 
 - (void)scheduleDrain
 {
-    [_runLoop addTimer: [OFTimer timerWithTimeInterval: 0.0 target: self selector: @selector(_drain) repeats: false]];
+    OFTimer *timer = [OFTimer timerWithTimeInterval: 0.0
+        target: self
+        selector: @selector(_drainTimerDidFire)
+        repeats: false];
+
+    [_lock lock];
+    @try {
+        if (_shouldShutdown)
+            return;
+
+        if (_drainTimer != nilptr)
+            return;
+
+        _drainTimer = timer;
+        [_runLoop addTimer: timer];
+    } @finally {
+        [_lock unlock];
+    }
+}
+
+- (void)_drainTimerDidFire
+{
+    [_lock lock];
+    @try {
+        _drainTimer = nilptr;
+        _drainScheduled = false;
+    } @finally {
+        [_lock unlock];
+    }
+
+    [self _drain];
 }
 
 - (bool)_isIdle
