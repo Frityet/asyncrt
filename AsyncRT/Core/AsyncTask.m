@@ -323,6 +323,7 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
                       error: (OFException *nillable)error [[direct]]
 {
     OFArray<AsyncTaskContinuationBlock> *nillable continuations = nilptr;
+    AsyncExecutor *nillable executor = nilptr;
 
     [_condition lock];
     @try {
@@ -334,6 +335,7 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
         _status = status;
         _block = nilptr;
         _coroutine = nilptr;
+        executor = _executor;
         continuations = [_continuations copy];
         [_continuations removeAllObjects];
         [_condition broadcast];
@@ -345,6 +347,15 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
         AsyncTaskContinuationBlock continuation = continuationObject;
         continuation();
     }
+
+    /*
+     * A non-coroutine waiter services its executor's run loop rather than
+     * blocking on _condition.  Completion can arrive from another thread
+     * (for example, transport-driven cancellation), so enqueue a no-op to
+     * wake that run loop even when there are no registered continuations.
+     */
+    if (executor != nilptr)
+        [$assert_nonnil(executor) enqueue: ^{}];
 
     return true;
 }
