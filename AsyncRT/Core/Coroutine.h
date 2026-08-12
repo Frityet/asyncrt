@@ -36,7 +36,7 @@ static inline OFString *describe(enum CoroutineStatus status)
 @property(readonly) Coroutine *coroutine;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine [[designated_initailiser]];
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -47,8 +47,8 @@ static inline OFString *describe(enum CoroutineStatus status)
 @property(readonly) enum CoroutineStatus toState;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine fromState: (enum CoroutineStatus)fromState toState: (enum CoroutineStatus)toState [[designated_initailiser]];
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[unavailable]];
-- (instancetype)init [[unavailable]];
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[clang::unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -58,8 +58,8 @@ static inline OFString *describe(enum CoroutineStatus status)
 @property(readonly) OFString *operation;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation [[designated_initailiser]];
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[unavailable]];
-- (instancetype)init [[unavailable]];
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[clang::unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -70,8 +70,8 @@ static inline OFString *describe(enum CoroutineStatus status)
 @property(readonly) int errorCode;
 
 - (instancetype)initWithCoroutine: (Coroutine *)coroutine operation: (OFString *)operation errorCode: (int)errorCode [[designated_initailiser]];
-- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[unavailable]];
-- (instancetype)init [[unavailable]];
+- (instancetype)initWithCoroutine: (Coroutine *)coroutine [[clang::unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 

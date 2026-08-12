@@ -22,7 +22,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 @property(readonly, nonatomic) AsyncTask *task;
 
 - (instancetype)initWithTask: (AsyncTask *)task [[designated_initailiser]];
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 
 @end
 
@@ -43,7 +43,7 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 @property(readonly, nonatomic) bool isComplete, isPending, isCancelled;
 @property(retain, nonatomic) AsyncExecutor *executor;
 
-- (instancetype)init [[unavailable]];
+- (instancetype)init [[clang::unavailable]];
 - (instancetype)initResolvedWithResult: (TResult nillability_unspecified)result [[designated_initailiser]];
 - (instancetype)initRejectedWithError: (__kindof OFException *)error [[designated_initailiser]];
 
@@ -60,7 +60,8 @@ enum [[clang::enum_extensibility(closed)]] AsyncTaskStatus {
 
 @end
 
-[[direct_members, subclassing_restricted]]
+/* -init overrides OFObject and therefore cannot use objc_direct. */
+[[subclassing_restricted]]
 @interface AsyncTaskCompletionSource<covariant TResult> : OFObject {
     @private AsyncTask<TResult> *_task;
 }

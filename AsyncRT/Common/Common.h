@@ -17,7 +17,6 @@
 #define retained_cast __bridge_retained
 #define method_family(name) clang::objc_method_family(name)
 #define designated_initailiser clang::objc_designated_initializer
-#define unavailable clang::unavailable
 
 #define direct clang::objc_direct
 #define direct_members clang::objc_direct_members

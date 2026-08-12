@@ -19,7 +19,7 @@ typedef void (^AsyncExecutorBlock)();
 
 @property(readonly, nonatomic, class) AsyncExecutor *current;
 
-- (instancetype)init [[unavailable("Use +current instead")]];
+- (instancetype)init [[clang::unavailable("Use +current instead")]];
 
 - (void)enqueue: (AsyncExecutorBlock)block;
 - (void)runUntil: (bool (^)(void))condition;
