@@ -15,14 +15,6 @@ static OFMutableDictionary *nillable mainExecutorThreadDictionary;
 - (void)_shutdown;
 @end
 
-/* Invalidating an OFTimer releases its target, but ObjFW does not remove the
- * timer from its run loop. These ObjFW private methods are direct, so call
- * their direct symbols with the direct-method ABI rather than objc_msgSend. */
-extern void _i_OFRunLoop__of_removeTimer_forMode_(
-    OFRunLoop *, OFTimer *, OFRunLoopMode);
-extern void _i_OFTimer__of_setInRunLoop_mode_(
-    OFTimer *, OFRunLoop *nillable, OFRunLoopMode nillable);
-
 @interface AsyncExecutorThreadState : OFObject {
     @private AsyncExecutor *_executor;
 }
@@ -105,7 +97,6 @@ cleanupCurrentExecutor(void)
 - (void)_shutdown
 {
     OFTimer *nillable timer;
-    OFRunLoop *runLoop;
 
     [_lock lock];
     @try {
@@ -119,19 +110,13 @@ cleanupCurrentExecutor(void)
 
         timer = _drainTimer;
         _drainTimer = nilptr;
-        runLoop = _runLoop;
         _runLoop = nilptr;
     } @finally {
         [_lock unlock];
     }
 
-    if (timer != nilptr) {
-        OFTimer *timerToCancel = $assert_nonnil(timer);
-        _i_OFRunLoop__of_removeTimer_forMode_(
-            runLoop, timerToCancel, OFDefaultRunLoopMode);
-        _i_OFTimer__of_setInRunLoop_mode_(timerToCancel, nilptr, nilptr);
-        [timerToCancel invalidate];
-    }
+    if (timer != nilptr)
+        [$assert_nonnil(timer) invalidate];
 }
 
 - (void)_cleanWorkQueue
