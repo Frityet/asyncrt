@@ -1,5 +1,6 @@
 #import "OFHTTPClient+AsyncIO.h"
 
+#import <ObjFW/objfw-defs.h>
 #import <ObjFWTLS/ObjFWTLS.h>
 
 #pragma clang assume_nonnull begin
@@ -7,6 +8,13 @@
 int AsyncRT_OFHTTPClient_AsyncIO_anchor = 0;
 
 static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
+
+#if defined(OBJFW_VERSION_MAJOR) && \
+    (OBJFW_VERSION_MAJOR > 1 || OBJFW_VERSION_MINOR >= 6)
+typedef unsigned short AsyncRTHTTPStatusCode;
+#else
+typedef short AsyncRTHTTPStatusCode;
+#endif
 
 [[subclassing_restricted, direct_members]]
 @interface OFHTTPClientTaskOperation : OFObject <OFHTTPClientDelegate>
@@ -112,6 +120,9 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 {
     self = [super init];
     _client = client;
+
+    if (body != nilptr && (body.count == 0 || body.itemSize == 0))
+        body = nilptr;
 
     if (body != nilptr) {
         auto headers = [request.headers mutableCopy];
@@ -238,13 +249,13 @@ static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
     _bodyCloseSource = nilptr;
 }
 
-- (void)client: (OFHTTPClient *)client didReceiveHeaders: (OFDictionary<OFString *, OFString *> *)headers statusCode: (unsigned short)statusCode request: (OFHTTPRequest *)request
+- (void)client: (OFHTTPClient *)client didReceiveHeaders: (OFDictionary<OFString *, OFString *> *)headers statusCode: (AsyncRTHTTPStatusCode)statusCode request: (OFHTTPRequest *)request
 {
     if (_delegate != nilptr and [_delegate respondsToSelector: @selector(client:didReceiveHeaders:statusCode:request:)])
         [_delegate client: client didReceiveHeaders: headers statusCode: statusCode request: request];
 }
 
-- (bool)client: (OFHTTPClient *)client shouldFollowRedirectToIRI: (OFIRI *)IRI statusCode: (unsigned short)statusCode request: (OFHTTPRequest *)request response: (OFHTTPResponse *)response
+- (bool)client: (OFHTTPClient *)client shouldFollowRedirectToIRI: (OFIRI *)IRI statusCode: (AsyncRTHTTPStatusCode)statusCode request: (OFHTTPRequest *)request response: (OFHTTPResponse *)response
 {
     if (_delegate != nilptr and [_delegate respondsToSelector: @selector(client:shouldFollowRedirectToIRI:statusCode:request:response:)])
         return [_delegate client: client shouldFollowRedirectToIRI: IRI statusCode: statusCode request: request response: response];

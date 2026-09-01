@@ -14,6 +14,13 @@
         requestBody: (OFStream *nillable)requestBody
            response: (OFHTTPResponse *)response
 {
+    if ([request.IRI.path isEqual: @"/empty"] && requestBody == nilptr) {
+        response.statusCode = 204;
+        response.headers = @{ @"Content-Length": @"0" };
+        [response close];
+        return;
+    }
+
     if (requestBody == nilptr) {
         response.statusCode = 400;
         response.headers = @{ @"Content-Length": @"0" };
@@ -95,6 +102,36 @@
         auto actual = [[response taskToReadBody] runUntilCompletion];
         OTAssertEqualObjects(actual, expected,
             @"async HTTP body request must send and receive the complete body");
+    } @finally {
+        [client close];
+        [server stop];
+    }
+}
+
+- (void)testTaskToPerformRequestWithEmptyBody
+{
+    auto server = [OFHTTPServer server];
+    auto serverDelegate = [[AsyncIOHTTPServerDelegate alloc] init];
+    server.host = @"127.0.0.1";
+    server.port = 0;
+    server.numberOfThreads = 1;
+    server.delegate = serverDelegate;
+    [server start];
+
+    auto client = [[OFHTTPClient alloc] init];
+    auto request = [OFHTTPRequest requestWithIRI: [OFIRI IRIWithString:
+        [OFString stringWithFormat: @"http://127.0.0.1:%u/empty", server.port]]];
+    request.method = OFHTTPRequestMethodPost;
+
+    @try {
+        auto response = [[client taskToPerformRequest: request
+                                                  body: [OFData data]]
+            runUntilCompletion];
+        OTAssert(response.statusCode == 204,
+            @"an empty async HTTP body must be treated as no request body");
+        auto actual = [[response taskToReadBody] runUntilCompletion];
+        OTAssert(actual.count == 0,
+            @"the empty-body response must be readable without a reset");
     } @finally {
         [client close];
         [server stop];
