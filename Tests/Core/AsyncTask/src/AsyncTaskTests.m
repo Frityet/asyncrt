@@ -1,5 +1,6 @@
 #import <AsyncTask.h>
 #import <ObjFWTest/ObjFWTest.h>
+#import <ThreadPool.h>
 
 #pragma clang assume_nonnull begin
 
@@ -154,6 +155,73 @@
     OTAssertEqualObjects([source.task await], @"cross-thread",
         @"cross-thread completion must wake a run-loop-backed await");
     [worker join];
+}
+
+- (void)testThreadPoolOffloadCannotLoseWakeups
+{
+    auto pool = [[ThreadPool alloc] initWithThreadCount: 4];
+    auto tasks = [OFMutableArray<AsyncTask<OFNumber *> *> array];
+
+    for (size_t index = 0; index < 128; index++) {
+        [tasks addObject: [AsyncTask<OFNumber *> offload: ^{
+            return @(index);
+        } ontoPool: pool]];
+    }
+
+    OFArray<OFNumber *> *results = [[AsyncTask<OFNumber *> all: tasks] await];
+    OTAssertEqual(results.count, (size_t)128,
+        @"every queued task must complete without a lost signal");
+    for (size_t index = 0; index < results.count; index++)
+        OTAssertEqualObjects(results[index], @(index));
+    [pool invalidate];
+    OTAssertThrowsSpecific([pool enqueueTask: ^{}],
+        OFInvalidArgumentException);
+}
+
+- (void)testThreadPoolRejectsSelfJoin
+{
+    auto pool = [[ThreadPool alloc] initWithThreadCount: 1];
+    auto task = [AsyncTask<OFNumber *> offload: ^{
+        @try {
+            [pool invalidate];
+        } @catch (OFInvalidArgumentException *exception) {
+            (void)exception;
+            return @true;
+        }
+        return @false;
+    } ontoPool: pool];
+
+    OTAssertEqualObjects([task await], @true);
+    [pool invalidate];
+}
+
+- (void)testUnexpectedObjectiveCThrowsRejectOffloadAndPreserveWorker
+{
+    auto pool = [[ThreadPool alloc] initWithThreadCount: 1];
+    auto throwingTask = [AsyncTask offload: ^id {
+        @throw @"unexpected raw throw";
+    } ontoPool: pool];
+    bool didReject = false;
+
+    @try {
+        (void)[throwingTask await];
+    } @catch (OFException *exception) {
+        (void)exception;
+        didReject = true;
+    }
+
+    OTAssertTrue(didReject,
+        @"a raw Objective-C throw must become a bounded task rejection");
+
+    [pool enqueueTask: ^{
+        @throw @"direct queue throw";
+    }];
+    auto followingTask = [AsyncTask<OFNumber *> offload: ^{
+        return @42;
+    } ontoPool: pool];
+    OTAssertEqualObjects([followingTask await], @42,
+        @"one malformed queue item must not kill the worker");
+    [pool invalidate];
 }
 
 @end

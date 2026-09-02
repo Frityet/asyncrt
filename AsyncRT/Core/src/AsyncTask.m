@@ -145,12 +145,14 @@ static thread_local unretained Coroutine *nillable currentTaskCoroutine;
 {
     block_reference auto comp = [[AsyncTaskCompletionSource alloc] init];
 
-    [pool.tasks addObject: ^{
+    [pool enqueueTask: ^{
         @try {
             id nillability_unspecified result = block();
             [comp resolveWithResult: result];
         } @catch (OFException *error) {
             [comp rejectWithError: error];
+        } @catch (id) {
+            [comp rejectWithError: [OFException exception]];
         }
     }];
 

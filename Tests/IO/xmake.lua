@@ -9,11 +9,16 @@ target("AsyncRT.Tests.IO", function ()
     add_files("src/OFDataAsyncIOTests.m", {
         mflags = { "-fno-objc-arc" }
     })
+    add_files("src/AsyncHTTPSClientTests.m")
 
     on_load(function (target)
         target:add("tests", "OFDataAsyncIOTests", {
             group = "io/ofdata",
             run_timeout = 5000
+        })
+        target:add("tests", "AsyncHTTPSClientTests", {
+            group = "io/https",
+            run_timeout = 10000
         })
     end)
 end)

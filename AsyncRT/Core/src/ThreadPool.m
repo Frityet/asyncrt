@@ -1,82 +1,192 @@
-#include <ThreadPool.h>
-#include <Common.h>
+#import <ThreadPool.h>
 
-@interface Worker : OFThread
+#pragma clang assume_nonnull begin
 
-@property(nonatomic, readonly) OFCondition *hasTaskCondition;
-@property(copy) void (^nillable task)(void);
+[[subclassing_restricted, direct_members]]
+@interface AsyncRTThreadPoolState: OFObject
+
+- (void)enqueueTask: (void (^)(void))task;
+- (void (^nillable)(void))dequeueTask;
+- (void)invalidate;
 
 @end
 
-@implementation Worker
+[[subclassing_restricted, direct_members]]
+@interface AsyncRTThreadPoolWorker: OFThread
+
+- (instancetype)initWithState: (AsyncRTThreadPoolState *)state;
+- (instancetype)init [[clang::unavailable]];
+
+@end
+
+@implementation AsyncRTThreadPoolState {
+    OFMutableArray<void (^)(void)> *_tasks;
+    OFCondition *_condition;
+    bool _isInvalidated;
+}
 
 - (instancetype)init
 {
     self = [super init];
-    _hasTaskCondition = [[OFCondition alloc] init];
+    _tasks = [[OFMutableArray alloc] init];
+    _condition = [[OFCondition alloc] init];
     return self;
 }
 
-- (id)main
+- (void)enqueueTask: (void (^)(void))task
 {
-    while (true) {
-        [self.hasTaskCondition wait];
-        if (self.task) {
-            self.task();
-            self.task = nilptr;
-        }
+    [_condition lock];
+    @try {
+        if (_isInvalidated)
+            @throw [OFInvalidArgumentException exception];
+        [_tasks addObject: [task copy]];
+        [_condition signal];
+    } @finally {
+        [_condition unlock];
+    }
+}
+
+- (void (^nillable)(void))dequeueTask
+{
+    [_condition lock];
+    @try {
+        while (_tasks.count == 0 && !_isInvalidated)
+            [_condition wait];
+        if (_tasks.count == 0)
+            return nilptr;
+        auto task = [_tasks.firstObject copy];
+        [_tasks removeObjectAtIndex: 0];
+        return task;
+    } @finally {
+        [_condition unlock];
+    }
+}
+
+- (void)invalidate
+{
+    [_condition lock];
+    @try {
+        if (_isInvalidated)
+            return;
+        _isInvalidated = true;
+        [_condition broadcast];
+    } @finally {
+        [_condition unlock];
     }
 }
 
 @end
 
+@implementation AsyncRTThreadPoolWorker {
+    AsyncRTThreadPoolState *_state;
+}
+
+- (instancetype)initWithState: (AsyncRTThreadPoolState *)state
+{
+    self = [super init];
+    _state = state;
+    return self;
+}
+
+- (id nillable)main
+{
+    while (true) {
+        void (^nillable task)(void) = [_state dequeueTask];
+        if (task == nilptr)
+            break;
+        @autoreleasepool {
+            /*
+             * AsyncTask converts failures into task rejection, but enqueueTask:
+             * is public and a malformed caller may throw any Objective-C
+             * object. Keep one bad queue item from permanently consuming a
+             * worker and eventually exhausting the pool.
+             */
+            @try {
+                task();
+            } @catch (id exception) {
+                (void)exception;
+            }
+        }
+    }
+    return nilptr;
+}
+
+@end
+
+@interface ThreadPool ()
+
+- (bool)isCurrentThreadWorker;
+
+@end
+
 @implementation ThreadPool {
-    OFMutableArray<OFThread *> *_threads;
+    AsyncRTThreadPoolState *_state;
+    OFMutableArray<AsyncRTThreadPoolWorker *> *_threads;
+    bool _didJoin;
 }
 
 - (instancetype)initWithThreadCount: (size_t)threadCount
-{   
+{
+    if (threadCount == 0 || threadCount > 256)
+        @throw [OFInvalidArgumentException exception];
+
     self = [super init];
     _threadCount = threadCount;
-    _tasks = [OFMutableArray<void (^)(void)> array];
-    _threads = [OFMutableArray<OFThread *> array];
-    for (size_t i = 0; i < threadCount; i++) {
-        auto thread = [[Worker alloc] init];
+    _state = [[AsyncRTThreadPoolState alloc] init];
+    _threads = [[OFMutableArray alloc] initWithCapacity: threadCount];
+    for (size_t index = 0; index < threadCount; index++) {
+        auto thread = [[AsyncRTThreadPoolWorker alloc]
+            initWithState: _state];
+        /* Offloaded work may initialize a run loop, DNS resolver or socket. */
+        thread.supportsSockets = true;
         [_threads addObject: thread];
         [thread start];
-    } 
+    }
     return self;
+}
+
+- (void)enqueueTask: (void (^)(void))task
+{
+    [_state enqueueTask: task];
+}
+
+- (void)invalidate
+{
+    if ([self isCurrentThreadWorker])
+        @throw [OFInvalidArgumentException exception];
+
+    [_state invalidate];
+    @synchronized (self) {
+        if (_didJoin)
+            return;
+        for (AsyncRTThreadPoolWorker *thread in _threads)
+            [thread join];
+        _didJoin = true;
+    }
 }
 
 - (void)runOnRunLoop: (OFRunLoop *)runLoop
 {
-    [OFTimer scheduledTimerWithTimeInterval: 0 repeats: true block: ^(OFTimer *) {
-        if (self.tasks.count == 0)
-            return;
-
-        auto next = (void(^nonnil)(void))self.tasks.firstObject;
-        [self.tasks removeObjectAtIndex: 0];
-        //get first available thread (available thread is one that has no task assigned to it)
-        Worker *nillable worker = [self->_threads foldUsingBlock: ^(Worker *nillable left, Worker *right){
-            if (left == nilptr)
-                return right;
-            if (left.task == nilptr)
-                return left;
-            if (right.task == nilptr)
-                return right;
-            return left;
-        }];
-
-        if (worker == nilptr) {
-            //no available thread, put the task back to the queue
-            [self.tasks insertObject: next atIndex: 0];
-            return;
-        }
-
-        worker.task = next;
-        [worker.hasTaskCondition signal];
-    }];
+    (void)runLoop;
 }
 
+- (bool)isCurrentThreadWorker
+{
+    OFThread *nillable current = OFThread.currentThread;
+    for (AsyncRTThreadPoolWorker *thread in _threads)
+        if (thread == current)
+            return true;
+    return false;
+}
+
+- (void)dealloc
+{
+    if ([self isCurrentThreadWorker])
+        [_state invalidate];
+    else
+        [self invalidate];
+}
 
 @end
+
+#pragma clang assume_nonnull end
