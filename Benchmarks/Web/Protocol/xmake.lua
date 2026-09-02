@@ -1,0 +1,8 @@
+target("AsyncRT.Benchmark.Web.Protocol", function ()
+    set_kind("binary")
+    set_default(false)
+    set_group("benchmarks/web/protocol")
+    add_deps("AsyncRT.Web")
+    add_packages("objfw")
+    add_files("src/*.m")
+end)

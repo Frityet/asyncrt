@@ -94,4 +94,4 @@ if is_plat("linux") and is_mode("debug", "asan", "tsan") then
     add_mflags("-fno-omit-frame-pointer")
 end
 
-includes("AsyncRT", "Examples", "Tests", "Tools")
+includes("AsyncRT", "Benchmarks", "Examples", "Tests", "Tools")

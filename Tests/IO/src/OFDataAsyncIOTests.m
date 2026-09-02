@@ -154,7 +154,7 @@
     request.method = OFHTTPRequestMethodPost;
     request.headers = @{ @"Content-Type": @"text/plain" };
 
-    auto expected = [OFString stringWithUTF8String: "async-http-string"];
+    auto expected = @"async-http-string";
 
     @try {
         auto response = [[client taskToPerformRequest: request

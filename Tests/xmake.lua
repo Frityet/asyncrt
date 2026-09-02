@@ -1,1 +1,1 @@
-includes("Common", "Core", "IO", "Tools")
+includes("Common", "Core", "IO", "Tools", "Web")
