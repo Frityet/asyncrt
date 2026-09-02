@@ -1,8 +1,8 @@
-#import "AsyncRT/Common/Common.h"
-#import "AsyncRT/Core/AsyncExecutor.h"
-#import "AsyncRT/Core/AsyncTask.h"
-#import "AsyncRT/IO/OFStream+AsyncIO.h"
-#import "Schema.h"
+#import "Common.h"
+#import "AsyncExecutor.h"
+#import "AsyncTask.h"
+#import "OFStream+AsyncIO.h"
+#import <Schema.h>
 
 #pragma clang assume_nonnull begin
 

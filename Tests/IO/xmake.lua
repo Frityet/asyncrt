@@ -6,7 +6,7 @@ target("AsyncRT.Tests.IO", function ()
     add_packages("objfw")
     add_links("objfwtest")
     add_defines("ASYNC_RUNTIME_TEST_BUILD")
-    add_files("OFDataAsyncIOTests.m", {
+    add_files("src/OFDataAsyncIOTests.m", {
         mflags = { "-fno-objc-arc" }
     })
 

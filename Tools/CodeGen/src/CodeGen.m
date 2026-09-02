@@ -1,4 +1,4 @@
-#import "AsyncRT/Common/Common.h"
+#import "Common.h"
 
 #pragma clang assume_nonnull begin
 
@@ -15,3 +15,5 @@
 @end
 
 #pragma clang assume_nonnull end
+
+OF_APPLICATION_DELEGATE(CodeGen);

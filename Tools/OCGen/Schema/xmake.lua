@@ -1,0 +1,8 @@
+target("AsyncRT.Tools.OCGen.Schema", function()
+    set_kind("static")
+    add_packages("objfw")
+    add_deps("AsyncRT.Core", "AsyncRT.Common", "AsyncRT.IO")
+    add_includedirs("src", { public = true })
+    add_headerfiles("src/(Schema.h)")
+    add_files("src/*.m")
+end)

@@ -1,5 +1,5 @@
-#import <AsyncRT/Common/Common.h>
-#import <AsyncRT/Core/Coroutine.h>
+#import <Common.h>
+#import <Coroutine.h>
 
 #pragma clang assume_nonnull begin
 
