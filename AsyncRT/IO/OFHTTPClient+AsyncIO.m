@@ -225,9 +225,11 @@ typedef short AsyncRTHTTPStatusCode;
     _bodyCloseSource = [[AsyncTaskCompletionSource<OFNumber *> alloc] init];
 
     auto timer = [OFTimer timerWithTimeInterval: 0
-                                           target: self
-                                         selector: @selector(_closeRequestBody)
-                                          repeats: false];
+                                         repeats: false
+                                           block: ^(OFTimer *timer) {
+        (void)timer;
+        [self _closeRequestBody];
+    }];
     [[OFRunLoop currentRunLoop] addTimer: timer forMode: OFDefaultRunLoopMode];
 
     return [$assert_nonnil(_bodyCloseSource) task];
