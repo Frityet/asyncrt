@@ -162,7 +162,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
 {
     struct timespec time;
     if (clock_gettime(CLOCK_MONOTONIC, &time) != 0
-        || (uint64_t)time.tv_sec > UINT64_MAX / UINT64_C(1000000000))
+        or (uint64_t)time.tv_sec > UINT64_MAX / UINT64_C(1000000000))
         @throw [[AsyncHTTPSClientException alloc]
             initWithCode: AsyncHTTPSClientErrorCode_INTERNAL_ERROR];
 
@@ -174,8 +174,8 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
 {
     double nanosecondsDouble = ceil(timeout * 1000000000.0);
     uint64_t now = self.monotonicNanoseconds;
-    if (!(nanosecondsDouble >= 1.0)
-        || nanosecondsDouble > (double)(UINT64_MAX - now))
+    if (not (nanosecondsDouble >= 1.0)
+        or nanosecondsDouble > (double)(UINT64_MAX - now))
         @throw [[AsyncHTTPSClientException alloc]
             initWithCode: AsyncHTTPSClientErrorCode_INVALID_REQUEST];
 
@@ -237,7 +237,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
 {
     auto TCPSocket = _TCPSocket;
     auto TLSStream = _TLSStream;
-    if (TCPSocket == nilptr && TLSStream == nilptr)
+    if (TCPSocket == nilptr and TLSStream == nilptr)
         return false;
 
     if (TLSStream != nilptr) {
@@ -281,7 +281,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
     (void)client;
     (void)request;
     _TCPSocket = TCPSocket;
-    if (_hasAbort && [self _closeActiveTransport]) {
+    if (_hasAbort and [self _closeActiveTransport]) {
         _client.delegate = nilptr;
         _isDone = true;
     }
@@ -295,7 +295,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
     (void)request;
     TLSStream.verifiesCertificates = true;
     _TLSStream = TLSStream;
-    if (_hasAbort && [self _closeActiveTransport]) {
+    if (_hasAbort and [self _closeActiveTransport]) {
         _client.delegate = nilptr;
         _isDone = true;
     }
@@ -356,11 +356,11 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
 
     for (size_t index = 0; bytes[index] != '\0'; index++) {
         unsigned char byte = (unsigned char)bytes[index];
-        bool isAlphaNumeric = (byte >= 'a' && byte <= 'z')
-            || (byte >= 'A' && byte <= 'Z')
-            || (byte >= '0' && byte <= '9');
+        bool isAlphaNumeric = (byte >= 'a' and byte <= 'z')
+            or (byte >= 'A' and byte <= 'Z')
+            or (byte >= '0' and byte <= '9');
         bool isPunctuation = strchr("!#$%&'*+-.^_`|~", byte) != nullptr;
-        if (!isAlphaNumeric && !isPunctuation)
+        if (not isAlphaNumeric and not isPunctuation)
             return false;
     }
 
@@ -371,27 +371,27 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
 {
     const char *bytes = value.UTF8String;
     return strlen(bytes) == value.UTF8StringLength
-        && [value rangeOfString: @"\r"].location == OFNotFound
-        && [value rangeOfString: @"\n"].location == OFNotFound;
+        and [value rangeOfString: @"\r"].location == OFNotFound
+        and [value rangeOfString: @"\n"].location == OFNotFound;
 }
 
 + (void)_validateIRI: (OFIRI *)IRI
               headers: (OFDictionary<OFString *, OFString *> *)headers
           wallTimeout: (OFTimeInterval)wallTimeout
 {
-    if (![IRI.scheme.lowercaseString isEqual: @"https"]
-        || IRI.host == nilptr || $assert_nonnil(IRI.host).length == 0
-        || IRI.user != nilptr || IRI.password != nilptr
-        || !(wallTimeout > 0) || !isfinite(wallTimeout))
+    if (not [IRI.scheme.lowercaseString isEqual: @"https"]
+        or IRI.host == nilptr or $assert_nonnil(IRI.host).length == 0
+        or IRI.user != nilptr or IRI.password != nilptr
+        or not (wallTimeout > 0) or not isfinite(wallTimeout))
         @throw [[AsyncHTTPSClientException alloc]
             initWithCode: AsyncHTTPSClientErrorCode_INVALID_REQUEST];
 
     for (id nameObject in headers) {
         id nillable valueObject = headers[nameObject];
-        if (![nameObject isKindOfClass: OFString.class]
-            || ![valueObject isKindOfClass: OFString.class]
-            || ![self _isValidHeaderName: nameObject]
-            || ![self _isValidHeaderValue:
+        if (not [nameObject isKindOfClass: OFString.class]
+            or not [valueObject isKindOfClass: OFString.class]
+            or not [self _isValidHeaderName: nameObject]
+            or not [self _isValidHeaderValue:
                 (OFString *)$assert_nonnil(valueObject)])
             @throw [[AsyncHTTPSClientException alloc]
                 initWithCode: AsyncHTTPSClientErrorCode_INVALID_REQUEST];
@@ -418,12 +418,12 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
             headers[name]];
         auto data = [line dataWithEncoding: OFStringEncodingUTF8];
         if (result.count > AsyncHTTPSMaximumResponseHeaderBytes
-            || data.count >
+            or data.count >
                 AsyncHTTPSMaximumResponseHeaderBytes - result.count)
             @throw [[AsyncHTTPSClientException alloc]
                 initWithCode: AsyncHTTPSClientErrorCode_HEADER_TOO_LARGE];
         const void *nillable items = data.items;
-        if (items == nullptr && data.count > 0)
+        if (items == nullptr and data.count > 0)
             @throw [[AsyncHTTPSClientException alloc]
                 initWithCode: AsyncHTTPSClientErrorCode_INTERNAL_ERROR];
         [result addItems: (const void *nonnil)items count: data.count];
@@ -436,14 +436,14 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
     if ([object isKindOfClass: AsyncHTTPSClientException.class])
         return ((AsyncHTTPSClientException *)object).code;
     if ([object isKindOfClass: OFResolveHostFailedException.class]
-        || [object isKindOfClass: OFDNSQueryFailedException.class])
+        or [object isKindOfClass: OFDNSQueryFailedException.class])
         return AsyncHTTPSClientErrorCode_NAME_RESOLUTION_FAILED;
     if ([object isKindOfClass: OFConnectIPSocketFailedException.class])
         return AsyncHTTPSClientErrorCode_CONNECTION_FAILED;
     if ([object isKindOfClass: OFTLSHandshakeFailedException.class])
         return AsyncHTTPSClientErrorCode_TLS_FAILED;
     if ([object isKindOfClass: OFUnsupportedProtocolException.class]
-        || [object isKindOfClass: OFNotImplementedException.class])
+        or [object isKindOfClass: OFNotImplementedException.class])
         return AsyncHTTPSClientErrorCode_UNAVAILABLE;
     if ([object isKindOfClass: OFInvalidArgumentException.class])
         return AsyncHTTPSClientErrorCode_INVALID_REQUEST;
@@ -502,7 +502,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
                     return false;
                 }
                 if (body.count > maximumResponseBytes
-                    || bytesRead > maximumResponseBytes - body.count) {
+                    or bytesRead > maximumResponseBytes - body.count) {
                     readException = [[AsyncHTTPSClientException alloc]
                         initWithCode: AsyncHTTPSClientErrorCode_BODY_TOO_LARGE];
                     isDone = true;
@@ -518,7 +518,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
             }];
 
         auto runLoop = OFRunLoop.currentRunLoop;
-        while (!isDone) {
+        while (not isDone) {
             if ([self _isCancellationRequested: cancellation])
                 @throw [[AsyncHTTPSClientException alloc]
                     initWithCode: AsyncHTTPSClientErrorCode_CANCELLED];
@@ -575,7 +575,7 @@ static const OFRunLoopMode AsyncHTTPSBodyRunLoopMode =
     @try {
         [operation startRequest: request];
         auto runLoop = OFRunLoop.currentRunLoop;
-        while (!operation.isDone) {
+        while (not operation.isDone) {
             if ([AsyncHTTPSClient _isCancellationRequested: cancellation])
                 [operation requestAbortWithCode:
                     AsyncHTTPSClientErrorCode_CANCELLED];

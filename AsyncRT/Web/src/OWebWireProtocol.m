@@ -89,7 +89,7 @@
 
 + (instancetype)valueWithDouble: (double)value
 {
-    if (!isfinite(value))
+    if (not isfinite(value))
         @throw [OFInvalidArgumentException exception];
     if (value == 0)
         value = 0;
@@ -392,7 +392,7 @@
         return;
     case OWebWireValueTypeDouble: {
         double doubleValue = value.doubleValue;
-        if (!isfinite(doubleValue))
+        if (not isfinite(doubleValue))
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         if (doubleValue == 0)
@@ -441,7 +441,7 @@
 {
     self = [super init];
     _data = [data copy];
-    if (_data.itemSize != 0 && _data.count > SIZE_MAX / _data.itemSize)
+    if (_data.itemSize != 0 and _data.count > SIZE_MAX / _data.itemSize)
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureFrameTooLarge];
     _length = _data.count * _data.itemSize;
@@ -476,12 +476,12 @@
     for (size_t index = 0; index < 10; index++) {
         auto byte = [self readByte];
         auto payload = (uint8_t)(byte & 0x7F);
-        if (index == 9 && payload > 1)
+        if (index == 9 and payload > 1)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureVarintOverflow];
         result |= (uint64_t)payload << (index * 7);
         if ((byte & 0x80) == 0) {
-            if (index > 0 && payload == 0)
+            if (index > 0 and payload == 0)
                 @throw [OWebWireProtocolException exceptionWithFailure:
                     OWebWireProtocolFailureNonCanonicalVarint];
             return result;
@@ -550,7 +550,7 @@
                 OWebWireProtocolFailureInvalidValue];
         double value;
         memcpy(&value, &bits, sizeof(value));
-        if (!isfinite(value))
+        if (not isfinite(value))
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         return [OWebWireValue valueWithDouble: value];
@@ -583,7 +583,7 @@
     case OWebPatchOpcodeSetAttribute: {
         auto elementIdentifier = [self readRequiredIdentifier];
         auto name = [self readString];
-        if (![OWebWireCodec isPatchAttributeNameAllowed: name])
+        if (not [OWebWireCodec isPatchAttributeNameAllowed: name])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
         auto value = [self readString];
@@ -593,7 +593,7 @@
     case OWebPatchOpcodeRemoveAttribute: {
         auto elementIdentifier = [self readRequiredIdentifier];
         auto name = [self readString];
-        if (![OWebWireCodec isPatchAttributeNameAllowed: name])
+        if (not [OWebWireCodec isPatchAttributeNameAllowed: name])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
         return [OWebPatchOperation removeAttribute: name
@@ -602,7 +602,7 @@
     case OWebPatchOpcodeSetProperty: {
         auto elementIdentifier = [self readRequiredIdentifier];
         auto name = [self readString];
-        if (![OWebWireCodec isPatchPropertyNameAllowed: name])
+        if (not [OWebWireCodec isPatchPropertyNameAllowed: name])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
         auto value = [self readValue];
@@ -673,10 +673,10 @@
 + (bool)isComponentTagValid: (OFString *)tag
 {
     auto length = tag.UTF8StringLength;
-    if (length < 3 || length > 128)
+    if (length < 3 or length > 128)
         return false;
     auto bytes = (const unsigned char *)tag.UTF8String;
-    if (bytes[0] < 'a' || bytes[0] > 'z')
+    if (bytes[0] < 'a' or bytes[0] > 'z')
         return false;
     bool hasHyphen = false;
     for (size_t index = 0; index < length; index++) {
@@ -685,8 +685,8 @@
             hasHyphen = true;
             continue;
         }
-        if ((byte >= 'a' && byte <= 'z') ||
-            (byte >= '0' && byte <= '9') || byte == '.' || byte == '_')
+        if ((byte >= 'a' and byte <= 'z') or
+            (byte >= '0' and byte <= '9') or byte == '.' or byte == '_')
             continue;
         return false;
     }
@@ -696,19 +696,19 @@
 + (bool)isAttributeNameValid: (OFString *)name
 {
     auto length = name.UTF8StringLength;
-    if (length == 0 || length > 128)
+    if (length == 0 or length > 128)
         return false;
     auto bytes = (const unsigned char *)name.UTF8String;
-    if (!((bytes[0] >= 'a' && bytes[0] <= 'z') || bytes[0] == '_' ||
+    if (not ((bytes[0] >= 'a' and bytes[0] <= 'z') or bytes[0] == '_' or
         bytes[0] == ':'))
         return false;
-    if (length > 2 && bytes[0] == 'o' && bytes[1] == 'n')
+    if (length > 2 and bytes[0] == 'o' and bytes[1] == 'n')
         return false;
     for (size_t index = 1; index < length; index++) {
         auto byte = bytes[index];
-        if ((byte >= 'a' && byte <= 'z') ||
-            (byte >= '0' && byte <= '9') || byte == '-' || byte == '_' ||
-            byte == '.' || byte == ':')
+        if ((byte >= 'a' and byte <= 'z') or
+            (byte >= '0' and byte <= '9') or byte == '-' or byte == '_' or
+            byte == '.' or byte == ':')
             continue;
         return false;
     }
@@ -717,11 +717,11 @@
 
 + (bool)isPatchAttributeNameAllowed: (OFString *)name
 {
-    if (![self isAttributeNameValid: name])
+    if (not [self isAttributeNameValid: name])
         return false;
     if ([name hasPrefix: @"data-oweb-"])
         return false;
-    if ([name hasPrefix: @"aria-"] || [name hasPrefix: @"data-"])
+    if ([name hasPrefix: @"aria-"] or [name hasPrefix: @"data-"])
         return true;
     return [@[
         @"aria-hidden", @"checked", @"class", @"disabled", @"hidden",
@@ -740,7 +740,7 @@
 
 + (void)validateMapKey: (OFString *)key follows: (OFString *nillable)previous
 {
-    if (previous != nilptr && [previous compare: key] != OFOrderedAscending)
+    if (previous != nilptr and [previous compare: key] != OFOrderedAscending)
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureNonCanonicalMap];
 }
@@ -764,21 +764,21 @@
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         [writer appendVarUInt: operation.elementIdentifier];
-        if (operation.value.type != OWebWireValueTypeString ||
+        if (operation.value.type != OWebWireValueTypeString or
             operation.value.stringValue == nilptr)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         [writer appendString: $assert_nonnil(operation.value.stringValue)];
         return;
     case OWebPatchOpcodeSetAttribute:
-        if (operation.elementIdentifier == 0 || operation.name == nilptr ||
-            ![self isPatchAttributeNameAllowed:
+        if (operation.elementIdentifier == 0 or operation.name == nilptr or
+            not [self isPatchAttributeNameAllowed:
                 $assert_nonnil(operation.name)])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
         [writer appendVarUInt: operation.elementIdentifier];
-        if (operation.name == nilptr ||
-            operation.value.type != OWebWireValueTypeString ||
+        if (operation.name == nilptr or
+            operation.value.type != OWebWireValueTypeString or
             operation.value.stringValue == nilptr)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
@@ -786,8 +786,8 @@
         [writer appendString: $assert_nonnil(operation.value.stringValue)];
         return;
     case OWebPatchOpcodeRemoveAttribute:
-        if (operation.elementIdentifier == 0 || operation.name == nilptr ||
-            ![self isPatchAttributeNameAllowed:
+        if (operation.elementIdentifier == 0 or operation.name == nilptr or
+            not [self isPatchAttributeNameAllowed:
                 $assert_nonnil(operation.name)])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
@@ -798,13 +798,13 @@
         [writer appendString: $assert_nonnil(operation.name)];
         return;
     case OWebPatchOpcodeSetProperty:
-        if (operation.elementIdentifier == 0 || operation.name == nilptr ||
-            ![self isPatchPropertyNameAllowed:
+        if (operation.elementIdentifier == 0 or operation.name == nilptr or
+            not [self isPatchPropertyNameAllowed:
                 $assert_nonnil(operation.name)])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
         [writer appendVarUInt: operation.elementIdentifier];
-        if (operation.name == nilptr || operation.value == nilptr)
+        if (operation.name == nilptr or operation.value == nilptr)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         [writer appendString: $assert_nonnil(operation.name)];
@@ -826,8 +826,8 @@
                 count: count];
         return;
     case OWebPatchOpcodeCloneTemplate:
-        if (operation.templateIdentifier == 0 ||
-            operation.parentIdentifier == 0 || operation.nodeIdentifier == 0)
+        if (operation.templateIdentifier == 0 or
+            operation.parentIdentifier == 0 or operation.nodeIdentifier == 0)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         [writer appendVarUInt: operation.templateIdentifier];
@@ -841,7 +841,7 @@
         [writer appendVarUInt: operation.nodeIdentifier];
         return;
     case OWebPatchOpcodeMoveNode:
-        if (operation.nodeIdentifier == 0 || operation.parentIdentifier == 0)
+        if (operation.nodeIdentifier == 0 or operation.parentIdentifier == 0)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
         [writer appendVarUInt: operation.nodeIdentifier];
@@ -858,7 +858,7 @@
     auto body = [[OWebWireWriter alloc] init];
     switch (frame.frameType) {
     case OWebWireFrameTypePatch: {
-        if (![frame isKindOfClass: [OWebPatchFrame class]])
+        if (not [frame isKindOfClass: [OWebPatchFrame class]])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto patch = (OWebPatchFrame *)frame;
@@ -876,11 +876,11 @@
         break;
     }
     case OWebWireFrameTypeEvent: {
-        if (![frame isKindOfClass: [OWebEventFrame class]])
+        if (not [frame isKindOfClass: [OWebEventFrame class]])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto event = (OWebEventFrame *)frame;
-        if (event.instanceIdentifier == 0 || event.actionIdentifier == 0 ||
+        if (event.instanceIdentifier == 0 or event.actionIdentifier == 0 or
             event.targetIdentifier == 0)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
@@ -893,7 +893,7 @@
         auto keys = event.fields.allKeys.sortedArray;
         [body appendVarUInt: keys.count];
         for (OFString *key in keys) {
-            if (![self isEventFieldNameAllowed: key])
+            if (not [self isEventFieldNameAllowed: key])
                 @throw [OWebWireProtocolException exceptionWithFailure:
                     OWebWireProtocolFailureDisallowedEventField];
             [body appendString: key];
@@ -902,14 +902,14 @@
         break;
     }
     case OWebWireFrameTypeMount: {
-        if (![frame isKindOfClass: [OWebMountFrame class]])
+        if (not [frame isKindOfClass: [OWebMountFrame class]])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto mount = (OWebMountFrame *)frame;
         if (mount.instanceIdentifier == 0)
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidValue];
-        if (![self isComponentTagValid: mount.componentTag])
+        if (not [self isComponentTagValid: mount.componentTag])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidComponentTag];
         if (mount.attributes.count > OWebWireMaximumMountAttributes)
@@ -920,7 +920,7 @@
         auto keys = mount.attributes.allKeys.sortedArray;
         [body appendVarUInt: keys.count];
         for (OFString *key in keys) {
-            if (![self isAttributeNameValid: key])
+            if (not [self isAttributeNameValid: key])
                 @throw [OWebWireProtocolException exceptionWithFailure:
                     OWebWireProtocolFailureInvalidAttributeName];
             [body appendString: key];
@@ -929,7 +929,7 @@
         break;
     }
     case OWebWireFrameTypeDetach: {
-        if (![frame isKindOfClass: [OWebDetachFrame class]])
+        if (not [frame isKindOfClass: [OWebDetachFrame class]])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto detach = (OWebDetachFrame *)frame;
@@ -987,7 +987,7 @@
     for (uint64_t index = 0; index < encodedCount; index++) {
         auto key = [reader readString];
         [self validateMapKey: key follows: previous];
-        if (![self isEventFieldNameAllowed: key])
+        if (not [self isEventFieldNameAllowed: key])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureDisallowedEventField];
         fields[key] = [reader readValue];
@@ -1003,7 +1003,7 @@
 {
     auto instanceIdentifier = [reader readRequiredIdentifier];
     auto componentTag = [reader readString];
-    if (![self isComponentTagValid: componentTag])
+    if (not [self isComponentTagValid: componentTag])
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureInvalidComponentTag];
     auto encodedCount = [reader readVarUInt];
@@ -1015,7 +1015,7 @@
     for (uint64_t index = 0; index < encodedCount; index++) {
         auto key = [reader readString];
         [self validateMapKey: key follows: previous];
-        if (![self isAttributeNameValid: key])
+        if (not [self isAttributeNameValid: key])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidAttributeName];
         attributes[key] = [reader readString];
@@ -1053,7 +1053,7 @@
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureUnsupportedVersion];
     auto frameType = (OWebWireFrameType)[reader readByte];
-    if (frameType < OWebWireFrameTypePatch ||
+    if (frameType < OWebWireFrameTypePatch or
         frameType > OWebWireFrameTypeDetach)
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureUnknownFrameType];
@@ -1080,7 +1080,7 @@
         frame = [self decodeDetachFromReader: reader];
         break;
     }
-    if (!reader.isAtEnd)
+    if (not reader.isAtEnd)
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureTrailingData];
     return frame;
@@ -1088,7 +1088,7 @@
 
 + (size_t)byteCountForData: (OFData *)data
 {
-    if (data.itemSize != 0 && data.count > SIZE_MAX / data.itemSize)
+    if (data.itemSize != 0 and data.count > SIZE_MAX / data.itemSize)
         @throw [OWebWireProtocolException exceptionWithFailure:
             OWebWireProtocolFailureFrameTooLarge];
     return data.count * data.itemSize;

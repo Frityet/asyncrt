@@ -25,7 +25,7 @@
 #else
 #   define subclassing_restricted clang::objc_subclassing_restricted
 #endif
-#if !defined(__cplusplus)
+#if not defined(__cplusplus)
 #   define auto __auto_type
 #endif
 

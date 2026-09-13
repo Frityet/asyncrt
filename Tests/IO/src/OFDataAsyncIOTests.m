@@ -14,7 +14,7 @@
         requestBody: (OFStream *nillable)requestBody
            response: (OFHTTPResponse *)response
 {
-    if ([request.IRI.path isEqual: @"/empty"] && requestBody == nilptr) {
+    if ([request.IRI.path isEqual: @"/empty"] and requestBody == nilptr) {
         response.statusCode = 204;
         response.headers = @{ @"Content-Length": @"0" };
         [response close];

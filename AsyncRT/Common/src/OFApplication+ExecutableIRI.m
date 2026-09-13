@@ -43,7 +43,7 @@
 + (OFIRI *)_standardizedExecutableIRIFromPath: (OFString *)path
 {
 
-#if !defined(OF_WINDOWS)
+#if not defined(OF_WINDOWS)
     char *resolvedPathCString = realpath([path cStringWithEncoding: OFLocale.encoding], NULL);
 
     if (resolvedPathCString != nullptr) {
@@ -86,7 +86,7 @@
 {
     uint32_t pathCapacity = 0;
 
-    if (_NSGetExecutablePath(NULL, &pathCapacity) == 0 || pathCapacity == 0)
+    if (_NSGetExecutablePath(NULL, &pathCapacity) == 0 or pathCapacity == 0)
         @throw [CannotGetExecutablePathException exception];
 
     char *pathBuffer = malloc(pathCapacity);

@@ -47,13 +47,13 @@ constexpr bool AsyncRTObjFWNeedsConstantStringCompatibility = _Generic(
 
 + (void)load
 {
-    if (!AsyncRTObjFWNeedsConstantStringCompatibility)
+    if (not AsyncRTObjFWNeedsConstantStringCompatibility)
         return;
 
     auto constantUTF8StringClass = objc_lookUpClass(
         "OFConstantUTF8String");
     auto selector = @selector(finishInitialization);
-    if (constantUTF8StringClass == nullptr ||
+    if (constantUTF8StringClass == nullptr or
         class_getInstanceMethod(constantUTF8StringClass, selector) != nullptr)
         return;
 
@@ -84,7 +84,7 @@ constexpr bool AsyncRTObjFWNeedsConstantStringCompatibility = _Generic(
     uint8_t *section = getsectiondata(
         (const struct mach_header_64 *)header, "__DATA",
         "__objc_stringobj", &sectionSize);
-    if (section == nullptr || sectionSize % instanceSize != 0)
+    if (section == nullptr or sectionSize % instanceSize != 0)
         return;
 
     for (size_t offset = 0; offset < sectionSize; offset += instanceSize) {
@@ -128,7 +128,7 @@ __attribute__((constructor))
 static void
 AsyncRTRegisterObjFWConstantStringImageInitializer(void)
 {
-    if (!AsyncRTObjFWNeedsConstantStringCompatibility)
+    if (not AsyncRTObjFWNeedsConstantStringCompatibility)
         return;
 
     _dyld_register_func_for_add_image(

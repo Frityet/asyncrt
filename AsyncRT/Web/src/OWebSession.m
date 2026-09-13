@@ -204,7 +204,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
     if (identifier == 0)
         return false;
     auto key = [self keyForIdentifier: identifier];
-    return [_staticTargets containsObject: key] ||
+    return [_staticTargets containsObject: key] or
         [state.dynamicTargets containsObject: key];
 }
 
@@ -251,7 +251,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
     OFString *tagName = _definition.tagNamesByElementIdentifier[key];
     if (tagName == nilptr)
         tagName = state.tagNamesByDynamicTarget[key];
-    return tagName != nilptr && not [self isVoidTagName: $assert_nonnil(tagName)];
+    return tagName != nilptr and not [self isVoidTagName: $assert_nonnil(tagName)];
 }
 
 - (bool)targetHasDynamicDescendant: (OFNumber *)target
@@ -302,9 +302,9 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
         return;
     case OWebPatchOpcodeSetText: {
         auto targetKey = [self keyForIdentifier: operation.elementIdentifier];
-        if (not [self isValidTarget: operation.elementIdentifier state: state] ||
+        if (not [self isValidTarget: operation.elementIdentifier state: state] or
             [_definition.elementIdentifiersContainingStaticCapabilities
-                containsObject: targetKey] ||
+                containsObject: targetKey] or
             [self targetHasDynamicDescendant: targetKey state: state])
             [self raiseRejectedPatch];
         return;
@@ -319,12 +319,12 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
         auto nodeKey = [self keyForIdentifier: operation.nodeIdentifier];
         OFString *rootTag =
             _definition.rootTagNamesByTemplateIdentifier[templateKey];
-        if (not [_templateIdentifiers containsObject: templateKey] ||
-            not [self isValidTarget: operation.parentIdentifier state: state] ||
+        if (not [_templateIdentifiers containsObject: templateKey] or
+            not [self isValidTarget: operation.parentIdentifier state: state] or
             not [self targetCanContainChildren: operation.parentIdentifier
-                state: state] ||
-            rootTag == nilptr ||
-            operation.nodeIdentifier <= _definition.maximumStaticIdentifier ||
+                state: state] or
+            rootTag == nilptr or
+            operation.nodeIdentifier <= _definition.maximumStaticIdentifier or
             [state.dynamicTargets containsObject: nodeKey])
             [self raiseRejectedPatch];
         [state.dynamicTargets addObject: nodeKey];
@@ -343,18 +343,18 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
     case OWebPatchOpcodeMoveNode: {
         auto nodeKey = [self keyForIdentifier: operation.nodeIdentifier];
         auto parentKey = [self keyForIdentifier: operation.parentIdentifier];
-        if (not [state.dynamicTargets containsObject: nodeKey] ||
-            not [self isValidTarget: operation.parentIdentifier state: state] ||
+        if (not [state.dynamicTargets containsObject: nodeKey] or
+            not [self isValidTarget: operation.parentIdentifier state: state] or
             not [self targetCanContainChildren: operation.parentIdentifier
-                state: state] ||
+                state: state] or
             [self movingNode: nodeKey belowParent: parentKey
                 createsCycle: state])
             [self raiseRejectedPatch];
         if (operation.beforeIdentifier != 0) {
             auto beforeKey = [self keyForIdentifier:
                 operation.beforeIdentifier];
-            if (not [state.dynamicTargets containsObject: beforeKey] ||
-                [beforeKey isEqual: nodeKey] ||
+            if (not [state.dynamicTargets containsObject: beforeKey] or
+                [beforeKey isEqual: nodeKey] or
                 not [state.parentByDynamicTarget[beforeKey] isEqual: parentKey])
                 [self raiseRejectedPatch];
         }
@@ -384,7 +384,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
     auto roots = [OFMutableArray<OFNumber *> array];
     for (OFNumber *target in _state.dynamicTargets) {
         OFNumber *parent = _state.parentByDynamicTarget[target];
-        if (parent == nilptr || not [_state.dynamicTargets containsObject: parent])
+        if (parent == nilptr or not [_state.dynamicTargets containsObject: parent])
             [roots addObject: target];
     }
     auto operations = [OFMutableArray<OWebPatchOperation *> array];
@@ -460,7 +460,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
                 maximumReplayEntries: (size_t)maximumReplayEntries
 {
     self = [super init];
-    if (maximumMountedInstances == 0 || maximumReplayEntries == 0 ||
+    if (maximumMountedInstances == 0 or maximumReplayEntries == 0 or
         maximumReplayEntries < maximumMountedInstances)
         @throw [OFInvalidArgumentException exception];
     _registry = registry;
@@ -627,14 +627,14 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
         mounted.definition.actionsByIdentifier[actionKey];
     if (action == nilptr)
         @throw [self failure: OWebSessionFailureUnknownAction];
-    if (frame.targetIdentifier != action.targetIdentifier ||
+    if (frame.targetIdentifier != action.targetIdentifier or
         not [mounted isValidEventTarget: frame.targetIdentifier])
         @throw [self failure: OWebSessionFailureInvalidTarget];
 
     auto fields = [OFMutableDictionary<OFString *, id> dictionary];
     for (OFString *name in frame.fields) {
         auto value = frame.fields[name];
-        if (value == nilptr || not [OWebWireCodec
+        if (value == nilptr or not [OWebWireCodec
             isEventFieldNameAllowed: name])
             @throw [self failure: OWebSessionFailureInvalidEventValue];
         fields[name] = [self eventFieldValue: $assert_nonnil(value)];
@@ -779,7 +779,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
             }
         }
         OWebMountedComponent *prior = _mountedComponentsByIdentifier[key];
-        if (prior != nilptr && sequence <= prior.lastSequence)
+        if (prior != nilptr and sequence <= prior.lastSequence)
             @throw [self failure: OWebSessionFailureStaleSequence];
 
         OWebPatchFrame *patch = nilptr;
@@ -798,7 +798,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
                 @throw [self failure: OWebSessionFailureUnexpectedFrame];
             }
         } @catch (OWebSessionException *exception) {
-            if (exception.failure == OWebSessionFailureComponentRejectedInput ||
+            if (exception.failure == OWebSessionFailureComponentRejectedInput or
                 exception.failure == OWebSessionFailureInternalError)
                 [self quarantineInstanceIdentifier: instanceIdentifier];
             [self storeReplayForKey: key sequence: sequence
@@ -907,15 +907,15 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
              (OWebSessionIdentityProvider)sessionIdentityProvider
 {
     self = [super init];
-    if (expectedOrigin.length == 0 || [expectedOrigin hasSuffix: @"/"] ||
-        not ([expectedOrigin hasPrefix: @"http://"] ||
-             [expectedOrigin hasPrefix: @"https://"]) ||
-        maximumBodyBytes == 0 ||
-        maximumBodyBytes > OWebWireMaximumFrameBytes ||
-        maximumSessions == 0 || sessionIdleTimeToLive <= 0 ||
-        maximumMountedInstancesPerSession == 0 ||
+    if (expectedOrigin.length == 0 or [expectedOrigin hasSuffix: @"/"] or
+        not ([expectedOrigin hasPrefix: @"http://"] or
+             [expectedOrigin hasPrefix: @"https://"]) or
+        maximumBodyBytes == 0 or
+        maximumBodyBytes > OWebWireMaximumFrameBytes or
+        maximumSessions == 0 or sessionIdleTimeToLive <= 0 or
+        maximumMountedInstancesPerSession == 0 or
         maximumReplayEntriesPerSession <
-            maximumMountedInstancesPerSession ||
+            maximumMountedInstancesPerSession or
         sessionIdentityProvider == nilptr)
         @throw [OFInvalidArgumentException exception];
     _registry = registry;
@@ -956,13 +956,13 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
 - (uint64_t)sequenceFromRequest: (OWebHTTPRequest *)request
 {
     OFString *value = [request headerForName: @"X-OWeb-Sequence"];
-    if (value == nilptr || value.length == 0 || value.length > 20 ||
+    if (value == nilptr or value.length == 0 or value.length > 20 or
         [value characterAtIndex: 0] == '0')
         @throw [self failure: OWebSessionFailureInvalidSequence];
     uint64_t result = 0;
     for (size_t index = 0; index < value.length; index++) {
         OFUnichar character = [value characterAtIndex: index];
-        if (character < '0' || character > '9')
+        if (character < '0' or character > '9')
             @throw [self failure: OWebSessionFailureInvalidSequence];
         uint8_t digit = (uint8_t)(character - '0');
         if (result > (UINT64_MAX - digit) / 10)
@@ -977,19 +977,19 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
 - (void)validateRequestBoundary: (OWebHTTPRequest *)request
 {
     OFString *origin = [request headerForName: @"Origin"];
-    if (origin == nilptr || not [origin isEqual: _expectedOrigin])
+    if (origin == nilptr or not [origin isEqual: _expectedOrigin])
         @throw [self failure: OWebSessionFailureInvalidOrigin];
     OFString *contentType = [request headerForName: @"Content-Type"];
-    if (contentType == nilptr || not [self header: contentType
+    if (contentType == nilptr or not [self header: contentType
         equalsToken: @"application/vnd.oweb.frame"])
         @throw [self failure: OWebSessionFailureInvalidContentType];
     OFString *accept = [request headerForName: @"Accept"];
-    if (accept == nilptr || not [self header: accept
+    if (accept == nilptr or not [self header: accept
         equalsToken: @"application/vnd.oweb.frame"])
         @throw [self failure: OWebSessionFailureNotAcceptable];
     if (request.bodyByteCount == 0)
         @throw [self failure: OWebSessionFailureInvalidFrame];
-    if (request.bodyByteCount > _maximumBodyBytes ||
+    if (request.bodyByteCount > _maximumBodyBytes or
         request.bodyByteCount > OWebWireMaximumFrameBytes)
         @throw [self failure: OWebSessionFailureBodyTooLarge];
 }
@@ -997,7 +997,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
 - (OFString *)identityForRequest: (OWebHTTPRequest *)request
 {
     OFString *identity = _sessionIdentityProvider(request);
-    if (identity == nilptr || identity.length == 0 ||
+    if (identity == nilptr or identity.length == 0 or
         identity.UTF8StringLength > OWebMaximumSessionIdentityBytes)
         @throw [self failure: OWebSessionFailureInvalidIdentity];
     return $assert_nonnil(identity);
@@ -1013,7 +1013,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
     auto expired = [OFMutableArray<OFString *> array];
     for (OFString *identity in _sessionsByIdentity) {
         auto entry = _sessionsByIdentity[identity];
-        if (entry != nilptr &&
+        if (entry != nilptr and
             time - entry.lastAccessTime >= _sessionIdleTimeToLive)
             [expired addObject: identity];
     }
@@ -1100,7 +1100,7 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
         return [self errorResponseForException: exception];
     } @catch (id exception) {
         (void)exception;
-        if (session != nilptr && instanceIdentifier != 0)
+        if (session != nilptr and instanceIdentifier != 0)
             [session quarantineInstanceIdentifier: instanceIdentifier];
         return [self errorResponseForException:
             [self failure: OWebSessionFailureInternalError]];

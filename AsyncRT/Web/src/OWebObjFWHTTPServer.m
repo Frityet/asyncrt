@@ -43,7 +43,7 @@
 {
     self = [super init];
 
-    if (router == nilptr || host.length == 0 ||
+    if (router == nilptr or host.length == 0 or
         [host rangeOfCharacterFromSet: OFCharacterSet.newlineCharacterSet]
                 .location != OFNotFound)
         @throw [OFInvalidArgumentException exception];
@@ -114,7 +114,7 @@
 
 - (void)stop
 {
-    if (!_isRunning)
+    if (not _isRunning)
         return;
 
     _server.delegate = nilptr;
@@ -138,12 +138,12 @@
         return false;
 
     auto value = $as_nonnil(contentLength);
-    if (value.length == 0 || (value.length > 1 &&
+    if (value.length == 0 or (value.length > 1 and
         [value characterAtIndex: 0] == '0'))
         return false;
     for (size_t index = 0; index < value.length; index++) {
         OFUnichar character = [value characterAtIndex: index];
-        if (character < '0' || character > '9')
+        if (character < '0' or character > '9')
             return false;
     }
 
@@ -151,8 +151,8 @@
     size_t parsed = 0;
     for (size_t index = 0; index < value.length; index++) {
         size_t digit = (size_t)([value characterAtIndex: index] - '0');
-        if (parsed > maximum / 10 ||
-            (parsed == maximum / 10 && digit > maximum % 10))
+        if (parsed > maximum / 10 or
+            (parsed == maximum / 10 and digit > maximum % 10))
             return true;
         parsed = parsed * 10 + digit;
     }
@@ -170,7 +170,7 @@
     unsigned char buffer[16 * 1024];
     unsigned int consecutiveEmptyReads = 0;
 
-    while (!stream.atEndOfStream) {
+    while (not stream.atEndOfStream) {
         size_t remaining = maximum - body.count;
         size_t requested = sizeof(buffer);
         if (remaining < sizeof(buffer))
@@ -211,9 +211,9 @@
 
     for (size_t index = 0; index < name.length; index++) {
         OFUnichar character = [name characterAtIndex: index];
-        if ((character >= 'a' && character <= 'z') ||
-            (character >= 'A' && character <= 'Z') ||
-            (character >= '0' && character <= '9'))
+        if ((character >= 'a' and character <= 'z') or
+            (character >= 'A' and character <= 'Z') or
+            (character >= '0' and character <= '9'))
             continue;
 
         switch (character) {
@@ -231,7 +231,7 @@
 
 - (size_t)byteCountForData: (OFData *)data
 {
-    if (data.itemSize != 0 && data.count > SIZE_MAX / data.itemSize)
+    if (data.itemSize != 0 and data.count > SIZE_MAX / data.itemSize)
         @throw [OFOutOfRangeException exception];
     return data.count * data.itemSize;
 }
@@ -240,7 +240,7 @@
 {
     for (size_t index = 0; index < value.length; index++) {
         OFUnichar character = [value characterAtIndex: index];
-        if ((character < 0x20 && character != '\t') || character == 0x7F)
+        if ((character < 0x20 and character != '\t') or character == 0x7F)
             return false;
     }
     return true;
@@ -250,19 +250,19 @@
                forMethod: (OFHTTPRequestMethod)method
                 response: (OFHTTPResponse *)response
 {
-    if (OWebResponse.statusCode < 100 || OWebResponse.statusCode > 599)
+    if (OWebResponse.statusCode < 100 or OWebResponse.statusCode > 599)
         @throw [OFInvalidArgumentException exception];
 
     auto headers = [OWebResponse.headers mutableCopy];
     auto keysToRemove = [OFMutableArray<OFString *> array];
     for (OFString *key in headers) {
         OFString *value = headers[key];
-        if (![self isValidHeaderName: key] ||
-            ![self isValidHeaderValue: value])
+        if (not [self isValidHeaderName: key] or
+            not [self isValidHeaderValue: value])
             @throw [OFInvalidArgumentException exception];
 
-        if ([key caseInsensitiveCompare: @"Content-Length"] == OFOrderedSame ||
-            [key caseInsensitiveCompare: @"Transfer-Encoding"] == OFOrderedSame ||
+        if ([key caseInsensitiveCompare: @"Content-Length"] == OFOrderedSame or
+            [key caseInsensitiveCompare: @"Transfer-Encoding"] == OFOrderedSame or
             [key caseInsensitiveCompare: @"Connection"] == OFOrderedSame)
             [keysToRemove addObject: key];
     }
@@ -270,8 +270,8 @@
         [headers removeObjectForKey: key];
 
     size_t bodyBytes = [self byteCountForData: OWebResponse.body];
-    bool statusPermitsBody = !((OWebResponse.statusCode >= 100 &&
-        OWebResponse.statusCode < 200) || OWebResponse.statusCode == 204 ||
+    bool statusPermitsBody = not ((OWebResponse.statusCode >= 100 and
+        OWebResponse.statusCode < 200) or OWebResponse.statusCode == 204 or
         OWebResponse.statusCode == 304);
     if (statusPermitsBody)
         headers[@"Content-Length"] = [OFString stringWithFormat: @"%zu",
@@ -281,7 +281,7 @@
 
     response.statusCode = OWebResponse.statusCode;
     response.headers = headers;
-    if (method != OFHTTPRequestMethodHead && statusPermitsBody && bodyBytes > 0)
+    if (method != OFHTTPRequestMethodHead and statusPermitsBody and bodyBytes > 0)
         [response writeData: OWebResponse.body];
     [response close];
 }
@@ -311,7 +311,7 @@
 - (void)reportException: (id nillable)exception
 {
     auto handler = _exceptionHandler;
-    if (handler == nilptr || exception == nilptr)
+    if (handler == nilptr or exception == nilptr)
         return;
 
     @try {

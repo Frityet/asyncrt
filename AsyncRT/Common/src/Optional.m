@@ -1,7 +1,7 @@
 #include <Optional.h>
 
 #import <ObjFW/ObjFW.h>
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
 #import <ObjFWRT/ObjFWRT.h>
 #else
 #import <objc/objc.h>
@@ -9,7 +9,7 @@
 
 #pragma clang assume_nonnull begin
 
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
 static int tagged_pointer_optional_class = -1;
 
 enum : uintptr_t {
@@ -28,7 +28,7 @@ enum : uintptr_t {
     return self;
 }
 
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
 + (void)initialize
 {
     if (self == Optional.class)
@@ -40,7 +40,7 @@ enum : uintptr_t {
 {
     //if (tagged_pointer_optional_class < 0)
     //    @throw [OFInitializationFailedException exceptionWithClass: Optional.class];
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     id tagged_pointer = objc_createTaggedPointer(tagged_pointer_optional_class, OptionalPayload_NONE);
     if (tagged_pointer == nilptr)
         @throw [OFInitializationFailedException exceptionWithClass: Optional.class];
@@ -67,7 +67,7 @@ enum : uintptr_t {
 
 - (bool)hasValue
 {
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     if (not object_isTaggedPointer(self))
         return (_storedValue != nilptr);
 
@@ -79,7 +79,7 @@ enum : uintptr_t {
 
 - (id)value
 {
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     if (not object_isTaggedPointer(self)) {
         if (_storedValue == nilptr)
             @throw [OFOutOfRangeException exception];
@@ -100,7 +100,7 @@ enum : uintptr_t {
 {
     if (not fallbackValue)
         @throw [OFInvalidArgumentException exception];
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     if (not object_isTaggedPointer(self)) {
         if (_storedValue == nilptr)
             return fallbackValue;
@@ -119,7 +119,7 @@ enum : uintptr_t {
 
 - (unsigned long)hash
 {
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     if (not object_isTaggedPointer(self)) {
         if (_storedValue == nilptr)
             return 0;
@@ -144,7 +144,7 @@ enum : uintptr_t {
     if (object == self)
         return true;
 
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     if (object_isTaggedPointer(self))
         self_value = nilptr;
     else
@@ -163,7 +163,7 @@ enum : uintptr_t {
     if (not [object isKindOfClass: Optional.class])
         return false;
 
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
     if (object_isTaggedPointer(object))
         other_value = nilptr;
     else

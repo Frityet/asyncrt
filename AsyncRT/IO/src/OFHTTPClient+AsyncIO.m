@@ -9,8 +9,8 @@ int AsyncRT_OFHTTPClient_AsyncIO_anchor = 0;
 
 static int *const forceObjFWTLS __attribute__((used)) = &_ObjFWTLS_reference;
 
-#if defined(OBJFW_VERSION_MAJOR) && \
-    (OBJFW_VERSION_MAJOR > 1 || OBJFW_VERSION_MINOR >= 6)
+#if defined(OBJFW_VERSION_MAJOR) and \
+    (OBJFW_VERSION_MAJOR > 1 or OBJFW_VERSION_MINOR >= 6)
 typedef unsigned short AsyncRTHTTPStatusCode;
 #else
 typedef short AsyncRTHTTPStatusCode;
@@ -121,7 +121,7 @@ typedef short AsyncRTHTTPStatusCode;
     self = [super init];
     _client = client;
 
-    if (body != nilptr && (body.count == 0 || body.itemSize == 0))
+    if (body != nilptr and (body.count == 0 or body.itemSize == 0))
         body = nilptr;
 
     if (body != nilptr) {

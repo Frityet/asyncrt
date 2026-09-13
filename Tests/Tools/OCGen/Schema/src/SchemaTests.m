@@ -78,7 +78,7 @@ constexpr auto HOMEBREW_CLANG = @"/opt/homebrew/opt/llvm/bin/clang";
         @"TranslationUnit", @"vendor extensions must be retained");
 
     auto astObject = $assert_nonnil(definitions[@"astObject"]);
-    OTAssert(astObject.ifSchema != nilptr && astObject.thenSchema != nilptr,
+    OTAssert(astObject.ifSchema != nilptr and astObject.thenSchema != nilptr,
         @"conditional keywords must be recursively loaded");
     OTAssertTrue(schema.resolvedReference == astObject,
         @"the root $ref must resolve into the document's definitions");

@@ -58,16 +58,16 @@
     auto result = [OFMutableString string];
     for (size_t index = 0; index < name.length; index++) {
         OFUnichar character = [name characterAtIndex: index];
-        bool uppercase = character >= 'A' && character <= 'Z';
-        if (uppercase && index > 0) {
+        bool uppercase = character >= 'A' and character <= 'Z';
+        if (uppercase and index > 0) {
             OFUnichar previous = [name characterAtIndex: index - 1];
             OFUnichar next = index + 1 < name.length
                 ? [name characterAtIndex: index + 1] : 0;
             bool previousLowerOrDigit =
-                (previous >= 'a' && previous <= 'z') ||
-                (previous >= '0' && previous <= '9');
-            bool nextLower = next >= 'a' && next <= 'z';
-            if (previousLowerOrDigit || nextLower)
+                (previous >= 'a' and previous <= 'z') or
+                (previous >= '0' and previous <= '9');
+            bool nextLower = next >= 'a' and next <= 'z';
+            if (previousLowerOrDigit or nextLower)
                 [result appendString: @"-"];
         }
         if (uppercase)
@@ -90,7 +90,7 @@
         case 'f': return OWebReflectedPropertyTypeFloat;
         case 'd': return OWebReflectedPropertyTypeDouble;
         case '@':
-            if (strcmp(encoding, "@\"OFString\"") == 0 ||
+            if (strcmp(encoding, "@\"OFString\"") == 0 or
                 strcmp(encoding, "@\"OFMutableString\"") == 0)
                 return OWebReflectedPropertyTypeString;
             break;
@@ -148,8 +148,8 @@
         method_getArgumentType(setterMethod, 2, argumentType,
             sizeof(argumentType));
         method_getReturnType(setterMethod, returnType, sizeof(returnType));
-        if (method_getNumberOfArguments(setterMethod) != 3 ||
-            returnType[0] != 'v' || argumentType[0] != _typeEncoding)
+        if (method_getNumberOfArguments(setterMethod) != 3 or
+            returnType[0] != 'v' or argumentType[0] != _typeEncoding)
             @throw [[OWebDefinitionException alloc]
                 initWithReason: [OFString stringWithFormat:
                     @"Setter for property '%@' has an incompatible signature",
@@ -164,14 +164,14 @@
             _backingIvar = class_getInstanceVariable(componentClass, ivarName);
     }
     free(ivarName);
-    if (_backingIvar != nullptr &&
+    if (_backingIvar != nullptr and
         ivar_getTypeEncoding(_backingIvar)[0] != _typeEncoding)
         @throw [[OWebDefinitionException alloc]
             initWithReason: [OFString stringWithFormat:
                 @"Backing ivar for property '%@' has an incompatible type",
                 _name]];
 
-    _isHydratable = _setter != nullptr || _backingIvar != nullptr;
+    _isHydratable = _setter != nullptr or _backingIvar != nullptr;
     return self;
 }
 
@@ -181,7 +181,7 @@
     auto hierarchy = [OFMutableArray<OFString *> array];
     auto classesByName = [OFMutableDictionary<OFString *, id> dictionary];
     for (Class current = componentClass;
-         current != Nil && current != [OWebComponent class];
+         current != Nil and current != [OWebComponent class];
          current = class_getSuperclass(current)) {
         auto className = [OFString stringWithUTF8String: class_getName(current)];
         [hierarchy insertObject: className atIndex: 0];
@@ -205,7 +205,7 @@
             OWebReflectedProperty *property = $assert_nonnil(reflected);
             OFString *priorOwner = attributeOwners[property.attributeName];
             OWebReflectedProperty *prior = propertiesByName[property.name];
-            if (priorOwner != nilptr && prior == nilptr)
+            if (priorOwner != nilptr and prior == nilptr)
                 @throw [[OWebDefinitionException alloc]
                     initWithReason: [OFString stringWithFormat:
                         @"Properties map to the same attribute '%@'",
@@ -231,39 +231,39 @@
 
 - (int64_t)parseSignedValue: (OFString *)value
 {
-    if (value.length == 0 ||
+    if (value.length == 0 or
         not [value isEqual: value.stringByDeletingEnclosingWhitespaces])
         [self raiseInvalidValue: value];
     errno = 0;
     char *end = nullptr;
     long long parsed = strtoll(value.UTF8String, &end, 10);
-    if (errno == ERANGE || end == value.UTF8String || *end != '\0')
+    if (errno == ERANGE or end == value.UTF8String or *end != '\0')
         [self raiseInvalidValue: value];
     return (int64_t)parsed;
 }
 
 - (uint64_t)parseUnsignedValue: (OFString *)value
 {
-    if ([value hasPrefix: @"-"] || value.length == 0 ||
+    if ([value hasPrefix: @"-"] or value.length == 0 or
         not [value isEqual: value.stringByDeletingEnclosingWhitespaces])
         [self raiseInvalidValue: value];
     errno = 0;
     char *end = nullptr;
     unsigned long long parsed = strtoull(value.UTF8String, &end, 10);
-    if (errno == ERANGE || end == value.UTF8String || *end != '\0')
+    if (errno == ERANGE or end == value.UTF8String or *end != '\0')
         [self raiseInvalidValue: value];
     return (uint64_t)parsed;
 }
 
 - (double)parseDoubleValue: (OFString *)value
 {
-    if (value.length == 0 ||
+    if (value.length == 0 or
         not [value isEqual: value.stringByDeletingEnclosingWhitespaces])
         [self raiseInvalidValue: value];
     errno = 0;
     char *end = nullptr;
     double parsed = strtod(value.UTF8String, &end);
-    if (errno == ERANGE || end == value.UTF8String || *end != '\0' ||
+    if (errno == ERANGE or end == value.UTF8String or *end != '\0' or
         not isfinite(parsed))
         [self raiseInvalidValue: value];
     return parsed;
@@ -272,11 +272,11 @@
 - (bool)parseBoolValue: (OFString *)value
 {
     OFString *lowercase = value.lowercaseString;
-    if (value.length == 0 || [lowercase isEqual: @"true"] ||
-        [lowercase isEqual: @"1"] ||
+    if (value.length == 0 or [lowercase isEqual: @"true"] or
+        [lowercase isEqual: @"1"] or
         [lowercase isEqual: _attributeName.lowercaseString])
         return true;
-    if ([lowercase isEqual: @"false"] || [lowercase isEqual: @"0"])
+    if ([lowercase isEqual: @"false"] or [lowercase isEqual: @"0"])
         return false;
     [self raiseInvalidValue: value];
     return false;
@@ -286,16 +286,16 @@
 {
     switch (_typeEncoding) {
         case 'c':
-            if (value < SCHAR_MIN || value > SCHAR_MAX) [self raiseInvalidValue: @"out of range"];
+            if (value < SCHAR_MIN or value > SCHAR_MAX) [self raiseInvalidValue: @"out of range"];
             *(signed char *)address = (signed char)value; break;
         case 's':
-            if (value < SHRT_MIN || value > SHRT_MAX) [self raiseInvalidValue: @"out of range"];
+            if (value < SHRT_MIN or value > SHRT_MAX) [self raiseInvalidValue: @"out of range"];
             *(short *)address = (short)value; break;
         case 'i':
-            if (value < INT_MIN || value > INT_MAX) [self raiseInvalidValue: @"out of range"];
+            if (value < INT_MIN or value > INT_MAX) [self raiseInvalidValue: @"out of range"];
             *(int *)address = (int)value; break;
         case 'l':
-            if (value < LONG_MIN || value > LONG_MAX) [self raiseInvalidValue: @"out of range"];
+            if (value < LONG_MIN or value > LONG_MAX) [self raiseInvalidValue: @"out of range"];
             *(long *)address = (long)value; break;
         case 'q': *(long long *)address = (long long)value; break;
         default: [self raiseInvalidValue: @"unsupported signed type"];
@@ -419,7 +419,7 @@
                         selectorName: (OFString *)selectorName
 {
     self = [super init];
-    if (identifier == 0 || targetIdentifier == 0)
+    if (identifier == 0 or targetIdentifier == 0)
         @throw [OFInvalidArgumentException exception];
     _identifier = identifier;
     _targetIdentifier = targetIdentifier;
@@ -509,9 +509,9 @@
             continue;
         }
 
-        bool global = [name isEqual: @"id"] || [name isEqual: @"class"] ||
-            [name isEqual: @"slot"] || [name isEqual: @"title"] ||
-            [name isEqual: @"role"] || [name hasPrefix: @"aria-"] ||
+        bool global = [name isEqual: @"id"] or [name isEqual: @"class"] or
+            [name isEqual: @"slot"] or [name isEqual: @"title"] or
+            [name isEqual: @"role"] or [name hasPrefix: @"aria-"] or
             [name hasPrefix: @"data-"];
         if (not global)
             @throw [[OWebDefinitionException alloc]
@@ -588,17 +588,17 @@
 
 - (void)validateElementName: (OFString *)elementName
 {
-    if (elementName.length < 3 || not [elementName containsString: @"-"] ||
-        not [elementName isEqual: elementName.lowercaseString] ||
+    if (elementName.length < 3 or not [elementName containsString: @"-"] or
+        not [elementName isEqual: elementName.lowercaseString] or
         [elementName hasPrefix: @"xml"])
         @throw [[OWebDefinitionException alloc]
             initWithReason: [OFString stringWithFormat:
                 @"'%@' is not a valid custom-element name", elementName]];
     for (size_t index = 0; index < elementName.length; index++) {
         OFUnichar character = [elementName characterAtIndex: index];
-        bool valid = (character >= 'a' && character <= 'z') ||
-            (index > 0 && character >= '0' && character <= '9') ||
-            (index > 0 && (character == '-' || character == '.' ||
+        bool valid = (character >= 'a' and character <= 'z') or
+            (index > 0 and character >= '0' and character <= '9') or
+            (index > 0 and (character == '-' or character == '.' or
                 character == '_'));
         if (not valid)
             @throw [[OWebDefinitionException alloc]
@@ -631,7 +631,7 @@
         OFString *elementName = [componentClass elementName];
         [self validateElementName: elementName];
         OWebComponentDefinition *prior = _definitionsByElementName[elementName];
-        if (prior != nilptr && prior.componentClass != componentClass)
+        if (prior != nilptr and prior.componentClass != componentClass)
             @throw [[OWebDefinitionException alloc]
                 initWithReason: [OFString stringWithFormat:
                     @"Custom-element name '%@' is already registered",

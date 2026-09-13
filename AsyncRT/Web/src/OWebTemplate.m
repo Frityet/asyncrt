@@ -126,16 +126,16 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 
 - (bool)isASCIINameCharacter: (OFUnichar)character first: (bool)first
 {
-    if (character >= 'a' && character <= 'z')
+    if (character >= 'a' and character <= 'z')
         return true;
-    if (not first && character >= '0' && character <= '9')
+    if (not first and character >= '0' and character <= '9')
         return true;
-    return not first && (character == '-' || character == '_');
+    return not first and (character == '-' or character == '_');
 }
 
 - (void)validateTagName: (OFString *)name
 {
-    if (name.length == 0 || not [name isEqual: name.lowercaseString])
+    if (name.length == 0 or not [name isEqual: name.lowercaseString])
         [self raise: [OFString stringWithFormat:
             @"Template tag '%@' must be lowercase ASCII", name]];
 
@@ -183,16 +183,16 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 
 - (bool)isSelectorNameSyntacticallySafe: (OFString *)selectorName
 {
-    if (selectorName.length < 2 ||
+    if (selectorName.length < 2 or
         [selectorName characterAtIndex: selectorName.length - 1] != ':')
         return false;
 
     for (size_t index = 0; index + 1 < selectorName.length; index++) {
         OFUnichar character = [selectorName characterAtIndex: index];
-        bool valid = (character >= 'a' && character <= 'z') ||
-            (character >= 'A' && character <= 'Z') ||
-            (index > 0 && character >= '0' && character <= '9') ||
-            (index > 0 && character == '_');
+        bool valid = (character >= 'a' and character <= 'z') or
+            (character >= 'A' and character <= 'Z') or
+            (index > 0 and character >= '0' and character <= '9') or
+            (index > 0 and character == '_');
         if (not valid)
             return false;
     }
@@ -202,7 +202,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 - (Method nillable)declaredMethodForSelector: (SEL)selector
 {
     for (Class current = _componentClass;
-         current != Nil && current != [OWebComponent class];
+         current != Nil and current != [OWebComponent class];
          current = class_getSuperclass(current)) {
         unsigned int count = 0;
         Method *methods = class_copyMethodList(current, &count);
@@ -238,7 +238,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
     char argumentType[8] = { 0 };
     method_getReturnType(method, returnType, sizeof(returnType));
     method_getArgumentType(method, 2, argumentType, sizeof(argumentType));
-    if (method_getNumberOfArguments(method) != 3 || returnType[0] != 'v' ||
+    if (method_getNumberOfArguments(method) != 3 or returnType[0] != 'v' or
         argumentType[0] != '@')
         [self raise: [OFString stringWithFormat:
             @"Event action '%@' must have signature void action:(OWebEvent *)",
@@ -250,7 +250,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
                                   targetIdentifier: (uint64_t)targetIdentifier
 {
     OFString *eventName = [attributeName substringFromIndex: 2];
-    if (eventName.length == 0 || not [self isEventNameAllowed: eventName])
+    if (eventName.length == 0 or not [self isEventNameAllowed: eventName])
         [self raise: [OFString stringWithFormat:
             @"Event attribute '%@' is not allowlisted", attributeName]];
     [self validateActionMethod: value];
@@ -266,12 +266,12 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 - (uint64_t)recordLogicalIdentifier: (OFString *)logicalIdentifier
                                forTag: (OFString *)tagName
 {
-    if (logicalIdentifier.length == 0 || logicalIdentifier.length > 128)
+    if (logicalIdentifier.length == 0 or logicalIdentifier.length > 128)
         [self raise: @"Template IDs must contain between 1 and 128 characters"];
     for (size_t index = 0; index < logicalIdentifier.length; index++) {
         OFUnichar character = [logicalIdentifier characterAtIndex: index];
-        if (character <= 0x20 || character == 0x7F || character == '"' ||
-            character == '\'' || character == '<' || character == '>')
+        if (character <= 0x20 or character == 0x7F or character == '"' or
+            character == '\'' or character == '<' or character == '>')
             [self raise: [OFString stringWithFormat:
                 @"Template ID '%@' contains an unsafe character",
                 logicalIdentifier]];
@@ -305,11 +305,11 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 
     if (++_nodeCount > OWebMaximumTemplateNodes)
         [self raise: @"Template node limit exceeded"];
-    if (_templateDepth > 0 && _depth == _activeTemplateDepth + 1 &&
+    if (_templateDepth > 0 and _depth == _activeTemplateDepth + 1 and
         ++_activeTemplateRootCount > 1)
         [self raise:
             @"A cloneable <template> must contain exactly one element root"];
-    if (prefix != nilptr || nameSpace != nilptr)
+    if (prefix != nilptr or nameSpace != nilptr)
         [self raise: @"XML namespaces are not supported in component templates"];
     [self validateTagName: name];
     if ([self isForbiddenTag: name])
@@ -326,9 +326,9 @@ static const size_t OWebMaximumAttributesPerElement = 64;
         if ([attribute.name hasPrefix: @"on"])
             hasEventBinding = true;
     }
-    if ([name isEqual: @"template"] && logicalIdentifier == nilptr)
+    if ([name isEqual: @"template"] and logicalIdentifier == nilptr)
         [self raise: @"Every <template> must declare an id"];
-    if (logicalIdentifier != nilptr && _templateDepth > 0)
+    if (logicalIdentifier != nilptr and _templateDepth > 0)
         [self raise: @"Elements inside <template> may not declare IDs"];
 
     uint64_t elementIdentifier = 0;
@@ -338,12 +338,12 @@ static const size_t OWebMaximumAttributesPerElement = 64;
     else if (hasEventBinding)
         elementIdentifier = _nextElementIdentifier++;
 
-    if (_templateDepth > 0 && _depth == _activeTemplateDepth + 1)
+    if (_templateDepth > 0 and _depth == _activeTemplateDepth + 1)
         _rootTagNamesByTemplateIdentifier[@(_activeTemplateIdentifier)] = name;
 
     if (elementIdentifier != 0) {
         for (OFNumber *ancestor in _openCapabilityIdentifiers)
-            if (ancestor.unsignedLongLongValue != 0 &&
+            if (ancestor.unsignedLongLongValue != 0 and
                 _tagNamesByElementIdentifier[ancestor] != nilptr)
                 [_elementIdentifiersContainingStaticCapabilities
                     addObject: ancestor];
@@ -368,7 +368,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
         OFString *outputName = attributeName;
         OFString *outputValue = attributeValue;
         if ([attributeName hasPrefix: @"on"]) {
-            if ([name isEqual: @"template"] || _templateDepth > 0)
+            if ([name isEqual: @"template"] or _templateDepth > 0)
                 [self raise:
                     @"Event bindings inside <template> are unsupported in v1"];
             outputName = [self compiledEventAttributeForName: attributeName
@@ -376,7 +376,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
                                             targetIdentifier: elementIdentifier];
             auto actionID = @(_nextActionIdentifier - 1);
             outputValue = actionID.stringValue;
-        } else if (not [attributeName isEqual: @"id"] &&
+        } else if (not [attributeName isEqual: @"id"] and
             not [OWebTemplateCompiler
             isRuntimeAttributeNameSafe: attributeName value: attributeValue])
             [self raise: [OFString stringWithFormat:
@@ -441,7 +441,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
     if (_depth > 1) {
         if (++_nodeCount > OWebMaximumTemplateNodes)
             [self raise: @"Template node limit exceeded"];
-        if (_templateDepth > 0 && _depth == _activeTemplateDepth &&
+        if (_templateDepth > 0 and _depth == _activeTemplateDepth and
             characters.stringByDeletingEnclosingWhitespaces.length > 0)
             [self raise:
                 @"A cloneable <template> cannot contain direct text"];
@@ -498,7 +498,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 {
     for (size_t index = 0; index < string.length; index++) {
         OFUnichar character = [string characterAtIndex: index];
-        if (character == 0 || character < 0x20 || character == 0x7F)
+        if (character == 0 or character < 0x20 or character == 0x7F)
             return true;
     }
     return false;
@@ -506,15 +506,15 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 
 + (bool)isAttributeNameSyntacticallySafe: (OFString *)name
 {
-    if (name.length == 0 || name.length > 128 ||
+    if (name.length == 0 or name.length > 128 or
         not [name isEqual: name.lowercaseString])
         return false;
 
     for (size_t index = 0; index < name.length; index++) {
         OFUnichar character = [name characterAtIndex: index];
-        bool valid = (character >= 'a' && character <= 'z') ||
-            (index > 0 && character >= '0' && character <= '9') ||
-            (index > 0 && (character == '-' || character == '_' ||
+        bool valid = (character >= 'a' and character <= 'z') or
+            (index > 0 and character >= '0' and character <= '9') or
+            (index > 0 and (character == '-' or character == '_' or
                 character == '.'));
         if (not valid)
             return false;
@@ -525,11 +525,11 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 + (bool)isSafeURL: (OFString *)value forAttribute: (OFString *)name
 {
     OFString *trimmed = value.stringByDeletingEnclosingWhitespaces;
-    if (trimmed.length == 0 || [self containsControlCharacter: trimmed])
+    if (trimmed.length == 0 or [self containsControlCharacter: trimmed])
         return false;
     for (size_t index = 0; index < trimmed.length; index++) {
         OFUnichar character = [trimmed characterAtIndex: index];
-        if (character == '\\' || character == ' ')
+        if (character == '\\' or character == ' ')
             return false;
     }
 
@@ -538,12 +538,12 @@ static const size_t OWebMaximumAttributesPerElement = 64;
         return false;
     if ([lowercase hasPrefix: @"https://"])
         return true;
-    if ([name isEqual: @"href"] &&
-        ([lowercase hasPrefix: @"mailto:"] ||
+    if ([name isEqual: @"href"] and
+        ([lowercase hasPrefix: @"mailto:"] or
          [lowercase hasPrefix: @"tel:"]))
         return true;
-    if ([lowercase hasPrefix: @"#"] || [lowercase hasPrefix: @"/"] ||
-        [lowercase hasPrefix: @"./"] || [lowercase hasPrefix: @"../"] ||
+    if ([lowercase hasPrefix: @"#"] or [lowercase hasPrefix: @"/"] or
+        [lowercase hasPrefix: @"./"] or [lowercase hasPrefix: @"../"] or
         [lowercase hasPrefix: @"?"])
         return true;
     return not [lowercase containsString: @":"];
@@ -552,13 +552,13 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 + (bool)isRuntimeAttributeNameSafe: (OFString *)name
                                  value: (OFString *nillable)value
 {
-    if (not [self isAttributeNameSyntacticallySafe: name] ||
-        [name hasPrefix: @"on"] || [name hasPrefix: @"data-oweb-"] ||
-        [name isEqual: @"style"] || [name isEqual: @"srcdoc"] ||
-        [name isEqual: @"srcset"] || [name isEqual: @"ping"] ||
-        [name isEqual: @"is"] || [name isEqual: @"xmlns"])
+    if (not [self isAttributeNameSyntacticallySafe: name] or
+        [name hasPrefix: @"on"] or [name hasPrefix: @"data-oweb-"] or
+        [name isEqual: @"style"] or [name isEqual: @"srcdoc"] or
+        [name isEqual: @"srcset"] or [name isEqual: @"ping"] or
+        [name isEqual: @"is"] or [name isEqual: @"xmlns"])
         return false;
-    if (value != nilptr &&
+    if (value != nilptr and
         [self containsControlCharacter: $assert_nonnil(value)])
         return false;
 
@@ -568,7 +568,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
             @"href", @"src", @"action", @"formaction", @"poster", @"cite",
             @"background", nilptr];
     if ([URLAttributes containsObject: name])
-        return value != nilptr && [self isSafeURL: $assert_nonnil(value)
+        return value != nilptr and [self isSafeURL: $assert_nonnil(value)
                                            forAttribute: name];
     return true;
 }
@@ -580,10 +580,10 @@ static const size_t OWebMaximumAttributesPerElement = 64;
         @throw [[OWebDefinitionException alloc]
             initWithReason: @"Template byte limit exceeded"];
     OFString *lowercase = layout.lowercaseString;
-    if ([lowercase containsString: @"<!doctype"] ||
-        [lowercase containsString: @"<!entity"] ||
-        [lowercase containsString: @"<?"] ||
-        [lowercase containsString: @"xmlns="] ||
+    if ([lowercase containsString: @"<not doctype"] or
+        [lowercase containsString: @"<not entity"] or
+        [lowercase containsString: @"<?"] or
+        [lowercase containsString: @"xmlns="] or
         [lowercase containsString: @"xmlns:"])
         @throw [[OWebDefinitionException alloc]
             initWithReason: @"Template contains forbidden XML syntax"];

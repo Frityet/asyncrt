@@ -27,14 +27,14 @@
                         fields: (OFDictionary<OFString *, id> *)fields
 {
     self = [super init];
-    if (type.length == 0 || type.length > 32 || targetIdentifier == 0 ||
+    if (type.length == 0 or type.length > 32 or targetIdentifier == 0 or
         fields.count > 32)
         @throw [OFInvalidArgumentException exception];
 
     for (OFString *name in fields) {
         id value = fields[name];
-        if (not [OWebWireCodec isEventFieldNameAllowed: name] ||
-            (value != [OFNull null] && not [value isKindOfClass: [OFString class]] &&
+        if (not [OWebWireCodec isEventFieldNameAllowed: name] or
+            (value != [OFNull null] and not [value isKindOfClass: [OFString class]] and
              not [value isKindOfClass: [OFNumber class]]))
             @throw [OFInvalidArgumentException exception];
     }
@@ -62,7 +62,7 @@
                                      owner: (OWebComponent *)owner
 {
     self = [super init];
-    if (logicalIdentifier.length == 0 || identifier == 0)
+    if (logicalIdentifier.length == 0 or identifier == 0)
         @throw [OFInvalidArgumentException exception];
     _logicalIdentifier = [logicalIdentifier copy];
     _identifier = identifier;
@@ -78,7 +78,7 @@
 
 - (void)requireAttached
 {
-    if (not _isAttached || _owner == nilptr)
+    if (not _isAttached or _owner == nilptr)
         @throw [[OWebDefinitionException alloc]
             initWithReason: @"Element proxy is no longer attached"];
 }
@@ -88,7 +88,7 @@
     [self requireAttached];
     if (textContent.UTF8StringLength > 64 * 1024)
         @throw [OFOutOfRangeException exception];
-    if (_hasAssignedTextContent && [_textContent isEqual: textContent])
+    if (_hasAssignedTextContent and [_textContent isEqual: textContent])
         return;
     _hasAssignedTextContent = true;
     _textContent = [textContent copy];
@@ -99,8 +99,8 @@
 - (void)setAttribute: (OFString *)name value: (OFString *)value
 {
     [self requireAttached];
-    if ([name isEqual: @"id"] ||
-        not [OWebWireCodec isPatchAttributeNameAllowed: name] ||
+    if ([name isEqual: @"id"] or
+        not [OWebWireCodec isPatchAttributeNameAllowed: name] or
         not [OWebTemplateCompiler isRuntimeAttributeNameSafe: name value: value])
         @throw [[OWebDefinitionException alloc]
             initWithReason: [OFString stringWithFormat:
@@ -108,7 +108,7 @@
     if (value.UTF8StringLength > 64 * 1024)
         @throw [OFOutOfRangeException exception];
     OFString *prior = _attributes[name];
-    if ([_knownAttributes containsObject: name] && prior != nilptr &&
+    if ([_knownAttributes containsObject: name] and prior != nilptr and
         [prior isEqual: value])
         return;
     [_knownAttributes addObject: name];
@@ -120,14 +120,14 @@
 - (void)removeAttribute: (OFString *)name
 {
     [self requireAttached];
-    if ([name isEqual: @"id"] ||
-        not [OWebWireCodec isPatchAttributeNameAllowed: name] ||
+    if ([name isEqual: @"id"] or
+        not [OWebWireCodec isPatchAttributeNameAllowed: name] or
         not [OWebTemplateCompiler isRuntimeAttributeNameSafe: name
                                                           value: @"oweb-safe"])
         @throw [[OWebDefinitionException alloc]
             initWithReason: [OFString stringWithFormat:
                 @"Unsafe runtime attribute '%@'", name]];
-    if ([_knownAttributes containsObject: name] && _attributes[name] == nilptr)
+    if ([_knownAttributes containsObject: name] and _attributes[name] == nilptr)
         return;
     [_knownAttributes addObject: name];
     [_attributes removeObjectForKey: name];
@@ -143,11 +143,11 @@
 
 - (void)validateCollectionKey: (OFString *)key
 {
-    if (key.length == 0 || key.length > 128)
+    if (key.length == 0 or key.length > 128)
         @throw [OFInvalidArgumentException exception];
     for (size_t index = 0; index < key.length; index++) {
         OFUnichar character = [key characterAtIndex: index];
-        if (character <= 0x20 || character == 0x7F)
+        if (character <= 0x20 or character == 0x7F)
             @throw [OFInvalidArgumentException exception];
     }
 }
@@ -176,7 +176,7 @@
 
 - (void)requireDirectChild: (OWebElement *)child
 {
-    if (child == self || child->_owner != _owner ||
+    if (child == self or child->_owner != _owner or
         not [_childOrder containsObjectIdenticalTo: child])
         @throw [[OWebDefinitionException alloc]
             initWithReason: @"Element is not a direct keyed child of this parent"];
@@ -257,16 +257,16 @@
     auto result = [OFMutableString string];
     for (size_t index = 0; index < className.length; index++) {
         OFUnichar character = [className characterAtIndex: index];
-        bool uppercase = character >= 'A' && character <= 'Z';
-        if (uppercase && index > 0) {
+        bool uppercase = character >= 'A' and character <= 'Z';
+        if (uppercase and index > 0) {
             OFUnichar previous = [className characterAtIndex: index - 1];
             OFUnichar next = index + 1 < className.length
                 ? [className characterAtIndex: index + 1] : 0;
             bool previousLowerOrDigit =
-                (previous >= 'a' && previous <= 'z') ||
-                (previous >= '0' && previous <= '9');
-            bool nextLower = next >= 'a' && next <= 'z';
-            if (previousLowerOrDigit || nextLower)
+                (previous >= 'a' and previous <= 'z') or
+                (previous >= '0' and previous <= '9');
+            bool nextLower = next >= 'a' and next <= 'z';
+            if (previousLowerOrDigit or nextLower)
                 [result appendString: @"-"];
         }
         if (uppercase)
@@ -353,7 +353,7 @@
 - (uint64_t)allocateDynamicNodeIdentifier
 {
     @synchronized (self) {
-        if (_nextDynamicNodeIdentifier == 0 ||
+        if (_nextDynamicNodeIdentifier == 0 or
             _nextDynamicNodeIdentifier == UINT64_MAX)
             @throw [OFOutOfRangeException exception];
         return _nextDynamicNodeIdentifier++;

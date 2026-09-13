@@ -50,7 +50,7 @@
 {
     [_condition lock];
     @try {
-        while (_tasks.count == 0 && !_isInvalidated)
+        while (_tasks.count == 0 and not _isInvalidated)
             [_condition wait];
         if (_tasks.count == 0)
             return nilptr;
@@ -127,7 +127,7 @@
 
 - (instancetype)initWithThreadCount: (size_t)threadCount
 {
-    if (threadCount == 0 || threadCount > 256)
+    if (threadCount == 0 or threadCount > 256)
         @throw [OFInvalidArgumentException exception];
 
     self = [super init];

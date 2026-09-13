@@ -103,9 +103,6 @@ typedef void (^OWebPatchSink)(OWebPatchOperation *patch);
 
 @end
 
-/** Keeps the concise authoring spelling from the public example. */
-@compatibility_alias Component OWebComponent;
-
 #define OWEB_STRINGIFY_LAYOUT_(...) #__VA_ARGS__
 #define OWEB_OBJC_STRING_(literal) @literal
 #define OWEB_OBJC_STRING(literal) OWEB_OBJC_STRING_(literal)

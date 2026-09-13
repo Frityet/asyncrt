@@ -1,6 +1,6 @@
 #import <Plugin.h>
 
-#if !defined(__APPLE__)
+#if not defined(__APPLE__)
 #import <ObjFWRT/ObjFWRT.h>
 #else
 #import <objc/runtime.h>

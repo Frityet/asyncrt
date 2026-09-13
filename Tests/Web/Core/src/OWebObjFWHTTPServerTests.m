@@ -26,7 +26,7 @@
             if (line != nilptr)
                 return line;
         } @catch (OFReadFailedException *exception) {
-            if (exception.errNo != EAGAIN && exception.errNo != EWOULDBLOCK)
+            if (exception.errNo != EAGAIN and exception.errNo != EWOULDBLOCK)
                 @throw exception;
         }
 
@@ -166,7 +166,7 @@
         [server stop];
     }
 
-    OTAssert(!server.isRunning);
+    OTAssert(not server.isRunning);
     OTAssert(server.actualPort == 0);
     [server stop];
 }

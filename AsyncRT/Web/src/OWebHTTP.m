@@ -54,14 +54,14 @@
 {
     self = [super init];
 
-    if (path.length == 0 || ![path hasPrefix: @"/"] ||
+    if (path.length == 0 or not [path hasPrefix: @"/"] or
         [path containsString: @"#"])
         @throw [OWebRouteException exceptionWithReason: @"invalid request path"];
 
     _method = method;
     _headers = [headers copy];
     _body = [body copy];
-    if (_body.itemSize != 0 && _body.count > SIZE_MAX / _body.itemSize)
+    if (_body.itemSize != 0 and _body.count > SIZE_MAX / _body.itemSize)
         @throw [OWebRouteException exceptionWithReason:
             @"request body byte count overflow"];
     _bodyByteCount = _body.count * _body.itemSize;
@@ -74,10 +74,10 @@
 
     auto query = [OFMutableDictionary<OFString *, OFMutableArray<OFString *> *>
         dictionary];
-    if (pieces.count == 2 && [pieces[1] length] > 0) {
+    if (pieces.count == 2 and [pieces[1] length] > 0) {
         for (OFString *pair in [pieces[1] componentsSeparatedByString: @"&"]) {
             auto components = [pair componentsSeparatedByString: @"="];
-            if (components.count > 2 || [components[0] length] == 0)
+            if (components.count > 2 or [components[0] length] == 0)
                 @throw [OWebRouteException exceptionWithReason:
                     @"invalid request query"];
 
@@ -232,8 +232,8 @@
 {
     self = [super init];
 
-    if (pattern.length == 0 || ![pattern hasPrefix: @"/"] ||
-        [pattern containsString: @"?"] || [pattern containsString: @"#"])
+    if (pattern.length == 0 or not [pattern hasPrefix: @"/"] or
+        [pattern containsString: @"?"] or [pattern containsString: @"#"])
         @throw [OWebRouteException exceptionWithReason: @"invalid route pattern"];
 
     _method = method;
@@ -244,10 +244,10 @@
     auto rawSegments = [pattern componentsSeparatedByString: @"/"];
     for (size_t index = 1; index < rawSegments.count; index++) {
         OFString *segment = rawSegments[index];
-        if (segment.length == 0 && index + 1 < rawSegments.count)
+        if (segment.length == 0 and index + 1 < rawSegments.count)
             @throw [OWebRouteException exceptionWithReason:
                 @"route contains an empty segment"];
-        if ([segment hasPrefix: @":"] && segment.length == 1)
+        if ([segment hasPrefix: @":"] and segment.length == 1)
             @throw [OWebRouteException exceptionWithReason:
                 @"route parameter has no name"];
         if ([segment hasPrefix: @"*"])
@@ -274,20 +274,20 @@
     parametersForPath: (OFString *)path
 {
     auto rawSegments = [path componentsSeparatedByString: @"/"];
-    if (rawSegments.count == 0 || ![rawSegments[0] isEqual: @""])
+    if (rawSegments.count == 0 or not [rawSegments[0] isEqual: @""])
         return nilptr;
 
     auto pathSegments = [OFMutableArray<OFString *> array];
     for (size_t index = 1; index < rawSegments.count; index++) {
         OFString *segment = rawSegments[index];
-        if (segment.length == 0 && index + 1 == rawSegments.count &&
+        if (segment.length == 0 and index + 1 == rawSegments.count and
             _segments.count + 1 == rawSegments.count)
             [pathSegments addObject: segment];
         else if (segment.length == 0)
             return nilptr;
         else {
             OFString *decoded = [segment stringByRemovingPercentEncoding];
-            if ([decoded containsString: @"/"] || [decoded containsString: @"\\"])
+            if ([decoded containsString: @"/"] or [decoded containsString: @"\\"])
                 return nilptr;
             [pathSegments addObject: decoded];
         }
@@ -306,7 +306,7 @@
                 @throw [OWebRouteException exceptionWithReason:
                     @"route repeats a parameter name"];
             parameters[name] = actual;
-        } else if (![expected isEqual: actual])
+        } else if (not [expected isEqual: actual])
             return nilptr;
     }
     [parameters makeImmutable];

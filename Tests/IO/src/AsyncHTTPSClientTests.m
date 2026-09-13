@@ -222,7 +222,7 @@
 {
     [_condition lock];
     @try {
-        while (!_ready)
+        while (not _ready)
             [_condition wait];
         if (_startupError != nilptr)
             @throw $assert_nonnil(_startupError);
@@ -295,7 +295,7 @@
         [_condition lock];
         @try {
             _accepted = accepted;
-            while (!_stopping)
+            while (not _stopping)
                 [_condition wait];
         } @finally {
             [_condition unlock];
@@ -303,7 +303,7 @@
     } @catch (OFException *exception) {
         [_condition lock];
         @try {
-            if (!_ready) {
+            if (not _ready) {
                 _startupError = exception;
                 _ready = true;
                 [_condition broadcast];
@@ -320,7 +320,7 @@
 {
     [_condition lock];
     @try {
-        while (!_ready)
+        while (not _ready)
             [_condition wait];
         if (_startupError != nilptr)
             @throw $assert_nonnil(_startupError);
@@ -446,10 +446,10 @@
 {
     auto manager = OFFileManager.defaultManager;
     if (_certificatePath != nilptr
-        && [manager fileExistsAtPath: _certificatePath])
+        and [manager fileExistsAtPath: _certificatePath])
         [manager removeItemAtPath: _certificatePath];
     if (_privateKeyPath != nilptr
-        && [manager fileExistsAtPath: _privateKeyPath])
+        and [manager fileExistsAtPath: _privateKeyPath])
         [manager removeItemAtPath: _privateKeyPath];
 }
 
