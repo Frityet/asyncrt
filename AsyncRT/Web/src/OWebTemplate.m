@@ -202,7 +202,7 @@ static const size_t OWebMaximumAttributesPerElement = 64;
 - (Method nillable)declaredMethodForSelector: (SEL)selector
 {
     for (Class current = _componentClass;
-         current != Nil and current != [OWebComponent class];
+         current != Nil and current != OWebComponent.class;
          current = class_getSuperclass(current)) {
         unsigned int count = 0;
         Method *methods = class_copyMethodList(current, &count);

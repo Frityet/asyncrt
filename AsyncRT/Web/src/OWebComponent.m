@@ -34,8 +34,8 @@
     for (OFString *name in fields) {
         id value = fields[name];
         if (not [OWebWireCodec isEventFieldNameAllowed: name] or
-            (value != [OFNull null] and not [value isKindOfClass: [OFString class]] and
-             not [value isKindOfClass: [OFNumber class]]))
+            (value != [OFNull null] and not [value isKindOfClass: OFString.class] and
+             not [value isKindOfClass: OFNumber.class]))
             @throw [OFInvalidArgumentException exception];
     }
     _type = [type copy];

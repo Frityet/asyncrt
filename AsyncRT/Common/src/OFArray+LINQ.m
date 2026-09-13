@@ -156,7 +156,7 @@
     [descriptors addObject: descriptor];
     [descriptors makeImmutable];
 
-    return [[[self class] alloc] _initWithArray: _array descriptors: descriptors];
+    return [[self.class alloc] _initWithArray: _array descriptors: descriptors];
 }
 
 - (OFArrayLINQOrdered *)thenBy: (id nillable (^)(id object))keySelector
@@ -603,7 +603,7 @@
 
     for (id object in self) {
         id key = [OFArrayLINQSupport keyOrNull: keySelector(object)];
-        OFMutableArray *elements = [groups objectForKey: key];
+        OFMutableArray *elements = groups [key];
         if (elements == nilptr) {
             elements = [OFMutableArray array];
             [groups setObject: elements forKey: key];
@@ -614,7 +614,7 @@
 
     auto result = [OFMutableArray arrayWithCapacity: keys.count];
     for (id key in keys) {
-        auto elements = [groups objectForKey: key];
+        auto elements = groups [key];
         [elements makeImmutable];
         [result addObject: [[OFArrayLINQGroup alloc] initWithKey: key elements: $assert_nonnil(elements)]];
     }
@@ -874,7 +874,7 @@
     auto result = [OFMutableDictionary dictionary];
     for (id object in self) {
         id key = [OFArrayLINQSupport keyOrNull: keySelector(object)];
-        if ([result objectForKey: key] != nilptr)
+        if (result [key] != nilptr)
             @throw [OFInvalidArgumentException exception];
         [result setObject: elementSelector(object) forKey: key];
     }

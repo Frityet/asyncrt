@@ -117,7 +117,7 @@
 {
     self = [super init];
     _name = [[OFString alloc] initWithUTF8String: property_getName(property)];
-    _attributeName = [[[self class] kebabCaseName: _name] copy];
+    _attributeName = [[self.class kebabCaseName: _name] copy];
 
     char *type = property_copyAttributeValue(property, "T");
     if (type == nullptr)
@@ -125,7 +125,7 @@
             initWithReason: [OFString stringWithFormat:
                 @"Property '%@' has no runtime type encoding", _name]];
     bool valid = false;
-    _type = [[self class] propertyTypeForEncoding: type valid: &valid];
+    _type = [self.class propertyTypeForEncoding: type valid: &valid];
     _typeEncoding = type[0];
     free(type);
     if (not valid)
@@ -138,7 +138,7 @@
     char *customSetter = property_copyAttributeValue(property, "S");
     _setter = customSetter != nullptr
         ? sel_registerName(customSetter)
-        : [[self class] defaultSetterForPropertyName: _name];
+        : [self.class defaultSetterForPropertyName: _name];
     free(customSetter);
 
     Method setterMethod = class_getInstanceMethod(componentClass, _setter);
@@ -181,7 +181,7 @@
     auto hierarchy = [OFMutableArray<OFString *> array];
     auto classesByName = [OFMutableDictionary<OFString *, id> dictionary];
     for (Class current = componentClass;
-         current != Nil and current != [OWebComponent class];
+         current != Nil and current != OWebComponent.class;
          current = class_getSuperclass(current)) {
         auto className = [OFString stringWithUTF8String: class_getName(current)];
         [hierarchy insertObject: className atIndex: 0];
@@ -331,7 +331,7 @@
                 @"Property '%@' has no setter or backing ivar", _name]];
 
     IMP implementation = _setter != nullptr
-        ? class_getMethodImplementation([component class], _setter) : nullptr;
+        ? class_getMethodImplementation(component.class, _setter) : nullptr;
     uint8_t *objectBytes = (uint8_t *)(__bridge void *)component;
     void *ivarAddress = _backingIvar != nullptr
         ? objectBytes + ivar_getOffset(_backingIvar) : nullptr;
@@ -439,7 +439,7 @@
         @throw [[OWebDefinitionException alloc]
             initWithReason: @"Event target does not own the requested action"];
     SEL selector = sel_registerName(_selectorName.UTF8String);
-    IMP implementation = class_getMethodImplementation([component class], selector);
+    IMP implementation = class_getMethodImplementation(component.class, selector);
     if (implementation == nullptr)
         @throw [[OWebDefinitionException alloc]
             initWithReason: @"A compiled action method disappeared at runtime"];
@@ -581,8 +581,8 @@
 {
     for (Class current = candidate; current != Nil;
          current = class_getSuperclass(current))
-        if (current == [OWebComponent class])
-            return candidate != [OWebComponent class];
+        if (current == OWebComponent.class)
+            return candidate != OWebComponent.class;
     return false;
 }
 

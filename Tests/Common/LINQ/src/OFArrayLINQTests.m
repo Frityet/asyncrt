@@ -121,7 +121,7 @@
         return number;
     }];
     auto two = @((int)2);
-    OTAssertEqualObjects([dictionary objectForKey: two], two,
+    OTAssertEqualObjects(dictionary [two], two,
         @"toDictionary must use the selected key and source value");
 
     auto pairs = [numbers zip: other];

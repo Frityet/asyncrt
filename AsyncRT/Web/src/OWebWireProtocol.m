@@ -858,7 +858,7 @@
     auto body = [[OWebWireWriter alloc] init];
     switch (frame.frameType) {
     case OWebWireFrameTypePatch: {
-        if (not [frame isKindOfClass: [OWebPatchFrame class]])
+        if (not [frame isKindOfClass: OWebPatchFrame.class])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto patch = (OWebPatchFrame *)frame;
@@ -876,7 +876,7 @@
         break;
     }
     case OWebWireFrameTypeEvent: {
-        if (not [frame isKindOfClass: [OWebEventFrame class]])
+        if (not [frame isKindOfClass: OWebEventFrame.class])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto event = (OWebEventFrame *)frame;
@@ -902,7 +902,7 @@
         break;
     }
     case OWebWireFrameTypeMount: {
-        if (not [frame isKindOfClass: [OWebMountFrame class]])
+        if (not [frame isKindOfClass: OWebMountFrame.class])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto mount = (OWebMountFrame *)frame;
@@ -929,7 +929,7 @@
         break;
     }
     case OWebWireFrameTypeDetach: {
-        if (not [frame isKindOfClass: [OWebDetachFrame class]])
+        if (not [frame isKindOfClass: OWebDetachFrame.class])
             @throw [OWebWireProtocolException exceptionWithFailure:
                 OWebWireProtocolFailureInvalidFrame];
         auto detach = (OWebDetachFrame *)frame;

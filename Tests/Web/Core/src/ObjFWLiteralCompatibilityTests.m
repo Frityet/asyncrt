@@ -10,8 +10,8 @@
 	OFDictionary *dictionary = @{};
 	OFArray *array = @[];
 
-	OTAssertTrue([dictionary isKindOfClass: [OFDictionary class]]);
-	OTAssertTrue([array isKindOfClass: [OFArray class]]);
+	OTAssertTrue([dictionary isKindOfClass: OFDictionary.class]);
+	OTAssertTrue([array isKindOfClass: OFArray.class]);
 	OTAssertEqualObjects(dictionary.JSONRepresentation, @"{}");
 	OTAssertEqualObjects(array.JSONRepresentation, @"[]");
 }
@@ -21,7 +21,7 @@
 	bool value = true;
 	OFNumber *number = @(value);
 
-	OTAssertTrue([number isKindOfClass: [OFNumber class]]);
+	OTAssertTrue([number isKindOfClass: OFNumber.class]);
 	OTAssertEqualObjects(number.JSONRepresentation, @"true");
 }
 

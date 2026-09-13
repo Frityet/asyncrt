@@ -684,15 +684,15 @@ static const size_t OWebMaximumSessionIdentityBytes = 256;
 {
     switch (frame.frameType) {
     case OWebWireFrameTypeMount:
-        if ([(id)frame isKindOfClass: [OWebMountFrame class]])
+        if ([(id)frame isKindOfClass: OWebMountFrame.class])
             return ((OWebMountFrame *)frame).instanceIdentifier;
         break;
     case OWebWireFrameTypeEvent:
-        if ([(id)frame isKindOfClass: [OWebEventFrame class]])
+        if ([(id)frame isKindOfClass: OWebEventFrame.class])
             return ((OWebEventFrame *)frame).instanceIdentifier;
         break;
     case OWebWireFrameTypeDetach:
-        if ([(id)frame isKindOfClass: [OWebDetachFrame class]])
+        if ([(id)frame isKindOfClass: OWebDetachFrame.class])
             return ((OWebDetachFrame *)frame).instanceIdentifier;
         break;
     case OWebWireFrameTypePatch:

@@ -38,7 +38,7 @@ static size_t OWebSessionThrowingActionCount;
 {
     OWebSessionTestActionCount++;
     id value = event.fields[@"value"];
-    if ([value isKindOfClass: [OFString class]])
+    if ([value isKindOfClass: OFString.class])
         OWebSessionTestLastValue = [value copy];
     [self elementByID: @"button"].textContent = @"handled";
     [[self elementByID: @"items"]
@@ -258,13 +258,13 @@ static size_t OWebSessionThrowingActionCount;
     OWebSessionNoPatchActionCount = 0;
     OWebSessionThrowingActionCount = 0;
     auto registry = OWebComponentRegistry.sharedRegistry;
-    [registry registerComponentClass: [OWebSessionTestComponent class]];
-    [registry registerComponentClass: [OWebSessionNoPatchComponent class]];
-    [registry registerComponentClass: [OWebSessionThrowingComponent class]];
-    [registry registerComponentClass: [OWebSessionTransactionalComponent class]];
+    [registry registerComponentClass: OWebSessionTestComponent.class];
+    [registry registerComponentClass: OWebSessionNoPatchComponent.class];
+    [registry registerComponentClass: OWebSessionThrowingComponent.class];
+    [registry registerComponentClass: OWebSessionTransactionalComponent.class];
     [registry registerComponentClass:
-        [OWebSessionStructuralAttackComponent class]];
-    [registry registerComponentClass: [OWebSessionOtherComponent class]];
+        OWebSessionStructuralAttackComponent.class];
+    [registry registerComponentClass: OWebSessionOtherComponent.class];
 }
 
 - (OWebComponentSession *)session
@@ -335,7 +335,7 @@ static size_t OWebSessionThrowingActionCount;
     OTAssertEqual(session.mountedInstanceCount, (size_t)1);
 
     auto definition = [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [OWebSessionTestComponent class]];
+        definitionForComponentClass: OWebSessionTestComponent.class];
     uint64_t actionIdentifier = [self actionIdentifierForDefinition: definition
         selector: @"tap:"];
     uint64_t targetIdentifier = [self targetIdentifierForDefinition: definition
@@ -404,7 +404,7 @@ static size_t OWebSessionThrowingActionCount;
 {
     auto session = self.session;
     auto definition = [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [OWebSessionTestComponent class]];
+        definitionForComponentClass: OWebSessionTestComponent.class];
     uint64_t actionIdentifier = [self actionIdentifierForDefinition: definition
         selector: @"tap:"];
     uint64_t targetIdentifier = [self targetIdentifierForDefinition: definition
@@ -425,7 +425,7 @@ static size_t OWebSessionThrowingActionCount;
         [OWebWireCodec encodeFrame: $assert_nonnil(replayedPatch)]);
 
     auto noPatchDefinition = [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [OWebSessionNoPatchComponent class]];
+        definitionForComponentClass: OWebSessionNoPatchComponent.class];
     auto mount = [[OWebMountFrame alloc]
         initWithInstanceIdentifier: 62
         componentTag: noPatchDefinition.elementName attributes: @{}];
@@ -446,7 +446,7 @@ static size_t OWebSessionThrowingActionCount;
 {
     auto definition = [OWebComponentRegistry.sharedRegistry
         definitionForComponentClass:
-            [OWebSessionTransactionalComponent class]];
+            OWebSessionTransactionalComponent.class];
     auto invalid = [[OWebMountFrame alloc]
         initWithInstanceIdentifier: 63 componentTag: definition.elementName
         attributes: @{ @"is-invalid": @"true" }];
@@ -481,7 +481,7 @@ static size_t OWebSessionThrowingActionCount;
 {
     auto definition = [OWebComponentRegistry.sharedRegistry
         definitionForComponentClass:
-            [OWebSessionStructuralAttackComponent class]];
+            OWebSessionStructuralAttackComponent.class];
     auto mount = [[OWebMountFrame alloc]
         initWithInstanceIdentifier: instanceIdentifier
         componentTag: definition.elementName
@@ -580,7 +580,7 @@ static size_t OWebSessionThrowingActionCount;
 {
     auto session = self.session;
     auto definition = [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [OWebSessionTestComponent class]];
+        definitionForComponentClass: OWebSessionTestComponent.class];
     uint64_t actionIdentifier = [self actionIdentifierForDefinition: definition
         selector: @"tap:"];
     uint64_t targetIdentifier = [self targetIdentifierForDefinition: definition
@@ -782,7 +782,7 @@ static size_t OWebSessionThrowingActionCount;
 {
     auto endpoint = [self endpointWithBodyCap: OWebWireMaximumFrameBytes];
     auto definition = [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [OWebSessionThrowingComponent class]];
+        definitionForComponentClass: OWebSessionThrowingComponent.class];
     auto mount = [[OWebMountFrame alloc]
         initWithInstanceIdentifier: 66 componentTag: definition.elementName
         attributes: @{}];

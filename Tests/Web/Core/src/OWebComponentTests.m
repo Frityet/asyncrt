@@ -166,7 +166,7 @@
 - (OWebComponentDefinition *)definition
 {
     return [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [MyComponent class]];
+        definitionForComponentClass: MyComponent.class];
 }
 
 - (void)testAuthoringSyntaxReflectionAndStrictCompilation
@@ -320,7 +320,7 @@
         OWebDefinitionException);
 
     auto virtualDefinition = [OWebComponentRegistry.sharedRegistry
-        definitionForComponentClass: [OWebUnsafeRuntimePropertyComponent class]];
+        definitionForComponentClass: OWebUnsafeRuntimePropertyComponent.class];
     OTAssertThrowsSpecific(
         [virtualDefinition instantiateWithAttributes:
             @{ @"virtual-name": @"attempt" }],
@@ -331,37 +331,37 @@
 {
     auto registry = OWebComponentRegistry.sharedRegistry;
     OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebDuplicateIDComponent class]],
+        [registry definitionForComponentClass: OWebDuplicateIDComponent.class],
         OWebDefinitionException);
     OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebMissingActionComponent class]],
-        OWebDefinitionException);
-    OTAssertThrowsSpecific(
-        [registry definitionForComponentClass:
-            [OWebBadActionSignatureComponent class]],
-        OWebDefinitionException);
-    OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebUnsafeElementComponent class]],
-        OWebDefinitionException);
-    OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebUnsafeURLComponent class]],
-        OWebDefinitionException);
-    OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebUnsafeStyleComponent class]],
-        OWebDefinitionException);
-    OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebTemplateActionComponent class]],
+        [registry definitionForComponentClass: OWebMissingActionComponent.class],
         OWebDefinitionException);
     OTAssertThrowsSpecific(
         [registry definitionForComponentClass:
-            [OWebTemplateMultipleRootsComponent class]],
+            OWebBadActionSignatureComponent.class],
+        OWebDefinitionException);
+    OTAssertThrowsSpecific(
+        [registry definitionForComponentClass: OWebUnsafeElementComponent.class],
+        OWebDefinitionException);
+    OTAssertThrowsSpecific(
+        [registry definitionForComponentClass: OWebUnsafeURLComponent.class],
+        OWebDefinitionException);
+    OTAssertThrowsSpecific(
+        [registry definitionForComponentClass: OWebUnsafeStyleComponent.class],
+        OWebDefinitionException);
+    OTAssertThrowsSpecific(
+        [registry definitionForComponentClass: OWebTemplateActionComponent.class],
         OWebDefinitionException);
     OTAssertThrowsSpecific(
         [registry definitionForComponentClass:
-            [OWebTemplateDirectTextComponent class]],
+            OWebTemplateMultipleRootsComponent.class],
         OWebDefinitionException);
     OTAssertThrowsSpecific(
-        [registry definitionForComponentClass: [OWebMalformedComponent class]],
+        [registry definitionForComponentClass:
+            OWebTemplateDirectTextComponent.class],
+        OWebDefinitionException);
+    OTAssertThrowsSpecific(
+        [registry definitionForComponentClass: OWebMalformedComponent.class],
         OWebDefinitionException);
 }
 

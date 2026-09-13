@@ -77,7 +77,7 @@ static Coroutine<OFString *> *coroutineYieldingStrings(OFArray<OFString *> *stri
         return @42;
     }];
 
-    OTAssertTrue([co isKindOfClass: [Coroutine class]], @"factory must return a Coroutine instance");
+    OTAssertTrue([co isKindOfClass: Coroutine.class], @"factory must return a Coroutine instance");
     [self assertCoroutine: co hasStatus: CoroutineStatus_READY];
     OTAssertEqualObjects([co resume], @42, @"factory coroutine must return the block result");
     [self assertCoroutine: co hasStatus: CoroutineStatus_DEAD];

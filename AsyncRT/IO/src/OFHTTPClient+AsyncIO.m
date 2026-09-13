@@ -129,8 +129,8 @@ typedef short AsyncRTHTTPStatusCode;
         if (headers == nilptr)
             headers = [OFMutableDictionary dictionary];
 
-        if ([headers objectForKey: @"Content-Length"] == nilptr and
-            [headers objectForKey: @"Transfer-Encoding"] == nilptr)
+        if (headers [@"Content-Length"] == nilptr and
+            headers [@"Transfer-Encoding"] == nilptr)
             [headers setObject: [OFString stringWithFormat: @"%zu",
                 body.count * body.itemSize] forKey: @"Content-Length"];
 
